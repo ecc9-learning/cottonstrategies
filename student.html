@@ -171,7 +171,11 @@ async function load(){
     sb('assignments?student_id=eq.'+student.id+'&select=*'),
     sb('submissions?student_id=eq.'+student.id+'&select=*')
   ]);
-  activeSim=simR.ok&&simR.data.length?simR.data[0]:null;
+  activeSim=simR.ok&&simR.data.length?{
+    ...simR.data[0],
+    fields: typeof simR.data[0].fields==='string'?JSON.parse(simR.data[0].fields):(simR.data[0].fields||[]),
+    roles: typeof simR.data[0].roles==='string'?JSON.parse(simR.data[0].roles):(simR.data[0].roles||[])
+  }:null;
   if(!activeSim){renderNoSim();setTimeout(load,60000);return;}
 
   draftKey='neg_draft_'+student.id+'_'+activeSim.id;
