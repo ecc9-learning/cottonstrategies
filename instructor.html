@@ -903,7 +903,7 @@ async function saveSimChanges(simId){
     const el=document.getElementById('rd-'+r.replace(/[^a-z0-9]/gi,'_'));
     if(el)roleDocs[r]=el.value;
   });
-  const res=await dbPatch('simulations?id=eq.'+simId,{fields:sim.fields,announcement:ann,role_docs:roleDocs});
+  const res=await dbPatch('simulations?id=eq.'+simId,{fields:JSON.stringify(sim.fields),announcement:ann,role_docs:JSON.stringify(roleDocs)});
   if(res.ok){closeModal();await loadAll();}
   else{alert('Could not save changes. Status: '+res.status);}
 }
