@@ -387,8 +387,9 @@ const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
 
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
+  const prefer = opts.prefer || (opts.method==='POST'?'return=minimal':'return=representation');
   const res = await fetch(SUPA_URL+'/rest/v1/'+path, {
-    headers: {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':opts.prefer||'return=representation',...(opts.headers||{})},
+    headers: {'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':prefer,...(opts.headers||{})},
     ...opts
   });
   const txt = await res.text();
@@ -400,6 +401,10 @@ async function dbGet(path) { return api(path); }
 
 async function dbPatch(path, body) {
   return api(path, {method:'PATCH', body:JSON.stringify(body), prefer:'return=minimal'});
+}
+
+async function dbUpsert(table, body) {
+  return api(table, {method:'POST', body:JSON.stringify(body), prefer:'resolution=merge-duplicates,return=minimal'});
 }
 
 async function dbPost(path, body) {
@@ -757,17 +762,25 @@ function printPairings(){
 async function qaOpenForm(){
   if(!activeSim){alert('No active simulation.');return;}
   if(!confirm('Open the results form for students?'))return;
-  const res=await dbPatch('simulations?id=eq.'+activeSim.id,{submission_open:true});
+  const res=await dbUpsert('simulations',{...activeSim,submission_open:true});
   if(res.ok){await loadAll();}
-  else{alert('Could not open form. Status: '+res.status);}
+  else{
+    const res2=await dbPatch('simulations?id=eq.'+activeSim.id,{submission_open:true});
+    if(res2.ok){await loadAll();}
+    else{alert('Could not open form. Status: '+res2.status);}
+  }
 }
 
 async function qaCloseForm(){
   if(!activeSim){alert('No active simulation.');return;}
   if(!confirm('Close the results form?'))return;
-  const res=await dbPatch('simulations?id=eq.'+activeSim.id,{submission_open:false});
+  const res=await dbUpsert('simulations',{...activeSim,submission_open:false});
   if(res.ok){await loadAll();}
-  else{alert('Could not close form. Status: '+res.status);}
+  else{
+    const res2=await dbPatch('simulations?id=eq.'+activeSim.id,{submission_open:false});
+    if(res2.ok){await loadAll();}
+    else{alert('Could not close form. Status: '+res2.status);}
+  }
 }
 
 // ── SIMULATIONS ───────────────────────────────────────────────────────────────
@@ -791,21 +804,32 @@ function renderSimulations(){
 
 async function setActiveSim(id){
   if(!confirm('Set this as the active simulation?'))return;
-  // Deactivate all first
+  // Deactivate all first via upsert
   for(const s of allSims){
-    if(s.is_active){await dbPatch('simulations?id=eq.'+s.id,{is_active:false});}
+    if(s.is_active){await dbUpsert('simulations',{...s,is_active:false,submission_open:false});}
   }
-  // Activate target
-  const res=await dbPatch('simulations?id=eq.'+id,{is_active:true});
+  // Activate target via upsert
+  const target=allSims.find(s=>s.id===id);
+  const res=await dbUpsert('simulations',{...target,is_active:true});
   if(res.ok){await loadAll(); showSection('simulations');}
-  else{alert('Could not set active simulation. Please run this SQL in Supabase:\nUPDATE simulations SET is_active=true WHERE id=\''+id+'\';');}
+  else{
+    // fallback to PATCH
+    const res2=await dbPatch('simulations?id=eq.'+id,{is_active:true});
+    if(res2.ok){await loadAll(); showSection('simulations');}
+    else{alert('Could not set active simulation. Status: '+res2.status);}
+  }
 }
 
 async function deactivateSim(id){
   if(!confirm('Deactivate this simulation? Students will no longer see an active simulation.'))return;
-  const res=await dbPatch('simulations?id=eq.'+id,{is_active:false,submission_open:false});
+  const target=allSims.find(s=>s.id===id);
+  const res=await dbUpsert('simulations',{...target,is_active:false,submission_open:false});
   if(res.ok){await loadAll(); showSection('simulations');}
-  else{alert('Could not deactivate. Status: '+res.status);}
+  else{
+    const res2=await dbPatch('simulations?id=eq.'+id,{is_active:false,submission_open:false});
+    if(res2.ok){await loadAll(); showSection('simulations');}
+    else{alert('Could not deactivate. Status: '+res2.status);}
+  }
 }
 
 function manageSim(id){
@@ -903,9 +927,15 @@ async function saveSimChanges(simId){
     const el=document.getElementById('rd-'+r.replace(/[^a-z0-9]/gi,'_'));
     if(el)roleDocs[r]=el.value;
   });
-  const res=await dbPatch('simulations?id=eq.'+simId,{fields:sim.fields,announcement:ann,role_docs:roleDocs});
+  const simData={...sim, fields:sim.fields, announcement:ann, role_docs:roleDocs};
+  const res=await dbUpsert('simulations', simData);
   if(res.ok){closeModal();await loadAll();}
-  else{alert('Could not save changes. Status: '+res.status);}
+  else{
+    // Fallback to PATCH if upsert fails
+    const res2=await dbPatch('simulations?id=eq.'+simId,{fields:sim.fields,announcement:ann,role_docs:roleDocs});
+    if(res2.ok){closeModal();await loadAll();}
+    else{alert('Could not save changes. Status: '+res2.status);}
+  }
 }
 
 // ── RESULTS ───────────────────────────────────────────────────────────────────
@@ -1099,7 +1129,7 @@ function loadSettings(){
 async function saveSettings(){
   const cohort=document.getElementById('set-cohort').value.trim();
   const size=parseInt(document.getElementById('set-size').value)||20;
-  const res=await dbPatch('instructors?id=eq.'+instructor.id,{cohort_name:cohort,class_size:size});
+  const res=await dbUpsert('instructors',{...instructor,cohort_name:cohort,class_size:size});
   if(res.ok){instructor.cohort_name=cohort;instructor.class_size=size;alert('Settings saved.');}
   else{alert('Could not save. Status: '+res.status);}
 }
@@ -1114,7 +1144,7 @@ async function changePassword(){
   const curHash=await hashPw(cur);
   if(curHash!==instructor.password_hash&&cur!=='NegClass2025!'){alert('Current password is incorrect.');return;}
   const newHash=await hashPw(nw);
-  const res=await dbPatch('instructors?id=eq.'+instructor.id,{password_hash:newHash});
+  const res=await dbUpsert('instructors',{...instructor,password_hash:newHash});
   if(res.ok){instructor.password_hash=newHash;['cur-pw','new-pw','new-pw2'].forEach(id=>document.getElementById(id).value='');alert('Password changed.');}
   else{alert('Could not change password.');}
 }
