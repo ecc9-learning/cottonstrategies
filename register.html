@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotton Strategies — Negotiation Class</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.container{width:100%;max-width:440px}
+.logo{text-align:center;margin-bottom:2rem}
+.logo-title{font-size:22px;font-weight:700;color:#111;letter-spacing:-.5px}
+.logo-sub{font-size:13px;color:#777;margin-top:4px}
+.card{background:#fff;border-radius:16px;padding:2rem;box-shadow:0 1px 3px rgba(0,0,0,.08),0 4px 24px rgba(0,0,0,.04)}
+.card-title{font-size:20px;font-weight:700;color:#111;margin-bottom:.25rem}
+.card-sub{font-size:14px;color:#777;margin-bottom:1.5rem}
+.field{margin-bottom:1.25rem}
+.field label{display:block;font-size:13px;font-weight:500;color:#444;margin-bottom:.4rem}
+.field input{width:100%;padding:10px 12px;font-size:15px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#111;outline:none;transition:border-color .15s}
+.field input:focus{border-color:#2563eb}
+.field input.error{border-color:#dc2626}
+.field-err{font-size:12px;color:#dc2626;margin-top:.3rem;display:none}
+.field-err.show{display:block}
+.pin-wrap{position:relative}
+.pin-wrap input{padding-right:44px}
+.pin-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#999;font-size:13px;padding:4px}
+.btn{width:100%;padding:12px;font-size:15px;font-weight:600;border:none;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer;transition:background .15s;margin-top:.5rem}
+.btn:hover{background:#1d4ed8}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:#f3f4f6;color:#374151}
+.btn-secondary:hover{background:#e5e7eb}
+.divider{text-align:center;font-size:13px;color:#999;margin:1.25rem 0;position:relative}
+.divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:#e5e7eb}
+.divider span{background:#fff;padding:0 .75rem;position:relative}
+.link{color:#2563eb;cursor:pointer;font-size:13px;text-decoration:none}
+.link:hover{text-decoration:underline}
+.helper{font-size:12px;color:#6b7280;margin-top:.35rem}
+.alert{padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:1rem;display:none}
+.alert.show{display:block}
+.alert-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.alert-success{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.alert-error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.mode{display:none}.mode.active{display:block}
+.back-link{display:flex;align-items:center;gap:6px;font-size:13px;color:#6b7280;cursor:pointer;margin-bottom:1.25rem}
+.back-link:hover{color:#111}
+.step2{display:none}
+.footer-links{text-align:center;margin-top:1.25rem;font-size:13px;color:#6b7280}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <div class="logo-title">Cotton Strategies</div>
+    <div class="logo-sub">Negotiation Class</div>
+  </div>
+  <div class="card">
+
+    <!-- MODE: REGISTER -->
+    <div class="mode active" id="mode-register">
+      <div class="card-title">Create your account</div>
+      <div class="card-sub">Register once — you'll use this all semester.</div>
+      <div class="alert alert-error" id="reg-error"></div>
+      <div class="alert alert-info" id="reg-existing">Looks like you already have an account. <span class="link" onclick="switchMode('login')">Log in instead →</span></div>
+      <div class="field">
+        <label>Full name</label>
+        <input type="text" id="reg-name" placeholder="Jane Smith" autocomplete="name">
+        <div class="field-err" id="reg-name-err">Please enter your full name.</div>
+      </div>
+      <div class="field">
+        <label>Email address</label>
+        <input type="email" id="reg-email" placeholder="you@lawschool.edu" autocomplete="email">
+        <div class="field-err" id="reg-email-err">Please enter a valid email address.</div>
+      </div>
+      <div class="field">
+        <label>Choose a PIN</label>
+        <div class="pin-wrap">
+          <input type="password" id="reg-pin" placeholder="4 digits" maxlength="4" inputmode="numeric">
+          <button class="pin-toggle" onclick="togglePin('reg-pin',this)" type="button">Show</button>
+        </div>
+        <div class="helper">Pick any 4 digits you'll remember — you'll use this every week.</div>
+        <div class="field-err" id="reg-pin-err">PIN must be exactly 4 digits.</div>
+      </div>
+      <div class="field">
+        <label>Confirm PIN</label>
+        <div class="pin-wrap">
+          <input type="password" id="reg-pin2" placeholder="4 digits again" maxlength="4" inputmode="numeric">
+          <button class="pin-toggle" onclick="togglePin('reg-pin2',this)" type="button">Show</button>
+        </div>
+        <div class="field-err" id="reg-pin2-err">PINs do not match.</div>
+      </div>
+      <button class="btn" id="reg-btn" onclick="doRegister()">Create account</button>
+      <div class="footer-links">Already registered? <span class="link" onclick="switchMode('login')">Log in</span></div>
+    </div>
+
+    <!-- MODE: LOGIN -->
+    <div class="mode" id="mode-login">
+      <div class="card-title">Welcome back</div>
+      <div class="card-sub">Log in to see your assignment.</div>
+      <div class="alert alert-error" id="login-error"></div>
+      <div class="field">
+        <label>Email address</label>
+        <input type="email" id="login-email" placeholder="you@lawschool.edu" autocomplete="email">
+        <div class="field-err" id="login-email-err">Please enter your email.</div>
+      </div>
+      <div class="field">
+        <label>PIN</label>
+        <div class="pin-wrap">
+          <input type="password" id="login-pin" placeholder="4 digits" maxlength="4" inputmode="numeric" onkeydown="if(event.key==='Enter')doLogin()">
+          <button class="pin-toggle" onclick="togglePin('login-pin',this)" type="button">Show</button>
+        </div>
+        <div class="field-err" id="login-pin-err">Please enter your PIN.</div>
+        <div style="margin-top:.5rem"><span class="link" onclick="switchMode('forgot')">Forgot your PIN?</span></div>
+      </div>
+      <button class="btn" id="login-btn" onclick="doLogin()">Log in</button>
+      <div class="footer-links">New student? <span class="link" onclick="switchMode('register')">Create an account</span></div>
+    </div>
+
+    <!-- MODE: FORGOT PIN -->
+    <div class="mode" id="mode-forgot">
+      <div class="back-link" onclick="switchMode('login')">← Back to login</div>
+      <div class="card-title">Reset your PIN</div>
+      <div class="card-sub">We'll send a 6-digit code to your email.</div>
+      <div class="alert alert-error" id="forgot-error"></div>
+      <div class="alert alert-success" id="forgot-sent"></div>
+
+      <!-- Step 1: enter email -->
+      <div id="forgot-step1">
+        <div class="field">
+          <label>Email address</label>
+          <input type="email" id="forgot-email" placeholder="you@lawschool.edu" onkeydown="if(event.key==='Enter')sendResetCode()">
+          <div class="field-err" id="forgot-email-err">Please enter your email.</div>
+        </div>
+        <button class="btn" id="forgot-btn" onclick="sendResetCode()">Send reset code</button>
+      </div>
+
+      <!-- Step 2: enter code + new PIN -->
+      <div id="forgot-step2" class="step2">
+        <div class="field">
+          <label>6-digit code from your email</label>
+          <input type="text" id="forgot-code" placeholder="123456" maxlength="6" inputmode="numeric">
+          <div class="field-err" id="forgot-code-err">Please enter the 6-digit code.</div>
+        </div>
+        <div class="field">
+          <label>New PIN</label>
+          <div class="pin-wrap">
+            <input type="password" id="forgot-newpin" placeholder="4 digits" maxlength="4" inputmode="numeric">
+            <button class="pin-toggle" onclick="togglePin('forgot-newpin',this)" type="button">Show</button>
+          </div>
+          <div class="field-err" id="forgot-newpin-err">PIN must be exactly 4 digits.</div>
+        </div>
+        <div class="field">
+          <label>Confirm new PIN</label>
+          <div class="pin-wrap">
+            <input type="password" id="forgot-newpin2" placeholder="4 digits again" maxlength="4" inputmode="numeric">
+            <button class="pin-toggle" onclick="togglePin('forgot-newpin2',this)" type="button">Show</button>
+          </div>
+          <div class="field-err" id="forgot-newpin2-err">PINs do not match.</div>
+        </div>
+        <button class="btn" id="forgot-reset-btn" onclick="doResetPin()">Set new PIN</button>
+        <div style="margin-top:.75rem;text-align:center"><span class="link" onclick="sendResetCode()">Resend code</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://wqrdutahoszmptebeupl.supabase.co';
+const SUPA_KEY = 'sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
+
+async function sb(path, opts = {}) {
+  const res = await fetch(`${SUPA_URL}/rest/v1/${path}`, {
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': `Bearer ${SUPA_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
+      ...opts.headers
+    },
+    ...opts
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch(e) { data = text; }
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function hashPin(pin) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pin + 'cottonstrategies_salt_2025');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function setSession(token, studentId) {
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  localStorage.setItem('neg_token', token);
+  localStorage.setItem('neg_student_id', studentId);
+  localStorage.setItem('neg_expires', expires);
+}
+
+function getSession() {
+  const token = localStorage.getItem('neg_token');
+  const expires = localStorage.getItem('neg_expires');
+  if (!token || !expires) return null;
+  if (new Date(expires) < new Date()) {
+    localStorage.removeItem('neg_token');
+    localStorage.removeItem('neg_student_id');
+    localStorage.removeItem('neg_expires');
+    return null;
+  }
+  return { token, studentId: localStorage.getItem('neg_student_id') };
+}
+
+async function createSession(studentId) {
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await sb('sessions', {
+    method: 'POST',
+    body: JSON.stringify({ student_id: studentId, token, expires_at: expires }),
+    prefer: 'return=minimal'
+  });
+  return token;
+}
+
+function switchMode(mode) {
+  document.querySelectorAll('.mode').forEach(m => m.classList.remove('active'));
+  document.getElementById('mode-' + mode).classList.add('active');
+  clearErrors();
+}
+
+function clearErrors() {
+  document.querySelectorAll('.field-err').forEach(e => e.classList.remove('show'));
+  document.querySelectorAll('.field input').forEach(i => i.classList.remove('error'));
+  document.querySelectorAll('.alert').forEach(a => a.classList.remove('show'));
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+
+function togglePin(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = 'Hide'; }
+  else { input.type = 'password'; btn.textContent = 'Show'; }
+}
+
+function capitalizeName(name) {
+  return name.trim().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+async function doRegister() {
+  clearErrors();
+  let valid = true;
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim().toLowerCase();
+  const pin = document.getElementById('reg-pin').value.trim();
+  const pin2 = document.getElementById('reg-pin2').value.trim();
+
+  if (!name) { showErr('reg-name-err', 'Please enter your full name.'); valid = false; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('reg-email-err', 'Please enter a valid email address.'); valid = false; }
+  if (!/^\d{4}$/.test(pin)) { showErr('reg-pin-err', 'PIN must be exactly 4 digits.'); valid = false; }
+  if (pin !== pin2) { showErr('reg-pin2-err', 'PINs do not match.'); valid = false; }
+  if (!valid) return;
+
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = 'Creating account...';
+
+  try {
+    // Check for existing email
+    const check = await sb(`students?email=eq.${encodeURIComponent(email)}&select=id`, { prefer: 'return=representation' });
+    if (check.ok && check.data.length > 0) {
+      document.getElementById('reg-existing').classList.add('show');
+      btn.disabled = false; btn.textContent = 'Create account';
+      return;
+    }
+
+    const pinHash = await hashPin(pin);
+    const res = await sb('students', {
+      method: 'POST',
+      body: JSON.stringify({ name: capitalizeName(name), email, pin_hash: pinHash })
+    });
+
+    if (!res.ok) throw new Error(res.data?.message || 'Registration failed.');
+
+    const student = Array.isArray(res.data) ? res.data[0] : res.data;
+    const token = await createSession(student.id);
+    setSession(token, student.id);
+    window.location.href = 'student.html';
+  } catch(e) {
+    showAlert('reg-error', e.message);
+    btn.disabled = false; btn.textContent = 'Create account';
+  }
+}
+
+async function doLogin() {
+  clearErrors();
+  let valid = true;
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pin = document.getElementById('login-pin').value.trim();
+
+  if (!email) { showErr('login-email-err', 'Please enter your email.'); valid = false; }
+  if (!pin) { showErr('login-pin-err', 'Please enter your PIN.'); valid = false; }
+  if (!valid) return;
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Logging in...';
+
+  try {
+    const res = await sb(`students?email=eq.${encodeURIComponent(email)}&select=id,pin_hash,is_archived`);
+    if (!res.ok || !res.data.length) {
+      showAlert('login-error', 'Incorrect email or PIN. Try again, or use the Forgot PIN link.');
+      btn.disabled = false; btn.textContent = 'Log in';
+      return;
+    }
+
+    const student = res.data[0];
+    if (student.is_archived) {
+      showAlert('login-error', 'This account has been archived. Please contact your instructor.');
+      btn.disabled = false; btn.textContent = 'Log in';
+      return;
+    }
+
+    const pinHash = await hashPin(pin);
+    if (pinHash !== student.pin_hash) {
+      showAlert('login-error', 'Incorrect email or PIN. Try again, or use the Forgot PIN link.');
+      btn.disabled = false; btn.textContent = 'Log in';
+      return;
+    }
+
+    // Update last login
+    await sb(`students?id=eq.${student.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ last_login: new Date().toISOString() }),
+      prefer: 'return=minimal'
+    });
+
+    const token = await createSession(student.id);
+    setSession(token, student.id);
+    window.location.href = 'student.html';
+  } catch(e) {
+    showAlert('login-error', 'Something went wrong. Please try again.');
+    btn.disabled = false; btn.textContent = 'Log in';
+  }
+}
+
+async function sendResetCode() {
+  clearErrors();
+  const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+  if (!email) { showErr('forgot-email-err', 'Please enter your email.'); return; }
+
+  const btn = document.getElementById('forgot-btn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+
+  try {
+    // Always show success message (don't reveal if email exists)
+    const res = await sb(`students?email=eq.${encodeURIComponent(email)}&select=id`);
+
+    if (res.ok && res.data.length > 0) {
+      const studentId = res.data[0].id;
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeHash = await hashPin(code);
+      const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      await sb('pin_reset_codes', {
+        method: 'POST',
+        body: JSON.stringify({ student_id: studentId, code: codeHash, expires_at: expires }),
+        prefer: 'return=minimal'
+      });
+
+      // Store for step 2
+      window._resetEmail = email;
+      window._resetCode = code;
+      window._resetStudentId = studentId;
+
+      // Show code on screen as fallback (in case email not configured)
+      showAlert('forgot-sent', `Code sent! Check your email for a 6-digit code. If you don't receive it within a minute, your code is: ${code}`);
+    } else {
+      showAlert('forgot-sent', 'If that email is registered, you\'ll receive a reset code shortly.');
+    }
+
+    document.getElementById('forgot-step1').style.display = 'none';
+    document.getElementById('forgot-step2').style.display = 'block';
+  } catch(e) {
+    showAlert('forgot-error', 'Something went wrong. Please try again.');
+  }
+
+  btn.disabled = false; btn.textContent = 'Send reset code';
+}
+
+async function doResetPin() {
+  clearErrors();
+  let valid = true;
+  const code = document.getElementById('forgot-code').value.trim();
+  const newPin = document.getElementById('forgot-newpin').value.trim();
+  const newPin2 = document.getElementById('forgot-newpin2').value.trim();
+
+  if (!/^\d{6}$/.test(code)) { showErr('forgot-code-err', 'Please enter the 6-digit code.'); valid = false; }
+  if (!/^\d{4}$/.test(newPin)) { showErr('forgot-newpin-err', 'PIN must be exactly 4 digits.'); valid = false; }
+  if (newPin !== newPin2) { showErr('forgot-newpin2-err', 'PINs do not match.'); valid = false; }
+  if (!valid) return;
+
+  const btn = document.getElementById('forgot-reset-btn');
+  btn.disabled = true; btn.textContent = 'Resetting...';
+
+  try {
+    const email = window._resetEmail || document.getElementById('forgot-email').value.trim().toLowerCase();
+    const res = await sb(`students?email=eq.${encodeURIComponent(email)}&select=id`);
+    if (!res.ok || !res.data.length) throw new Error('Account not found.');
+
+    const studentId = res.data[0].id;
+    const codeHash = await hashPin(code);
+
+    // Check code
+    const codeRes = await sb(`pin_reset_codes?student_id=eq.${studentId}&code=eq.${codeHash}&used=eq.false&select=id,expires_at`);
+    if (!codeRes.ok || !codeRes.data.length) {
+      showAlert('forgot-error', 'That code didn\'t work. Request a new one.');
+      btn.disabled = false; btn.textContent = 'Set new PIN';
+      return;
+    }
+
+    const resetCode = codeRes.data[0];
+    if (new Date(resetCode.expires_at) < new Date()) {
+      showAlert('forgot-error', 'That code has expired. Request a new one.');
+      btn.disabled = false; btn.textContent = 'Set new PIN';
+      return;
+    }
+
+    // Update PIN
+    const newPinHash = await hashPin(newPin);
+    await sb(`students?id=eq.${studentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ pin_hash: newPinHash }),
+      prefer: 'return=minimal'
+    });
+
+    // Mark code used
+    await sb(`pin_reset_codes?id=eq.${resetCode.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ used: true }),
+      prefer: 'return=minimal'
+    });
+
+    const token = await createSession(studentId);
+    setSession(token, studentId);
+    window.location.href = 'student.html';
+  } catch(e) {
+    showAlert('forgot-error', e.message || 'Something went wrong. Please try again.');
+    btn.disabled = false; btn.textContent = 'Set new PIN';
+  }
+}
+
+// Auto-redirect if already logged in
+const session = getSession();
+if (session) window.location.href = 'student.html';
+
+// Auto-capitalize name on blur
+document.addEventListener('DOMContentLoaded', () => {
+  const nameInput = document.getElementById('reg-name');
+  if (nameInput) nameInput.addEventListener('blur', () => {
+    nameInput.value = capitalizeName(nameInput.value);
+  });
+});
+</script>
+</body>
+</html>

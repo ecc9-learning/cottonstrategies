@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Simulation — Cotton Strategies</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;min-height:100vh;color:#111}
+.header{background:#fff;border-bottom:1px solid #e5e7eb;padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header-title{font-size:15px;font-weight:700;color:#111}
+.header-right{display:flex;align-items:center;gap:1rem}
+.header-name{font-size:13px;color:#6b7280}
+.logout-btn{font-size:13px;color:#6b7280;cursor:pointer;background:none;border:none;padding:0}
+.logout-btn:hover{color:#111}
+.main{max-width:680px;margin:0 auto;padding:1.5rem 1rem 4rem}
+.card{background:#fff;border-radius:14px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.card-label{font-size:11px;font-weight:600;color:#9ca3af;letter-spacing:.07em;text-transform:uppercase;margin-bottom:.75rem}
+.sim-name{font-size:24px;font-weight:700;color:#111;margin-bottom:.25rem}
+.assignment-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.assignment-box{flex:1;min-width:140px;background:#f3f4f6;border-radius:10px;padding:1rem}
+.assignment-box-label{font-size:11px;font-weight:600;color:#9ca3af;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem}
+.assignment-box-value{font-size:18px;font-weight:700;color:#111}
+.role-seller{color:#1d4ed8}.role-buyer{color:#059669}.role-other{color:#7c3aed}
+.group-num{font-size:32px;font-weight:800;color:#111}
+.counterpart{font-size:14px;color:#6b7280;margin-top:.25rem}
+.download-btn{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:13px;font-size:15px;font-weight:600;border:none;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer;transition:background .15s;text-decoration:none}
+.download-btn:hover{background:#1d4ed8}
+.announcement{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:14px;color:#92400e;margin-bottom:1rem}
+.state-card{text-align:center;padding:2.5rem 1.5rem}
+.state-icon{font-size:40px;margin-bottom:.75rem}
+.state-title{font-size:18px;font-weight:700;color:#111;margin-bottom:.4rem}
+.state-sub{font-size:14px;color:#6b7280;line-height:1.5}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.form-progress{font-size:13px;color:#6b7280;margin-bottom:.5rem}
+.form-progress-bar{height:4px;background:#e5e7eb;border-radius:2px;margin-bottom:1.25rem;overflow:hidden}
+.form-progress-fill{height:100%;background:#2563eb;border-radius:2px;transition:width .3s}
+.field{margin-bottom:1.25rem}
+.field label{display:block;font-size:13px;font-weight:500;color:#444;margin-bottom:.4rem}
+.field input,.field textarea{width:100%;padding:10px 12px;font-size:15px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#111;outline:none;transition:border-color .15s}
+.field input:focus,.field textarea:focus{border-color:#2563eb}
+.field textarea{min-height:80px;resize:vertical}
+.radio-group{display:flex;flex-wrap:wrap;gap:.5rem}
+.radio-opt{padding:8px 14px;border:1.5px solid #e0e0e0;border-radius:8px;cursor:pointer;font-size:14px;color:#374151;transition:all .15s;user-select:none}
+.radio-opt:hover{border-color:#93c5fd;background:#eff6ff}
+.radio-opt.sel{border-color:#2563eb;background:#eff6ff;color:#1d4ed8;font-weight:500}
+.submit-btn{width:100%;padding:13px;font-size:15px;font-weight:600;border:none;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer;margin-top:.5rem}
+.submit-btn:hover{background:#1d4ed8}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed}
+.edit-btn{width:100%;padding:10px;font-size:14px;font-weight:500;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#374151;cursor:pointer;margin-top:.5rem}
+.edit-btn:hover{background:#f9fafb}
+.success-banner{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;font-size:14px;color:#166534;display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
+.readonly-answer{padding:8px 0;border-bottom:1px solid #f3f4f6}
+.readonly-label{font-size:12px;color:#9ca3af;margin-bottom:2px}
+.readonly-value{font-size:14px;color:#374151}
+.review-card{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.review-title{font-size:15px;font-weight:700;color:#92400e;margin-bottom:.5rem}
+.review-sub{font-size:13px;color:#92400e;margin-bottom:1rem;line-height:1.5}
+.review-answers{background:#fff;border-radius:8px;padding:1rem;margin-bottom:1rem}
+.review-item{padding:6px 0;border-bottom:1px solid #f3f4f6}
+.review-item:last-child{border-bottom:none}
+.review-item-label{font-size:11px;color:#9ca3af;margin-bottom:1px}
+.review-item-value{font-size:14px;color:#374151;font-weight:500}
+.review-actions{display:flex;gap:.75rem}
+.btn-confirm{flex:1;padding:10px;font-size:14px;font-weight:600;border:none;border-radius:8px;background:#166534;color:#fff;cursor:pointer}
+.btn-confirm:hover{background:#14532d}
+.btn-dispute{flex:1;padding:10px;font-size:14px;font-weight:600;border:1.5px solid #dc2626;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer}
+.btn-dispute:hover{background:#fef2f2}
+.dispute-form{margin-top:1rem;display:none}
+.dispute-form.show{display:block}
+.both-versions{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:1rem;margin-bottom:1rem}
+.both-versions-title{font-size:13px;font-weight:600;color:#0369a1;margin-bottom:.75rem}
+.version-col{background:#fff;border-radius:8px;padding:.75rem;margin-bottom:.5rem}
+.version-label{font-size:11px;font-weight:600;color:#6b7280;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em}
+.history-item{padding:.75rem 0;border-bottom:1px solid #f3f4f6}
+.history-item:last-child{border-bottom:none}
+.history-sim{font-size:14px;font-weight:500;color:#111}
+.history-meta{font-size:12px;color:#9ca3af;margin-top:2px}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-gray{background:#f3f4f6;color:#6b7280}
+.draft-notice{font-size:12px;color:#6b7280;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:1rem}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-title">Cotton Strategies</div>
+  <div class="header-right">
+    <span class="header-name" id="header-name"></span>
+    <button class="logout-btn" onclick="logout()">Log out</button>
+  </div>
+</div>
+<div class="main" id="main">
+  <div class="card"><div class="state-card"><div class="spinner"></div></div></div>
+</div>
+<script>
+const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
+const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
+
+async function sb(path,opts={}){
+  const res=await fetch(`${SUPA_URL}/rest/v1/${path}`,{
+    headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':opts.prefer||'return=representation',...opts.headers},
+    ...opts
+  });
+  const text=await res.text();
+  let data;try{data=JSON.parse(text);}catch(e){data=text;}
+  return{ok:res.ok,status:res.status,data};
+}
+
+function getSession(){
+  const token=localStorage.getItem('neg_token');
+  const expires=localStorage.getItem('neg_expires');
+  const studentId=localStorage.getItem('neg_student_id');
+  if(!token||!expires||!studentId)return null;
+  if(new Date(expires)<new Date()){['neg_token','neg_student_id','neg_expires'].forEach(k=>localStorage.removeItem(k));return null;}
+  return{token,studentId};
+}
+
+function logout(){['neg_token','neg_student_id','neg_expires'].forEach(k=>localStorage.removeItem(k));window.location.href='index.html';}
+
+let student=null,activeSim=null,assignment=null,submission=null,partnerSubmission=null;
+let formValues={},editMode=false,draftKey='';
+
+async function init(){
+  const session=getSession();
+  if(!session){window.location.href='index.html';return;}
+  try{
+    const sRes=await sb(`students?id=eq.${session.studentId}&select=id,name,email`);
+    if(!sRes.ok||!sRes.data.length){logout();return;}
+    student=sRes.data[0];
+    document.getElementById('header-name').textContent=student.name;
+    await loadDashboard();
+  }catch(e){renderError('Something went wrong loading your dashboard. Please refresh.');}
+}
+
+async function loadDashboard(){
+  const simRes=await sb('simulations?is_active=eq.true&select=*');
+  activeSim=simRes.ok&&simRes.data.length?simRes.data[0]:null;
+  if(!activeSim){renderNoSim();setTimeout(loadDashboard,60000);return;}
+  draftKey=`neg_draft_${student.id}_${activeSim.id}`;
+  const[aRes,subRes]=await Promise.all([
+    sb(`assignments?student_id=eq.${student.id}&simulation_id=eq.${activeSim.id}&select=*`),
+    sb(`submissions?student_id=eq.${student.id}&simulation_id=eq.${activeSim.id}&select=*`)
+  ]);
+  assignment=aRes.ok&&aRes.data.length?aRes.data[0]:null;
+  submission=subRes.ok&&subRes.data.length?subRes.data[0]:null;
+
+  // Load partner submission if we have an assignment
+  partnerSubmission=null;
+  if(assignment&&assignment.released){
+    const partnerAssignRes=await sb(`assignments?simulation_id=eq.${activeSim.id}&group_number=eq.${assignment.group_number}&student_id=neq.${student.id}&select=student_id`);
+    if(partnerAssignRes.ok&&partnerAssignRes.data.length){
+      const partnerIds=partnerAssignRes.data.map(a=>a.student_id);
+      // Get first partner's submission
+      const pSubRes=await sb(`submissions?student_id=eq.${partnerIds[0]}&simulation_id=eq.${activeSim.id}&select=*`);
+      if(pSubRes.ok&&pSubRes.data.length)partnerSubmission=pSubRes.data[0];
+    }
+  }
+
+  const histRes=await sb(`assignments?student_id=eq.${student.id}&released=eq.true&select=simulation_id,role,group_number,released_at&order=released_at.desc`);
+  renderDashboard(histRes.ok?histRes.data:[]);
+}
+
+function renderNoSim(){
+  document.getElementById('main').innerHTML=`<div class="card"><div class="state-card"><div class="state-icon">📋</div><div class="state-title">You're all set!</div><div class="state-sub">Check back before class — your assignment will appear here when it's ready.</div></div></div>`;
+}
+
+function renderError(msg){
+  document.getElementById('main').innerHTML=`<div class="card"><div class="state-card"><div class="state-icon">⚠️</div><div class="state-title">Something went wrong</div><div class="state-sub">${msg}</div></div></div>`;
+}
+
+function getRoleColor(role){
+  const r=role.toLowerCase();
+  if(r.includes('seller')||r.includes('director')||r.includes('morgan')||r.includes('atlas')||r.includes('meridian')||r.includes('stockman')||r.includes('downtown'))return'role-seller';
+  if(r.includes('buyer')||r.includes('tutor')||r.includes('martinez')||r.includes('blue horizon')||r.includes('crestwood')||r.includes('turbo')||r.includes('united')||r.includes('absentia'))return'role-buyer';
+  return'role-other';
+}
+
+async function renderDashboard(history){
+  const main=document.getElementById('main');
+  let html='';
+
+  if(activeSim.announcement){
+    html+=`<div class="announcement">📌 ${activeSim.announcement}</div>`;
+  }
+
+  // Assignment card
+  if(!assignment||!assignment.released){
+    html+=`<div class="card"><div class="card-label">This week's simulation</div><div class="sim-name">${activeSim.name}</div><div class="state-card" style="padding:1.5rem 0 0"><div class="state-icon">⏳</div><div class="state-title">Assignment coming soon</div><div class="state-sub">${activeSim.name} is coming up. Your assignment will appear here when your instructor releases it.</div></div></div>`;
+    setTimeout(loadDashboard,60000);
+  } else {
+    if(!assignment.brief_viewed_at){
+      await sb(`assignments?id=eq.${assignment.id}`,{method:'PATCH',body:JSON.stringify({brief_viewed_at:new Date().toISOString()}),prefer:'return=minimal'});
+    }
+    const roleColor=getRoleColor(assignment.role);
+    html+=`<div class="card"><div class="card-label">Your assignment — ${activeSim.name}</div>
+      <div class="assignment-row">
+        <div class="assignment-box"><div class="assignment-box-label">Group</div><div class="group-num">${assignment.group_number}</div></div>
+        <div class="assignment-box" style="flex:2"><div class="assignment-box-label">Your role</div><div class="assignment-box-value ${roleColor}">${assignment.role}</div><div class="counterpart" id="counterpart-area">Loading...</div></div>
+      </div>
+      <button class="download-btn" onclick="downloadBrief()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download your role brief (PDF)
+      </button>
+    </div>`;
+    setTimeout(loadCounterparts,100);
+  }
+
+  // Results section
+  if(assignment&&assignment.released){
+    if(!activeSim.submission_open&&!submission){
+      html+=`<div class="card"><div class="card-label">Results</div><div class="state-card" style="padding:1rem 0 0"><div class="state-icon">📝</div><div class="state-title">Results form not yet open</div><div class="state-sub">Your instructor will open the results form after the simulation ends.</div></div></div>`;
+    } else if(submission&&!editMode){
+      // Check if partner submitted and we haven't confirmed yet
+      const confirmed=submission.form_data?._confirmed;
+      const disputed=submission.form_data?._disputed;
+
+      if(partnerSubmission&&!confirmed&&!disputed){
+        // Show partner review prompt
+        html+=renderReviewPrompt();
+      } else {
+        // Show submitted state
+        const submittedAt=new Date(submission.submitted_at);
+        const canEdit=(Date.now()-submittedAt.getTime())<30*60*1000&&activeSim.submission_open;
+        html+=`<div class="card"><div class="card-label">Your results</div>
+          <div class="success-banner">✓ Results submitted ${formatTime(submission.submitted_at)}</div>
+          ${confirmed?'<div class="success-banner" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8">✓ Results confirmed with your partner</div>':''}
+          ${disputed?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:13px;color:#dc2626;margin-bottom:1rem">⚠️ Disagreement flagged — your instructor will review both versions during debrief</div>':''}
+          <div>${renderReadonly(activeSim.fields,submission.form_data)}</div>
+          ${canEdit?`<button class="edit-btn" onclick="enterEditMode()">Edit my results (${getEditMinutesLeft(submission.submitted_at)} min left)</button>`:''}
+        </div>`;
+
+        // If both submitted and disputed, show both versions
+        if(disputed&&partnerSubmission){
+          html+=renderBothVersions();
+        }
+      }
+    } else if(activeSim.submission_open){
+      const draft=localStorage.getItem(draftKey);
+      if(draft&&!editMode){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}
+      else if(editMode&&submission){formValues={...submission.form_data};}
+      html+=`<div class="card"><div class="card-label">Submit your results</div>
+        ${draft&&!editMode?'<div class="draft-notice">💾 We saved your progress from earlier.</div>':''}
+        <div id="results-form">${renderForm(activeSim.fields,formValues)}</div>
+        <button class="submit-btn" id="submit-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
+      </div>`;
+      startAutosave();
+    }
+  }
+
+  // History
+  if(history.length>1){
+    html+=`<div class="card"><div class="card-label">Simulation history</div>${history.slice(1).map(h=>`<div class="history-item"><div class="history-sim">${h.simulation_id}</div><div class="history-meta">Role: ${h.role} · Group ${h.group_number}</div></div>`).join('')}</div>`;
+  }
+
+  main.innerHTML=html;
+  restoreRadios();
+}
+
+function renderReviewPrompt(){
+  if(!partnerSubmission||!activeSim)return'';
+  const fields=activeSim.fields||[];
+  const answers=fields.map(f=>{
+    const val=partnerSubmission.form_data?.[f.id];
+    if(!val||f.id==='f1'||f.id==='f3')return'';
+    return`<div class="review-item"><div class="review-item-label">${f.label}</div><div class="review-item-value">${val}</div></div>`;
+  }).filter(Boolean).join('');
+
+  return`<div class="review-card">
+    <div class="review-title">📋 Your partner submitted results</div>
+    <div class="review-sub">Review what your partner entered. If it matches your understanding of the outcome, confirm. If not, flag a disagreement — your instructor will see both versions during debrief.</div>
+    <div class="review-answers">${answers}</div>
+    ${!submission?`<div style="font-size:13px;color:#92400e;margin-bottom:1rem">You haven't submitted your own results yet. Submit yours first, then confirm or dispute.</div><button class="submit-btn" onclick="scrollToForm()" style="background:#92400e">Submit my results first</button>`:`
+    <div class="review-actions">
+      <button class="btn-confirm" onclick="confirmResults()">✓ Confirm — this matches</button>
+      <button class="btn-dispute" onclick="showDisputeForm()">⚠ Disagree</button>
+    </div>
+    <div class="dispute-form" id="dispute-form">
+      <div class="field" style="margin-top:.75rem"><label>What's different? (optional note for instructor)</label><textarea id="dispute-note" placeholder="e.g. We agreed on $3,200, not $3,100"></textarea></div>
+      <button class="submit-btn" style="background:#dc2626" onclick="submitDispute()">Flag disagreement</button>
+    </div>`}
+  </div>`;
+}
+
+function renderBothVersions(){
+  if(!submission||!partnerSubmission||!activeSim)return'';
+  const fields=activeSim.fields||[];
+  const myAnswers=fields.map(f=>{
+    const v=submission.form_data?.[f.id];
+    if(!v||f.id==='f1'||f.id==='f3')return'';
+    return`<div class="review-item"><div class="review-item-label">${f.label}</div><div class="review-item-value">${v}</div></div>`;
+  }).filter(Boolean).join('');
+  const partnerAnswers=fields.map(f=>{
+    const v=partnerSubmission.form_data?.[f.id];
+    if(!v||f.id==='f1'||f.id==='f3')return'';
+    return`<div class="review-item"><div class="review-item-label">${f.label}</div><div class="review-item-value">${v}</div></div>`;
+  }).filter(Boolean).join('');
+
+  return`<div class="both-versions"><div class="both-versions-title">⚠️ Flagged disagreement — both versions shown to instructor</div>
+    <div class="version-col"><div class="version-label">Your version</div>${myAnswers}</div>
+    <div class="version-col"><div class="version-label">Partner's version</div>${partnerAnswers}</div>
+  </div>`;
+}
+
+async function confirmResults(){
+  if(!submission)return;
+  const updated={...submission.form_data,_confirmed:true};
+  await sb(`submissions?id=eq.${submission.id}`,{method:'PATCH',body:JSON.stringify({form_data:updated,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
+  await loadDashboard();
+}
+
+function showDisputeForm(){
+  document.getElementById('dispute-form').classList.add('show');
+}
+
+async function submitDispute(){
+  if(!submission)return;
+  const note=document.getElementById('dispute-note')?.value||'';
+  const updated={...submission.form_data,_disputed:true,_dispute_note:note};
+  await sb(`submissions?id=eq.${submission.id}`,{method:'PATCH',body:JSON.stringify({form_data:updated,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
+  await loadDashboard();
+}
+
+function scrollToForm(){
+  document.getElementById('results-form')?.scrollIntoView({behavior:'smooth'});
+}
+
+async function loadCounterparts(){
+  if(!assignment||!activeSim)return;
+  const res=await sb(`assignments?simulation_id=eq.${activeSim.id}&group_number=eq.${assignment.group_number}&released=eq.true&select=student_id,role`);
+  if(!res.ok)return;
+  const others=res.data.filter(a=>a.student_id!==student.id);
+  if(!others.length){const el=document.getElementById('counterpart-area');if(el)el.textContent='';return;}
+  const ids=others.map(o=>`"${o.student_id}"`).join(',');
+  const nRes=await sb(`students?id=in.(${ids})&select=id,name`);
+  if(!nRes.ok)return;
+  const nameMap={};nRes.data.forEach(s=>nameMap[s.id]=s.name);
+  const parts=others.map(o=>`${nameMap[o.student_id]||'Unknown'} (${o.role})`).join(', ');
+  const el=document.getElementById('counterpart-area');
+  if(el)el.textContent=`Negotiating with: ${parts}`;
+}
+
+function downloadBrief(){
+  const btn=document.querySelector('.download-btn');
+  if(btn){btn.textContent='Opening...';btn.disabled=true;}
+  const roleName=assignment.role.replace(/[^a-zA-Z0-9]/g,'-');
+  const url=`${SUPA_URL}/storage/v1/object/public/role-briefs/${activeSim.id}/${roleName}.pdf`;
+  window.open(url,'_blank');
+  setTimeout(()=>{if(btn){btn.innerHTML='<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download your role brief (PDF)';btn.disabled=false;}},1000);
+}
+
+function renderForm(fields,values){
+  const total=fields.length;
+  let html=`<div class="form-progress">Question <span id="q-current">1</span> of ${total}</div><div class="form-progress-bar"><div class="form-progress-fill" id="q-fill" style="width:${Math.round(1/total*100)}%"></div></div>`;
+  fields.forEach(f=>{
+    html+=`<div class="field"><label>${f.label}${f.required?' <span style="color:#dc2626">*</span>':''}</label>`;
+    if(f.type==='radio'&&f.options){
+      html+=`<div class="radio-group">${f.options.map(o=>`<div class="radio-opt${values[f.id]===o?' sel':''}" onclick="selRadio('${f.id}','${o.replace(/'/g,"\\'")}',this)" data-field="${f.id}">${o}</div>`).join('')}</div>`;
+    }else if(f.type==='textarea'){
+      html+=`<textarea id="ff-${f.id}" oninput="setVal('${f.id}',this.value)">${values[f.id]||''}</textarea>`;
+    }else{
+      html+=`<input type="${f.type==='number'?'number':'text'}" id="ff-${f.id}" value="${values[f.id]||''}" oninput="setVal('${f.id}',this.value)">`;
+    }
+    html+=`</div>`;
+  });
+  return html;
+}
+
+function renderReadonly(fields,data){
+  return fields.filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id)).map(f=>`
+    <div class="readonly-answer"><div class="readonly-label">${f.label}</div><div class="readonly-value">${data[f.id]||'—'}</div></div>`).join('');
+}
+
+function restoreRadios(){
+  if(!activeSim)return;
+  activeSim.fields.forEach(f=>{
+    if(f.type==='radio'&&formValues[f.id]){
+      document.querySelectorAll(`[data-field="${f.id}"]`).forEach(el=>{el.classList.toggle('sel',el.textContent===formValues[f.id]);});
+    }
+  });
+  updateProgress();
+}
+
+function selRadio(fid,val,el){document.querySelectorAll(`[data-field="${fid}"]`).forEach(x=>x.classList.remove('sel'));el.classList.add('sel');formValues[fid]=val;updateProgress();saveDraft();}
+function setVal(fid,val){formValues[fid]=val;saveDraft();}
+
+function updateProgress(){
+  if(!activeSim)return;
+  const filled=activeSim.fields.filter(f=>formValues[f.id]&&String(formValues[f.id]).trim()).length;
+  const total=activeSim.fields.length;
+  const pct=Math.round((filled/total)*100);
+  const fill=document.getElementById('q-fill');const curr=document.getElementById('q-current');
+  if(fill)fill.style.width=pct+'%';if(curr)curr.textContent=Math.min(filled+1,total);
+}
+
+function saveDraft(){if(draftKey)localStorage.setItem(draftKey,JSON.stringify(formValues));}
+
+let autosaveInterval=null;
+function startAutosave(){if(autosaveInterval)clearInterval(autosaveInterval);autosaveInterval=setInterval(saveDraft,30000);}
+
+function enterEditMode(){editMode=true;loadDashboard();}
+function getEditMinutesLeft(submittedAt){return Math.max(0,Math.round(30-(Date.now()-new Date(submittedAt).getTime())/60000));}
+function formatTime(iso){return new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+
+async function doSubmit(){
+  if(!activeSim)return;
+  const missing=activeSim.fields.filter(f=>f.required&&!formValues[f.id]);
+  if(missing.length){alert('Please fill in: '+missing.map(f=>f.label).join(', '));return;}
+  if(!confirm(`Submit your results for ${activeSim.name}?`))return;
+  const btn=document.getElementById('submit-btn');
+  btn.disabled=true;btn.textContent='Submitting...';
+  try{
+    const payload={student_id:student.id,simulation_id:activeSim.id,form_data:formValues,submitted_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    if(submission){
+      await sb(`submissions?id=eq.${submission.id}`,{method:'PATCH',body:JSON.stringify({form_data:formValues,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
+    }else{
+      await sb('submissions',{method:'POST',body:JSON.stringify(payload),prefer:'return=minimal'});
+    }
+    if(draftKey)localStorage.removeItem(draftKey);
+    editMode=false;
+    await loadDashboard();
+  }catch(e){
+    saveDraft();btn.disabled=false;btn.textContent=editMode?'Update results':'Submit results';
+    alert('Submission failed — your answers are saved as a draft. Please try again.');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
