@@ -176,7 +176,7 @@ async function load(){
     fields: typeof simR.data[0].fields==='string'?JSON.parse(simR.data[0].fields):(simR.data[0].fields||[]),
     roles: typeof simR.data[0].roles==='string'?JSON.parse(simR.data[0].roles):(simR.data[0].roles||[])
   }:null;
-  if(!activeSim){renderNoSim();setTimeout(load,60000);return;}
+  if(!activeSim){renderNoSim();setTimeout(load,30000);return;}
 
   draftKey='neg_draft_'+student.id+'_'+activeSim.id;
   assignment=aR.ok?aR.data.find(a=>a.simulation_id===activeSim.id):null;
@@ -280,6 +280,11 @@ async function render(history){
       const fd=submission.form_data||{};
       const confirmed=fd._confirmed,disputed=fd._disputed;
 
+      // Auto-refresh every 20s to catch partner submission
+      if(!partnerSub&&!confirmed&&!disputed){
+        setTimeout(load,20000);
+      }
+
       // Partner review prompt
       if(partnerSub&&!confirmed&&!disputed){
         html+=renderReviewPrompt();
@@ -295,7 +300,7 @@ async function render(history){
           ${disputed?`<div class="disputed-banner">⚠️ Disagreement flagged — your instructor will review both versions</div>`:''}
           <div class="success-banner">✓ Submitted successfully</div>
           ${renderReadonly(activeSim.fields,fd)}
-          ${canEdit()?`<button class="edit-btn" onclick="enterEdit()">Edit my results (${minsLeft()} min remaining)</button>`:''}
+          ${canEdit()?`<button class="edit-btn" onclick="enterEdit()">✏️ Edit my results</button>`:''}
         </div>
       </div>`;
 
@@ -419,14 +424,11 @@ let autosaveTimer=null;
 function startAutosave(){if(autosaveTimer)clearInterval(autosaveTimer);autosaveTimer=setInterval(saveDraft,30000);}
 
 function canEdit(){
-  if(!submission||!activeSim?.submission_open)return false;
-  return(Date.now()-new Date(submission.submitted_at).getTime())<30*60*1000;
+  // Allow editing anytime the form is open and student has submitted
+  return !!(submission && activeSim?.submission_open);
 }
 
-function minsLeft(){
-  if(!submission)return 0;
-  return Math.max(0,Math.round(30-(Date.now()-new Date(submission.submitted_at).getTime())/60000));
-}
+function minsLeft(){ return 0; } // kept for compatibility
 
 function enterEdit(){editMode=true;load();}
 function cancelEdit(){editMode=false;load();}
