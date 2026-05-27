@@ -260,25 +260,28 @@ textarea{resize:vertical;min-height:70px}
       <!-- OVERVIEW -->
       <div class="section active" id="section-overview">
         <div class="section-title">Overview</div>
+
+        <!-- Active sim banner -->
+        <div id="overview-sim-banner" style="margin-bottom:1rem"></div>
+
+        <!-- Stats -->
         <div class="stats-row" id="overview-stats"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-          <div class="card" id="overview-sim-card">
-            <div class="card-title">Active simulation</div>
-            <div id="overview-sim-body"></div>
-          </div>
+
+        <!-- Two col: actions + recent -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
           <div class="card">
-            <div class="card-title">Quick actions</div>
-            <div style="display:flex;flex-direction:column;gap:.5rem" id="overview-actions">
-              <button class="btn btn-primary" onclick="showSection('assignments')">Go to Assignments →</button>
-              <button class="btn btn-success" onclick="qaOpenForm()">Open results form</button>
-              <button class="btn btn-danger" onclick="qaCloseForm()">Close results form</button>
-              <button class="btn btn-outline" onclick="showSection('results')">View results →</button>
+            <div class="card-title">This week's actions</div>
+            <div style="display:flex;flex-direction:column;gap:.5rem">
+              <button class="btn btn-primary" onclick="showSection('assignments')">👥 Manage assignments</button>
+              <button class="btn btn-success" id="ov-form-btn" onclick="qaOpenForm()">✓ Open results form</button>
+              <button class="btn btn-outline" onclick="showSection('results')">📊 View live results</button>
+              <button class="btn btn-outline" onclick="showSection('simulations')">⚙ Switch simulation</button>
             </div>
           </div>
-        </div>
-        <div class="card" style="margin-top:1rem">
-          <div class="card-title">Recent registrations</div>
-          <div id="overview-recent"></div>
+          <div class="card">
+            <div class="card-title">Recent registrations</div>
+            <div id="overview-recent"></div>
+          </div>
         </div>
       </div>
 
@@ -566,32 +569,57 @@ function renderOverview() {
   const assigned = activeSim?allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released).length:0;
   const submitted = activeSim?allSubmissions.filter(s=>s.simulation_id===activeSim.id).length:0;
   const briefViewed = activeSim?allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.brief_viewed_at).length:0;
+  const notSubmitted = allStudents.length - submitted;
+
+  // Active sim banner
+  const banner = document.getElementById('overview-sim-banner');
+  if (!activeSim) {
+    banner.innerHTML=`<div class="alert alert-warning" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <span>⚠️ No simulation is currently active.</span>
+      <button class="btn btn-primary btn-sm" onclick="showSection('simulations')">Set active simulation →</button>
+    </div>`;
+  } else {
+    banner.innerHTML=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Active simulation</div>
+        <div style="font-size:20px;font-weight:800;color:#111">${activeSim.name}</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:2px">${activeSim.type}</div>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <span class="badge badge-blue">Active</span>
+        ${activeSim.submission_open
+          ?'<span class="badge badge-green">Form open</span><button class="btn btn-danger btn-sm" onclick="qaCloseForm()">Close form</button>'
+          :'<span class="badge badge-gray">Form closed</span><button class="btn btn-success btn-sm" onclick="qaOpenForm()">Open form</button>'}
+        <button class="btn btn-outline btn-sm" onclick="showSection('simulations')">Switch sim</button>
+      </div>
+    </div>`;
+  }
 
   document.getElementById('overview-stats').innerHTML=[
     {v:allStudents.length+'/'+expected,l:'Registered'},
     {v:assigned,l:'Assigned'},
     {v:briefViewed,l:'Brief viewed'},
     {v:submitted,l:'Submitted'},
+    {v:notSubmitted>0?notSubmitted:'✓',l:'Pending'},
   ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
 
-  const simBody = document.getElementById('overview-sim-body');
-  if (!activeSim) {
-    simBody.innerHTML=`<div class="empty-state"><div class="empty-state-title">No simulation active</div><div class="empty-state-sub">Go to All Simulations to set one active.</div><button class="btn btn-primary btn-sm" style="margin-top:.75rem" onclick="showSection('simulations')">Set active simulation</button></div>`;
-  } else {
-    simBody.innerHTML=`
-      <div style="margin-bottom:1rem">
-        <div style="font-size:18px;font-weight:800;color:#111">${activeSim.name}</div>
-        <div style="font-size:13px;color:#9ca3af;margin-top:2px">${activeSim.type}</div>
-      </div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <span class="badge badge-blue">Active</span>
-        ${activeSim.submission_open?'<span class="badge badge-green">Form open</span>':'<span class="badge badge-gray">Form closed</span>'}
-      </div>`;
+  // Update form button text
+  const formBtn = document.getElementById('ov-form-btn');
+  if (formBtn) {
+    if (activeSim?.submission_open) {
+      formBtn.textContent='✕ Close results form';
+      formBtn.className='btn btn-danger';
+      formBtn.onclick=qaCloseForm;
+    } else {
+      formBtn.textContent='✓ Open results form';
+      formBtn.className='btn btn-success';
+      formBtn.onclick=qaOpenForm;
+    }
   }
 
   const recent = allStudents.slice(-5).reverse();
   document.getElementById('overview-recent').innerHTML = recent.length
-    ? recent.map(s=>`<div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #f9fafb;font-size:13px"><span><strong>${s.name}</strong> <span style="color:#9ca3af">${s.email}</span></span><span style="color:#9ca3af">${fmtDate(s.created_at)}</span></div>`).join('')
+    ? recent.map(s=>`<div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #f9fafb;font-size:13px"><span><strong>${s.name}</strong></span><span style="color:#9ca3af">${fmtDate(s.created_at)}</span></div>`).join('')
     : '<div class="empty-state" style="padding:1rem"><div class="empty-state-sub">No students registered yet.</div></div>';
 }
 
@@ -946,7 +974,9 @@ function renderResults(){
           const cells=simFields.map(f=>{
             const v=fd[f.id]||'—';
             if(f.id==='f4'){const cls=v==='Yes'?'badge-green':v==='No'?'badge-red':'badge-blue';return`<td><span class="badge ${cls}">${v}</span></td>`;}
-            return`<td title="${v}">${String(v).length>20?String(v).substring(0,20)+'…':v}</td>`;
+            if(f.type==='textarea'){return`<td style="white-space:pre-wrap;word-break:break-word;min-width:180px;max-width:300px;font-size:12px;color:#555">${v}</td>`;}
+            if(String(v).length>30){return`<td title="${v}" style="cursor:help">${String(v).substring(0,30)+'…'}</td>`;}
+            return`<td>${v}</td>`;
           }).join('');
           return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')">${`<td><strong>${st?.name||'Unknown'}</strong></td>`}${cells}<td>${status}</td></tr>`;
         }).join('')}</tbody>
@@ -977,7 +1007,7 @@ function openDetail(idx, rowId){
     `<div class="text-muted" style="margin-bottom:1rem">Submitted ${new Date(row.submitted_at).toLocaleString()}</div>`+
     (fd._disputed?`<div class="alert alert-error" style="margin-bottom:1rem">⚠️ Disputed: ${fd._dispute_note||'No note'}</div>`:'')+
     (fd._confirmed?`<div class="alert alert-success" style="margin-bottom:1rem">✓ Confirmed by partner</div>`:'')+
-    fields.map(f=>`<div class="detail-field"><div class="detail-field-label">${f.label||''}</div><div class="detail-field-value">${fd[f.id]||'—'}</div></div>`).join('');
+    fields.map(f=>`<div class="detail-field"><div class="detail-field-label">${f.label||''}</div><div class="detail-field-value" style="white-space:pre-wrap;word-break:break-word">${fd[f.id]||'—'}</div></div>`).join('');
   document.getElementById('detail-panel').classList.add('show');
 }
 
