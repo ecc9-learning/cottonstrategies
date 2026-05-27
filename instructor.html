@@ -498,7 +498,12 @@ async function loadAll() {
     dbGet('submissions?select=*')
   ]);
   allStudents = sR.ok?sR.data:[];
-  allSims = simR.ok?simR.data:[];
+  allSims = (simR.ok?simR.data:[]).map(s=>({
+    ...s,
+    fields: typeof s.fields === 'string' ? JSON.parse(s.fields) : (s.fields||[]),
+    roles: typeof s.roles === 'string' ? JSON.parse(s.roles) : (s.roles||[]),
+    role_docs: typeof s.role_docs === 'string' ? JSON.parse(s.role_docs) : (s.role_docs||{})
+  }));
   allAssignments = aR.ok?aR.data:[];
   allSubmissions = subR.ok?subR.data:[];
   activeSim = allSims.find(s=>s.is_active)||null;
@@ -817,7 +822,7 @@ function manageSim(id){
     ${(sim.roles||[]).map(r=>`<div class="field"><label>${r}</label><input type="url" id="rd-${r.replace(/[^a-z0-9]/gi,'_')}" placeholder="https://drive.google.com/..." value="${(sim.roleDocs&&sim.roleDocs[r])||''}"></div>`).join('')}
     <hr style="margin:1rem 0;border-color:#f3f4f6">
     <div style="font-size:13px;font-weight:600;margin-bottom:.5rem;color:#374151">Form questions</div>
-    <div class="alert alert-info" style="margin-bottom:1rem">Click ✏️ to edit any question. First 3 questions are required and cannot be deleted.</div>
+    <div class="alert alert-info" style="margin-bottom:1rem">Click ✏️ to edit any question. Use 🗑 to delete. Use + Add question to add new ones.</div>
     <div id="q-list">${renderQEditor(sim)}</div>
     <button class="btn btn-outline btn-sm" onclick="addQuestion('${id}')" style="margin-top:.5rem">+ Add question</button>
     <div class="modal-footer">
@@ -833,7 +838,7 @@ function renderQEditor(sim){
       <div class="q-body"><div class="q-label">${f.label||''}</div><div class="q-meta">${f.type||''}${f.options?' · '+f.options.join(', '):''}${f.required?' · required':' · optional'}</div></div>
       <div class="q-actions">
         <button class="icon-btn" onclick="editQ('${sim.id}','${f.id}')" title="Edit">✏️</button>
-        ${i>=3?`<button class="icon-btn" onclick="deleteQ('${sim.id}','${f.id}')" style="color:#dc2626" title="Delete">🗑</button>`:''}
+        <button class="icon-btn" onclick="deleteQ('${sim.id}','${f.id}')" style="color:#dc2626" title="Delete">🗑</button>
       </div>
     </div>`).join('');
 }
@@ -903,7 +908,9 @@ async function saveSimChanges(simId){
     const el=document.getElementById('rd-'+r.replace(/[^a-z0-9]/gi,'_'));
     if(el)roleDocs[r]=el.value;
   });
-  const res=await dbPatch('simulations?id=eq.'+simId,{fields:JSON.stringify(sim.fields),announcement:ann,role_docs:JSON.stringify(roleDocs)});
+  const fieldsToSave = typeof sim.fields === 'string' ? sim.fields : JSON.stringify(sim.fields);
+  const roleDocsToSave = typeof roleDocs === 'string' ? roleDocs : JSON.stringify(roleDocs);
+  const res=await dbPatch('simulations?id=eq.'+simId,{fields:fieldsToSave,announcement:ann,role_docs:roleDocsToSave});
   if(res.ok){closeModal();await loadAll();}
   else{alert('Could not save changes. Status: '+res.status);}
 }
@@ -914,7 +921,8 @@ function renderResults(){
   if(!activeSim){el.innerHTML='<div class="card"><div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No active simulation</div></div></div>';return;}
 
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
-  const deals=subs.filter(s=>s.form_data?.f4==='Yes').length;
+  const dealField=(activeSim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+  const deals=subs.filter(s=>s.form_data?.[dealField]==='Yes').length;
   const disputed=subs.filter(s=>s.form_data?._disputed).length;
   const notSub=allStudents.filter(s=>!subs.find(x=>x.student_id===s.id));
 
@@ -1018,7 +1026,8 @@ function buildCharts(sim,subs,container){
   const fields=sim.fields||[];
 
   // Deal pie
-  buildPie(container,'deal-'+Date.now(),'Deal / no deal',subs.map(s=>s.form_data?.f4),COLORS);
+  const _dealFld=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+  buildPie(container,'deal-'+Date.now(),'Deal / no deal',subs.map(s=>s.form_data?.[_dealFld]),COLORS);
 
   // Numeric histograms
   fields.filter(f=>f.type==='number').forEach(field=>{
@@ -1063,7 +1072,8 @@ function enterProjection(){
   const proj=document.getElementById('projection-mode');
   document.getElementById('proj-title').textContent=(activeSim?.name||'Results')+' — Live Results';
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
-  const deals=subs.filter(s=>s.form_data?.f4==='Yes').length;
+  const dealField=(activeSim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+  const deals=subs.filter(s=>s.form_data?.[dealField]==='Yes').length;
   document.getElementById('proj-stats').innerHTML=[
     {v:subs.length,l:'Submissions'},{v:deals,l:'Deals'},{v:subs.length?Math.round(deals/subs.length*100)+'%':'—',l:'Deal rate'}
   ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
