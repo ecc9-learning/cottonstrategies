@@ -176,6 +176,17 @@ main{flex:1;max-width:660px;width:100%;margin:0 auto;padding:28px 20px 60px}
 .style-bar-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
 .style-bar-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
 
+/* ── ASSESSMENT OVERLAY ── */
+.assess-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(28,25,23,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px}
+.assess-modal{background:#fff;border-radius:16px;width:100%;max-width:720px;margin:auto;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.25)}
+.assess-modal-header{background:#1a6b5c;padding:20px 28px;display:flex;align-items:center;justify-content:space-between}
+.assess-modal-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff}
+.assess-modal-sub{font-size:12px;color:rgba(255,255,255,.7);margin-top:3px}
+.assess-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
+.assess-close:hover{background:rgba(255,255,255,.25)}
+.assess-modal-body{padding:24px 28px}
+.assess-modal-footer{padding:16px 28px 24px;display:flex;gap:10px;align-items:center;justify-content:flex-end;border-top:1px solid var(--border)}
+
 /* ── RESPONSIVE ── */
 @media(max-width:540px){
   main{padding:16px 14px 48px}
@@ -289,43 +300,26 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
   const main=document.getElementById('main');
   let html='';
 
-  // ── 1. OPEN ASSESSMENT (highest priority — show at top) ─────────────────
+  // ── 1. OPEN ASSESSMENT (highest priority — link card at top if not done) ──
   if(assessmentAssignments&&assessmentAssignments.length){
     assessmentAssignments.forEach(aa=>{
       const thisAssess=myAssess&&myAssess.find(a=>a.type===aa.type);
-      if(thisAssess){
-        // Submitted — show compact completed badge, not full form
-        const totals=typeof thisAssess.col_totals==='string'?JSON.parse(thisAssess.col_totals):(thisAssess.col_totals||{});
-        html+=`<div class="card">
+      if(!thisAssess){
+        html+=`<div class="card" style="border-left:3px solid var(--accent)">
           <div class="card-header">
             <div>
-              <div class="card-title">${aa.type==='pre'?'Pre':'Post'}-Assessment</div>
-              <div class="card-sub">Completed · Your anonymous ID: <strong>#${String(student.anon_number||'?').padStart(2,'0')}</strong></div>
+              <div class="card-title">${aa.type==='pre'?'Pre-Semester':'End-of-Semester'} Self-Assessment</div>
+              <div class="card-sub">Required before class · Takes about 5 minutes</div>
             </div>
-            <span class="pill pill-green">✓ Done</span>
+            <span class="pill pill-orange">Action needed</span>
           </div>
           <div class="card-body">
-            <div style="font-size:12px;color:var(--text-3);margin-bottom:14px">Your negotiation style profile:</div>
-            ${['A','B','C','D','E'].map(col=>{
-              const v=totals[col]||0;
-              const maxP={A:35,B:30,C:30,D:15,E:15}[col];
-              const pct=Math.round(v/maxP*100);
-              return`<div class="style-bar">
-                <div class="style-bar-header">
-                  <span class="style-bar-label">${col} — ${STYLE_NAMES[col]}</span>
-                  <span class="style-bar-val">${v}/${maxP}</span>
-                </div>
-                <div class="style-bar-track">
-                  <div class="style-bar-fill" style="width:${pct}%;background:${STYLE_COLORS[col]}"></div>
-                </div>
-              </div>`;
-            }).join('')}
+            <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:16px">Score yourself on 25 statements about how you approach negotiation. Answer honestly — there are no right or wrong answers. Your instructor will discuss the results in class.</p>
+            <button class="btn btn-primary" onclick="openAssessmentPage('${aa.type}')">Open assessment →</button>
           </div>
         </div>`;
-      } else {
-        // Not yet submitted — show full form
-        html+=renderAssessmentForm(aa.type);
       }
+      // Completed state shown at bottom of page
     });
   }
 
@@ -472,7 +466,35 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     html+=`</div></div>`;
   }
 
-  // ── 5. MY PROGRESS ───────────────────────────────────────────────────────
+  // ── 5. COMPLETED ASSESSMENTS (compact badge, bottom of page) ───────────
+  if(myAssess&&myAssess.length){
+    myAssess.forEach(a=>{
+      const totals=typeof a.col_totals==='string'?JSON.parse(a.col_totals):(a.col_totals||{});
+      html+=`<div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${a.type==='pre'?'Pre-Semester':'End-of-Semester'} Self-Assessment</div>
+            <div class="card-sub">Completed · Anonymous ID: <strong>#${String(student.anon_number||'?').padStart(2,'0')}</strong></div>
+          </div>
+          <span class="pill pill-green">✓ Complete</span>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Your column totals — your instructor will explain what each means in class:</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            ${['A','B','C','D','E'].map(col=>{
+              const v=totals[col]||0;
+              return`<div style="text-align:center;padding:10px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--accent)">${v}</div>
+                <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px">${col}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // ── 6. MY PROGRESS ───────────────────────────────────────────────────────
   if(submissions.length>1){
     html+=renderMyProgress(submissions,assignments,reflections);
   }
@@ -721,75 +743,137 @@ const ASSESSMENT_QUESTIONS=[
   "I may not be open to hear other points of view.",
   "I avoid taking positions that would create controversy."
 ];
-const ASSESS_COLS=['A','B','C','D','E'];
 
-function renderAssessmentForm(type){
+// White box (active input) column per question — the ONLY cell students fill in per row
+const ASSESS_WHITE_BOX = {
+    1:'C',2:'E',3:'B',4:'E',5:'D',
+    6:'A',7:'B',8:'B',9:'C',10:'D',
+    11:'D',12:'C',13:'E',14:'A',15:'B',
+    16:'A',17:'A',18:'E',19:'C',20:'D',
+    21:'E',22:'C',23:'C',24:'B',25:'A'
+  };
+
+function openAssessmentPage(type){
+  const overlay=document.getElementById('assessment-overlay');
+  overlay.style.display='flex';
+  overlay.dataset.type=type;
+  document.getElementById('assess-modal-title').textContent=(type==='pre'?'Pre-Semester':'End-of-Semester')+' Self-Assessment';
+  const anonEl=document.getElementById('assess-anon-id');
+  if(anonEl)anonEl.textContent='#'+String(student?.anon_number||'?').padStart(2,'0');
+  renderAssessmentTable(type);
+  // Scroll overlay to top
+  overlay.scrollTop=0;
+}
+
+function closeAssessmentPage(){
+  document.getElementById('assessment-overlay').style.display='none';
+}
+
+function renderAssessmentTable(type){
+  const container=document.getElementById('assessment-table-container');
+  const cols=['A','B','C','D','E'];
+  
+  // Running totals per column
+  const totals={A:0,B:0,C:0,D:0,E:0};
+  
+  const headerCols=cols.map(c=>`
+    <th style="width:44px;text-align:center;padding:8px 4px;background:#1a6b5c;color:#fff;font-size:14px;font-weight:700;border:1px solid #14594d">${c}</th>
+  `).join('');
+
   const rows=ASSESSMENT_QUESTIONS.map((q,i)=>{
     const n=i+1;
-    const cols=ASSESS_COLS.map(col=>{
-      const scores=[0,1,2,3,4,5];
-      return`<td style="text-align:center;padding:6px 4px">
-        <select id="aq_${n}_${col}" style="width:44px;padding:3px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center">
-          <option value="">-</option>
-          ${scores.map(s=>`<option value="${s}">${s}</option>`).join('')}
-        </select>
-      </td>`;
+    const activeCol=ASSESS_WHITE_BOX[n];
+    const cells=cols.map(col=>{
+      if(col===activeCol){
+        return`<td style="text-align:center;padding:4px;border:1px solid #ccc;background:#fff">
+          <input type="number" id="aq_${n}" min="0" max="5" value=""
+            style="width:36px;height:30px;text-align:center;border:1px solid #aaa;border-radius:4px;font-size:14px;font-weight:600;padding:0"
+            oninput="updateAssessTotal()" onchange="this.value=Math.max(0,Math.min(5,parseInt(this.value)||0))">
+        </td>`;
+      }
+      return`<td style="background:#d0d0d0;border:1px solid #bbb;width:44px"></td>`;
     }).join('');
-    return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:8px 10px;font-size:13px;color:var(--text);line-height:1.5;min-width:200px">${n}. ${q}</td>
-      ${cols}
+    
+    return`<tr style="border-bottom:1px solid #ddd">
+      <td style="padding:8px 10px;font-size:13px;line-height:1.5;border:1px solid #ddd;vertical-align:middle">
+        <span style="font-weight:600;margin-right:6px">${n}.</span>${q}
+      </td>
+      ${cells}
     </tr>`;
   }).join('');
 
-  return`<div class="card">
-    <div class="card-header">
-      <div>
-        <div class="card-title">${type==='pre'?'Pre':'Post'}-Assessment — Negotiation Self-Inventory</div>
-        <div class="card-sub">Score yourself on each statement: 0 = never, 1 = rarely, 2 = sometimes, 3 = occasionally, 4 = frequently, 5 = always</div>
-      </div>
+  const totalCells=cols.map(c=>`
+    <td style="text-align:center;padding:8px 4px;border:1px solid #ccc;background:#f0f0f0">
+      <div id="col-total-${c}" style="width:36px;height:30px;line-height:30px;text-align:center;font-size:14px;font-weight:700;margin:0 auto;background:#fff;border:1px solid #aaa;border-radius:4px">0</div>
+    </td>
+  `).join('');
+
+  container.innerHTML=`
+    <div style="font-size:12px;color:#555;margin-bottom:12px;line-height:1.6;background:#fffbf0;border:1px solid #f0d9c0;border-radius:8px;padding:10px 14px">
+      Score yourself on each statement on a scale of <strong>0 – 5</strong>. &nbsp;
+      0 = never &nbsp; 1 = rarely &nbsp; 2 = sometimes &nbsp; 3 = occasionally &nbsp; 4 = frequently &nbsp; 5 = always
     </div>
-    <div class="card-body">
-      <div class="banner banner-blue" style="margin-bottom:16px">Your anonymous ID: <strong>#${String(student?.anon_number||'?').padStart(2,'0')}</strong> — you'll use this to find your results in class.</div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr style="background:var(--bg)">
-              <th style="padding:10px;text-align:left;font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Statement</th>
-              ${ASSESS_COLS.map(c=>`<th style="padding:10px 4px;text-align:center;font-size:12px;font-weight:700;color:var(--accent)">${c}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <button class="submit-btn" style="margin-top:16px" onclick="submitAssessment('${type}')">Submit ${type==='pre'?'pre':'post'}-assessment</button>
-    </div>
-  </div>`;
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#1a6b5c">
+            <th style="text-align:left;padding:10px 12px;color:#fff;font-size:14px;font-weight:700;border:1px solid #14594d">Statement</th>
+            ${headerCols}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="background:#f5f5f5">
+            <td style="padding:8px 12px;font-size:12px;font-weight:700;text-align:right;border:1px solid #ddd;color:#555">Total your score for each column</td>
+            ${totalCells}
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
 }
 
-async function submitAssessment(type){
-  // Collect all responses
-  const responses={};
-  let missing=0;
+function updateAssessTotal(){
+  const cols=['A','B','C','D','E'];
+  const totals={A:0,B:0,C:0,D:0,E:0};
   for(let n=1;n<=25;n++){
-    for(const col of ASSESS_COLS){
-      const el=document.getElementById('aq_'+n+'_'+col);
-      const v=el?el.value:'';
-      if(v===''||v===null)missing++;
-      else responses['q'+n+'_'+col]=parseInt(v);
+    const col=ASSESS_WHITE_BOX[n];
+    const el=document.getElementById('aq_'+n);
+    if(el){
+      const v=Math.max(0,Math.min(5,parseInt(el.value)||0));
+      totals[col]+=v;
     }
   }
-  if(missing>0){
-    if(!confirm(`${missing} field(s) are blank. Submit anyway?`))return;
-  }
-  // Calculate column totals
-  const colTotals={A:0,B:0,C:0,D:0,E:0};
-  Object.entries(STYLE_ITEMS).forEach(([col,items])=>{
-    items.forEach(n=>{
-      colTotals[col]+=(responses['q'+n+'_'+col]||0);
-    });
+  cols.forEach(c=>{
+    const el=document.getElementById('col-total-'+c);
+    if(el)el.textContent=totals[c];
   });
-  const btn=document.querySelector('.submit-btn');
+}
+
+async function submitAssessment(){
+  const overlay=document.getElementById('assessment-overlay');
+  const type=overlay.dataset.type;
+  const responses={};
+  const colTotals={A:0,B:0,C:0,D:0,E:0};
+  let missing=[];
+
+  for(let n=1;n<=25;n++){
+    const col=ASSESS_WHITE_BOX[n];
+    const el=document.getElementById('aq_'+n);
+    const v=el?Math.max(0,Math.min(5,parseInt(el.value)||0)):0;
+    if(el&&(el.value===''||el.value===null)){
+      missing.push(n);
+    }
+    responses['q'+n]=v;
+    colTotals[col]+=v;
+  }
+
+  if(missing.length>0){
+    if(!confirm(`${missing.length} question(s) not answered (${missing.join(', ')}). Submit anyway with 0 for blank answers?`))return;
+  }
+
+  const btn=document.getElementById('assess-submit-btn');
   if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+
   const r=await sb('self_assessments',{method:'POST',body:JSON.stringify({
     student_id:student.id,
     anon_number:student.anon_number,
@@ -797,8 +881,14 @@ async function submitAssessment(type){
     responses,
     col_totals:colTotals
   }),prefer:'return=minimal'});
-  if(r.ok){await load();}
-  else{if(btn){btn.disabled=false;btn.textContent='Submit assessment';}alert('Could not submit. Please try again.');}
+
+  if(r.ok){
+    closeAssessmentPage();
+    await load();
+  } else {
+    if(btn){btn.disabled=false;btn.textContent='Submit assessment';}
+    alert('Could not submit. Please try again.');
+  }
 }
 
 // ── MY PROGRESS ──────────────────────────────────────────────────────────────
@@ -847,5 +937,26 @@ function renderMyProgress(submissions,assignments,reflections){
 
 init();
 </script>
+<!-- ASSESSMENT OVERLAY -->
+<div class="assess-overlay" id="assessment-overlay">
+  <div class="assess-modal">
+    <div class="assess-modal-header">
+      <div>
+        <div class="assess-modal-title" id="assess-modal-title">Self-Assessment Inventory</div>
+        <div class="assess-modal-sub">Score 0–5 for each statement. Enter your score in the white box only.</div>
+      </div>
+      <button class="assess-close" onclick="closeAssessmentPage()" title="Close">✕</button>
+    </div>
+    <div class="assess-modal-body">
+      <div id="assessment-table-container"></div>
+    </div>
+    <div class="assess-modal-footer">
+      <span style="font-size:12px;color:var(--text-3);flex:1">Your anonymous ID: <strong id="assess-anon-id">#—</strong></span>
+      <button class="btn btn-outline" onclick="closeAssessmentPage()">Cancel</button>
+      <button class="btn btn-primary" id="assess-submit-btn" onclick="submitAssessment()">Submit assessment</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

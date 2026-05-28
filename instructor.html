@@ -2070,6 +2070,7 @@ function exportStudentProgress(sid){
 // ══════════════════════════════════════════════════════════════════════════════
 // ASSESSMENT
 // ══════════════════════════════════════════════════════════════════════════════
+const ASSESS_MAX={A:25,B:25,C:30,D:20,E:25};
 const ASSESSMENT_QUESTIONS=[
   {n:1,text:"If the other party's position seems very important to him or her, I may sacrifice my own position.",cols:['A','','','','']},
   {n:2,text:"I address problems and concerns directly without blame or judgment.",cols:['','B','','','']},
@@ -2159,7 +2160,8 @@ function renderAssessment(){
         <div style="display:flex;gap:8px">
           ${preCount?`<button class="btn btn-outline btn-sm" onclick="showAssessmentResults('pre')">View Pre (${preCount})</button>`:''}
           ${postCount?`<button class="btn btn-outline btn-sm" onclick="showAssessmentResults('post')">View Post (${postCount})</button>`:''}
-          ${preCount&&postCount?`<button class="btn btn-primary btn-sm" onclick="showAssessmentResults('both')">Compare Pre vs Post</button>`:''}
+          ${preCount&&postCount?`<button class="btn btn-primary btn-sm" onclick="showAssessmentResults('both')">Class avg comparison</button>`:''}
+          ${preCount&&postCount?`<button class="btn btn-primary btn-sm" onclick="showAssessmentResults('student')">Per-student Pre→Post</button>`:''}
           <button class="btn btn-outline btn-sm" onclick="exportAssessmentCSV()">↓ Export CSV</button>
         </div>
       </div>
@@ -2210,36 +2212,101 @@ function showAssessmentResults(view){
     totals: typeof a.col_totals==='string'?JSON.parse(a.col_totals):(a.col_totals||{A:0,B:0,C:0,D:0,E:0})
   }));
 
+  if(view==='student'){
+    // Per-student pre vs post comparison
+    const preData=getData('pre');
+    const postData=getData('post');
+    if(!preData.length&&!postData.length){
+      container.innerHTML='<div style="color:#9ca3af;font-size:13px">No submissions yet.</div>';return;
+    }
+    // Get all anon numbers that have at least one submission
+    const anonNums=[...new Set([...preData,...postData].map(a=>a.anon_number))].sort((a,b)=>a-b);
+
+    const rows=anonNums.map(anonNum=>{
+      const pre=preData.find(a=>a.anon_number===anonNum);
+      const post=postData.find(a=>a.anon_number===anonNum);
+      // Find real name from private key
+      const stu=allStudents.find(s=>s.anon_number===anonNum);
+
+      const cols=['A','B','C','D','E'];
+      const colCells=cols.map(col=>{
+        const preV=pre?pre.totals[col]||0:null;
+        const postV=post?post.totals[col]||0:null;
+        if(preV===null&&postV===null)return`<td colspan="3" style="background:#f9fafb;border:1px solid #f0ede8"></td>`;
+        if(preV===null)return`<td style="text-align:center;padding:5px 4px;border:1px solid #f0ede8;color:#9ca3af;font-size:11px">—</td><td style="text-align:center;padding:5px 4px;border:1px solid #f0ede8;font-weight:700">${postV}</td><td style="border:1px solid #f0ede8"></td>`;
+        if(postV===null)return`<td style="text-align:center;padding:5px 4px;border:1px solid #f0ede8;font-weight:700">${preV}</td><td style="text-align:center;padding:5px 4px;border:1px solid #f0ede8;color:#9ca3af;font-size:11px">—</td><td style="border:1px solid #f0ede8"></td>`;
+        const diff=postV-preV;
+        const diffColor=diff>0?'#16a34a':diff<0?'#dc2626':'#9ca3af';
+        const diffStr=diff>0?'+'+diff:diff===0?'=':diff;
+        return`<td style="text-align:center;padding:5px 4px;border:1px solid #f0ede8">${preV}</td>
+               <td style="text-align:center;padding:5px 4px;border:1px solid #f0ede8;font-weight:700">${postV}</td>
+               <td style="text-align:center;padding:5px 4px;border:1px solid #f0ede8;font-weight:700;color:${diffColor};font-size:12px">${diffStr}</td>`;
+      }).join('');
+
+      return`<tr>
+        <td style="padding:6px 10px;border:1px solid #f0ede8;font-weight:700;color:#bf5700;font-size:12px">#${String(anonNum||'?').padStart(2,'0')}</td>
+        ${colCells}
+      </tr>`;
+    }).join('');
+
+    // Column group headers
+    const colHeaders=['A','B','C','D','E'].map(col=>`
+      <th colspan="3" style="padding:6px 8px;text-align:center;border:1px solid #e5e7eb;color:${STYLE_COLORS[col]};font-size:12px;font-weight:700">${col}</th>`).join('');
+    const subHeaders=['A','B','C','D','E'].map(()=>`
+      <th style="padding:5px 4px;text-align:center;border:1px solid #e5e7eb;font-size:10px;font-weight:500;color:#9ca3af">Pre</th>
+      <th style="padding:5px 4px;text-align:center;border:1px solid #e5e7eb;font-size:10px;font-weight:500;color:#9ca3af">Post</th>
+      <th style="padding:5px 4px;text-align:center;border:1px solid #e5e7eb;font-size:10px;font-weight:500;color:#9ca3af">Δ</th>`).join('');
+
+    container.innerHTML=`
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">Per-student comparison — Pre vs Post</div>
+      <div style="font-size:12px;color:#9ca3af;margin-bottom:14px">Anonymous IDs only. Use the private key below to match to students.</div>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;font-size:13px;min-width:600px">
+          <thead>
+            <tr style="background:#f9fafb">
+              <th style="padding:8px 10px;text-align:left;border:1px solid #e5e7eb;font-size:11px" rowspan="2">ID</th>
+              ${colHeaders}
+            </tr>
+            <tr style="background:#f9fafb">${subHeaders}</tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    return;
+  }
+
   if(view==='both'){
     const preData=getData('pre');
     const postData=getData('post');
-    // Class average comparison
     const avg=(data,col)=>data.length?Math.round(data.reduce((s,a)=>s+(a.totals[col]||0),0)/data.length*10)/10:0;
     container.innerHTML=`
       <div style="font-size:13px;font-weight:700;margin-bottom:12px">Class average — Pre vs Post</div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="background:#f9fafb">
-            <th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e5e7eb">Style</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e5e7eb">Column</th>
             <th style="padding:8px 12px;text-align:center;border-bottom:1px solid #e5e7eb">Pre avg</th>
             <th style="padding:8px 12px;text-align:center;border-bottom:1px solid #e5e7eb">Post avg</th>
             <th style="padding:8px 12px;text-align:center;border-bottom:1px solid #e5e7eb">Change</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:1px solid #e5e7eb">Max</th>
           </tr></thead>
           <tbody>
             ${['A','B','C','D','E'].map(col=>{
               const pre=avg(preData,col);
               const post=avg(postData,col);
-              const diff=post-pre;
-              const diffStr=diff>0?'+'+diff.toFixed(1):diff.toFixed(1);
+              const diff=Math.round((post-pre)*10)/10;
+              const diffStr=diff>0?'+'+diff:String(diff);
               const diffColor=diff>0?'#16a34a':diff<0?'#dc2626':'#9ca3af';
+              const max=(ASSESS_MAX||{})[col]||25;
               return`<tr>
                 <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">
                   <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${STYLE_COLORS[col]};margin-right:6px"></span>
-                  <strong>${col}</strong> — ${STYLE_NAMES[col]}
+                  <strong>${col}</strong>
                 </td>
                 <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6">${pre}</td>
-                <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6">${post}</td>
+                <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6;font-weight:700">${post}</td>
                 <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6;font-weight:700;color:${diffColor}">${diffStr}</td>
+                <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6;color:#9ca3af">${max}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -2266,7 +2333,7 @@ function showAssessmentResults(view){
         <tbody>
           ${data.sort((a,b)=>(a.anon_number||99)-(b.anon_number||99)).map(row=>{
             const totals=row.totals;
-            const maxPossible={A:35,B:30,C:30,D:15,E:15};
+            const maxPossible=ASSESS_MAX||{A:25,B:25,C:30,D:20,E:25};
             return`<tr>
               <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;font-weight:700;color:#bf5700">#${String(row.anon_number||'?').padStart(2,'0')}</td>
               ${['A','B','C','D','E'].map(col=>{
@@ -2295,15 +2362,28 @@ function showAssessmentResults(view){
 }
 
 function exportAssessmentCSV(){
-  let csv='Anonymous ID,Type,A (Accommodating),B (Collaborating),C (Competing),D (Compromising),E (Avoiding)\n';
-  allSelfAssessments.sort((a,b)=>(a.anon_number||99)-(b.anon_number||99)).forEach(row=>{
-    const totals=typeof row.col_totals==='string'?JSON.parse(row.col_totals):(row.col_totals||{});
-    csv+=`#${String(row.anon_number||'?').padStart(2,'0')},${row.type},${totals.A||0},${totals.B||0},${totals.C||0},${totals.D||0},${totals.E||0}\n`;
+  // Build per-student pre/post comparison CSV (anonymous IDs only)
+  const getData=(type)=>allSelfAssessments.filter(a=>a.type===type).map(a=>({
+    ...a, totals: typeof a.col_totals==='string'?JSON.parse(a.col_totals):(a.col_totals||{})
+  }));
+  const preData=getData('pre');
+  const postData=getData('post');
+  const anonNums=[...new Set([...preData,...postData].map(a=>a.anon_number))].sort((a,b)=>a-b);
+
+  let csv='Anonymous ID,Pre-A,Pre-B,Pre-C,Pre-D,Pre-E,Post-A,Post-B,Post-C,Post-D,Post-E,Change-A,Change-B,Change-C,Change-D,Change-E\n';
+  anonNums.forEach(anonNum=>{
+    const pre=preData.find(a=>a.anon_number===anonNum);
+    const post=postData.find(a=>a.anon_number===anonNum);
+    const id='#'+String(anonNum||'?').padStart(2,'0');
+    const preVals=['A','B','C','D','E'].map(c=>pre?pre.totals[c]||0:'');
+    const postVals=['A','B','C','D','E'].map(c=>post?post.totals[c]||0:'');
+    const diffVals=['A','B','C','D','E'].map((c,i)=>(pre&&post)?postVals[i]-preVals[i]:'');
+    csv+=`${id},${preVals.join(',')},${postVals.join(',')},${diffVals.join(',')}\n`;
   });
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='assessment_results.csv';
+  a.download='assessment_pre_post.csv';
   a.click();
 }
 
