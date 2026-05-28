@@ -1398,14 +1398,37 @@ function renderResults(){
   </div>`;
   el.appendChild(formBar);
 
-  // Disputed
+  // Disputed — show side-by-side comparison of their version vs original
   if(disputed>0){
-    const dc=document.createElement('div'); dc.className='card alert-error'; dc.style.borderColor='#fecaca';
-    dc.innerHTML=`<div style="font-size:13px;font-weight:600;color:#dc2626;margin-bottom:.75rem">⚠️ ${disputed} disputed result${disputed!==1?'s':''} — review during debrief</div>`+
-    subs.filter(s=>s.form_data?._disputed).map(sub=>{
+    const dc=document.createElement('div'); dc.className='card'; dc.style.borderColor='#fecaca';
+    const sim=activeSim;
+    const simFields=(sim?.fields||[]).filter(f=>!f.id.startsWith('_'));
+    let dHtml=`<div style="font-size:13px;font-weight:700;color:#dc2626;margin-bottom:.75rem">⚠ ${disputed} disputed result${disputed!==1?'s':''} — review during debrief</div>`;
+    subs.filter(s=>s.form_data?._disputed).forEach(sub=>{
       const st=allStudents.find(x=>x.id===sub.student_id);
-      return`<div style="font-size:13px;padding:.4rem 0;border-bottom:1px solid #fef2f2"><strong>${st?.name||'Unknown'}</strong>: ${sub.form_data?._dispute_note||'No note'}</div>`;
-    }).join('');
+      const fd=sub.form_data||{};
+      const orig=fd._original_answers||{};
+      const changedFields=simFields.filter(f=>orig[f.id]!==undefined&&fd[f.id]!==orig[f.id]);
+      dHtml+=`<div style="border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:8px;background:#fff">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">${st?.name||'Unknown'}</div>
+        ${fd._dispute_note?`<div style="font-size:12px;color:#dc2626;margin-bottom:8px;font-style:italic">"${fd._dispute_note}"</div>`:''}
+        ${changedFields.length?`
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+            <tr style="background:#f9fafb">
+              <th style="padding:5px 8px;text-align:left;border:1px solid #f0ede8;color:#6b7280">Field</th>
+              <th style="padding:5px 8px;text-align:left;border:1px solid #f0ede8;color:#16a34a">Student's version</th>
+              <th style="padding:5px 8px;text-align:left;border:1px solid #f0ede8;color:#dc2626">Original answer</th>
+            </tr>
+            ${changedFields.map(f=>`<tr>
+              <td style="padding:5px 8px;border:1px solid #f0ede8;color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.04em">${f.label||f.id}</td>
+              <td style="padding:5px 8px;border:1px solid #f0ede8;font-weight:600;color:#16a34a">${fd[f.id]||'—'}</td>
+              <td style="padding:5px 8px;border:1px solid #f0ede8;color:#dc2626">${orig[f.id]||'—'}</td>
+            </tr>`).join('')}
+          </table>`
+        :`<div style="font-size:12px;color:#9ca3af">Flagged but no answers changed.</div>`}
+      </div>`;
+    });
+    dc.innerHTML=dHtml;
     el.appendChild(dc);
   }
 
@@ -1423,9 +1446,15 @@ function renderResults(){
     const tcard=document.createElement('div'); tcard.className='card'; tcard.style.padding='0';
     tcard.innerHTML=`<div style="padding:1rem 1.25rem;font-size:13px;font-weight:600;border-bottom:1px solid #f3f4f6">All submissions (${subs.length}) <span style="font-size:11px;color:#9ca3af;font-weight:400">— click a row for full detail</span></div>
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>Student</th>${simFields.map(f=>`<th style="min-width:100px">${(f.label||'').substring(0,20)}</th>`).join('')}<th>Status</th></tr></thead>
-        <tbody>${subs.slice().reverse().map((row,ri)=>{
+        <thead><tr><th>Group</th><th>Student</th>${simFields.map(f=>`<th style="min-width:100px">${(f.label||'').substring(0,20)}</th>`).join('')}<th>Status</th></tr></thead>
+        <tbody>${subs.slice().sort((a,b)=>{
+          const ga=allAssignments.find(x=>x.student_id===a.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
+          const gb=allAssignments.find(x=>x.student_id===b.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
+          return ga-gb;
+        }).map((row,ri)=>{
           const st=allStudents.find(s=>s.id===row.student_id);
+          const asg=allAssignments.find(a=>a.student_id===row.student_id&&a.simulation_id===activeSim?.id);
+          const groupNum=asg?.group_number||'—';
           const fd=row.form_data||{};
           const status=fd._disputed?'<span class="badge badge-red">Disputed</span>':fd._confirmed?'<span class="badge badge-green">Confirmed</span>':'<span class="badge badge-gray">Submitted</span>';
           const cells=simFields.map(f=>{
@@ -1435,7 +1464,7 @@ function renderResults(){
             if(String(v).length>30){return`<td title="${v}" style="cursor:help">${String(v).substring(0,30)+'…'}</td>`;}
             return`<td>${v}</td>`;
           }).join('');
-          return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')">${`<td><strong>${st?.name||'Unknown'}</strong></td>`}${cells}<td>${status}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSubmission('${row.id}')">Edit</button></td></tr>`;
+          return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')"><td style="font-weight:700;color:#bf5700;white-space:nowrap">Grp ${groupNum}</td><td><strong>${st?.name||'Unknown'}</strong></td>${cells}<td>${status}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSubmission('${row.id}')">Edit</button></td></tr>`;
         }).join('')}</tbody>
       </table></div>`;
     el.appendChild(tcard);
@@ -1462,7 +1491,11 @@ function openDetail(idx, rowId){
   document.getElementById('detail-title').textContent=st?.name||'Submission';
   document.getElementById('detail-body').innerHTML=
     `<div class="text-muted" style="margin-bottom:1rem">Submitted ${new Date(row.submitted_at).toLocaleString()}</div>`+
-    (fd._disputed?`<div class="alert alert-error" style="margin-bottom:1rem">⚠️ Disputed: ${fd._dispute_note||'No note'}</div>`:'')+
+    (fd._disputed?`<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 12px;margin-bottom:1rem">
+      <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:4px">⚠ Disputed by student</div>
+      ${fd._dispute_note?`<div style="font-size:12px;color:#dc2626;font-style:italic">"${fd._dispute_note}"</div>`:''}
+      ${fd._original_answers?`<div style="font-size:11px;color:#9ca3af;margin-top:6px">The student's version is shown above. Original answers were different — click to expand.</div>`:''}
+    </div>`:'')+
     (fd._confirmed?`<div class="alert alert-success" style="margin-bottom:1rem">✓ Confirmed by partner</div>`:'')+
     fields.map(f=>`<div class="detail-field"><div class="detail-field-label">${f.label||''}</div><div class="detail-field-value" style="white-space:pre-wrap;word-break:break-word">${fd[f.id]||'—'}</div></div>`).join('');
   document.getElementById('detail-panel').classList.add('show');
