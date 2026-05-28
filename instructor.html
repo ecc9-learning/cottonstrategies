@@ -319,7 +319,7 @@ textarea{resize:vertical;min-height:70px}
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Recent registrations</div>
+            <div class="card-title" id="overview-recent-title">Status</div>
             <div id="overview-recent"></div>
           </div>
         </div>
@@ -337,7 +337,7 @@ textarea{resize:vertical;min-height:70px}
         <div class="card" style="padding:0">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Name</th><th>Email</th><th>Registered</th><th>Last login</th><th>Assigned</th><th>Brief viewed</th><th>Submitted</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Email</th><th>This week's role</th><th>Submitted</th><th>Semester activity</th><th></th></tr></thead>
               <tbody id="roster-body"></tbody>
             </table>
           </div>
@@ -677,42 +677,69 @@ function renderOverview() {
   const expected = instructor?.class_size||20;
   const assigned = activeSim?allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released).length:0;
   const submitted = activeSim?allSubmissions.filter(s=>s.simulation_id===activeSim.id).length:0;
-  const briefViewed = activeSim?allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.brief_viewed_at).length:0;
-  const notSubmitted = allStudents.length - submitted;
+  const notYet = allStudents.filter(s=>!allSubmissions.find(x=>x.student_id===s.id&&x.simulation_id===activeSim?.id));
+  const reflCount = activeSim?allReflections.filter(r=>r.simulation_id===activeSim.id).length:0;
 
-  // Active sim banner
+  // ── Active simulation banner ────────────────────────────────────────────
   const banner = document.getElementById('overview-sim-banner');
   if (!activeSim) {
-    banner.innerHTML=`<div class="alert alert-warning" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
-      <span>⚠️ No simulation is currently active.</span>
+    banner.innerHTML=`<div style="background:#fef3e8;border:1px solid #f0d9c0;border-radius:12px;padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#bf5700">No simulation active</div>
+        <div style="font-size:13px;color:#78716c;margin-top:3px">Set a simulation active to get started.</div>
+      </div>
       <button class="btn btn-primary btn-sm" onclick="showSection('simulations')">Set active simulation →</button>
     </div>`;
   } else {
-    banner.innerHTML=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem">
-      <div>
-        <div style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Active simulation</div>
-        <div style="font-size:20px;font-weight:800;color:#111">${activeSim.name}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:2px">${activeSim.type}</div>
+    const simIdx=allSims.findIndex(s=>s.id===activeSim.id);
+    const nextSim=allSims[simIdx+1];
+    banner.innerHTML=`<div style="background:linear-gradient(135deg,#1a1a1a 0%,#222 100%);border-radius:12px;padding:1.5rem;color:#fff">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#bf5700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Now active</div>
+          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;line-height:1.1">${activeSim.name}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px">${activeSim.type} · ${(activeSim.roles||[]).join(' vs ')}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          ${activeSim.submission_open
+            ?`<span style="background:#16a34a;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">Form open</span>
+               <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)" onclick="qaCloseForm()">Close form</button>`
+            :`<span style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600">Form closed</span>
+               <button class="btn btn-sm" style="background:#bf5700;color:#fff;border:none" onclick="qaOpenForm()">Open form</button>`}
+          <button class="btn btn-sm" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15)" onclick="showSection('simulations')">Switch sim</button>
+        </div>
       </div>
-      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-        <span class="badge badge-blue">Active</span>
-        ${activeSim.submission_open
-          ?'<span class="badge badge-green">Form open</span><button class="btn btn-danger btn-sm" onclick="qaCloseForm()">Close form</button>'
-          :'<span class="badge badge-gray">Form closed</span><button class="btn btn-success btn-sm" onclick="qaOpenForm()">Open form</button>'}
-        <button class="btn btn-outline btn-sm" onclick="showSection('simulations')">Switch sim</button>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-top:1.25rem">
+        ${[
+          {v:allStudents.length,l:'Students'},
+          {v:assigned,l:'Assigned'},
+          {v:submitted,l:'Submitted'},
+          {v:reflCount,l:'Reflections'},
+        ].map(s=>`<div style="background:rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:22px;font-weight:800">${s.v}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.1em;margin-top:2px">${s.l}</div>
+        </div>`).join('')}
       </div>
+      ${nextSim?`<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.1);font-size:12px;color:rgba(255,255,255,.4)">Next up: <span style="color:rgba(255,255,255,.65)">${nextSim.name}</span></div>`:''}
     </div>`;
   }
 
-  document.getElementById('overview-stats').innerHTML=[
-    {v:allStudents.length+'/'+expected,l:'Registered'},
-    {v:assigned,l:'Assigned'},
-    {v:briefViewed,l:'Brief viewed'},
-    {v:submitted,l:'Submitted'},
-    {v:notSubmitted>0?notSubmitted:'✓',l:'Pending'},
-  ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
+  document.getElementById('overview-stats').innerHTML='';
 
-  // Update form button text
+  // ── Who hasn't submitted ───────────────────────────────────────────────
+  const recent = document.getElementById('overview-recent');
+  if(activeSim&&notYet.length){
+    recent.innerHTML=`<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:.5rem">Not yet submitted (${notYet.length})</div>`+
+      notYet.map(s=>`<div style="font-size:13px;padding:.4rem 0;border-bottom:1px solid #f9fafb;display:flex;align-items:center;gap:8px">
+        <span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0"></span>
+        <span>${s.name}</span>
+      </div>`).join('');
+  } else if(submitted&&submitted===allStudents.length){
+    recent.innerHTML=`<div style="text-align:center;padding:1rem;font-size:14px;color:#16a34a;font-weight:600">✓ All students submitted</div>`;
+  } else {
+    recent.innerHTML=recent.innerHTML||'<div style="font-size:13px;color:#9ca3af;padding:.5rem 0">No active simulation.</div>';
+  }
+
   const formBtn = document.getElementById('ov-form-btn');
   if (formBtn) {
     if (activeSim?.submission_open) {
@@ -725,11 +752,6 @@ function renderOverview() {
       formBtn.onclick=qaOpenForm;
     }
   }
-
-  const recent = allStudents.slice(-5).reverse();
-  document.getElementById('overview-recent').innerHTML = recent.length
-    ? recent.map(s=>`<div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #f9fafb;font-size:13px"><span><strong>${s.name}</strong></span><span style="color:#9ca3af">${fmtDate(s.created_at)}</span></div>`).join('')
-    : '<div class="empty-state" style="padding:1rem"><div class="empty-state-sub">No students registered yet.</div></div>';
 }
 
 // ── ROSTER ───────────────────────────────────────────────────────────────────
@@ -738,11 +760,12 @@ function renderRoster() {
   const assigned=activeSim?allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released).length:0;
   const submitted=activeSim?allSubmissions.filter(s=>s.simulation_id===activeSim.id).length:0;
 
+  const reflTotal=allReflections.length;
   document.getElementById('roster-stats').innerHTML=[
-    {v:allStudents.length,l:'Total students'},
-    {v:expected-allStudents.length,l:'Spots remaining'},
+    {v:allStudents.length+'/'+expected,l:'Registered'},
     {v:assigned,l:'Assigned this week'},
     {v:submitted,l:'Submitted this week'},
+    {v:reflTotal,l:'Total reflections'},
   ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
 
   const tbody=document.getElementById('roster-body');
@@ -751,12 +774,16 @@ function renderRoster() {
   tbody.innerHTML=allStudents.map(s=>{
     const asgn=activeSim?allAssignments.find(a=>a.student_id===s.id&&a.simulation_id===activeSim.id):null;
     const sub=activeSim?allSubmissions.find(x=>x.student_id===s.id&&x.simulation_id===activeSim.id):null;
+    const reflCount=allReflections.filter(r=>r.student_id===s.id).length;
+    const simCount=allSubmissions.filter(x=>x.student_id===s.id).length;
     return`<tr>
-      <td><strong>${s.name}</strong></td>
-      <td style="color:#9ca3af">${s.email}</td>
-      <td>${fmtDate(s.created_at)}</td>
+      <td>
+        <button class="btn btn-ghost" style="padding:0;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer;color:#111" onclick="openStudentProfile('${s.id}')">${s.name}</button>
+      </td>
+      <td style="color:#9ca3af;font-size:12px">${s.email}</td>
       <td>${asgn?.released?`<span class="badge badge-blue">${asgn.role}</span>`:'<span class="badge badge-gray">—</span>'}</td>
-      <td>${sub?'<span class="badge badge-green">✓</span>':'<span class="badge badge-gray">No</span>'}</td>
+      <td>${sub?'<span class="badge badge-green">✓ Submitted</span>':'<span class="badge badge-gray">—</span>'}</td>
+      <td style="font-size:12px;color:#6b7280">${simCount} sims &nbsp;·&nbsp; ${reflCount} reflections</td>
       <td>
         <button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">Edit</button>
         <button class="btn btn-ghost btn-sm" onclick="archiveStudent('${s.id}','${s.name}')">Archive</button>
@@ -793,7 +820,7 @@ function renderRoster() {
             if(sub?.form_data?._disputed){bg='background:#fecaca';icon='⚠';tip='Disputed';}
             return`<td style="text-align:center;padding:5px;${bg};border:1px solid #f3f4f6" title="${stu.name} — ${sim.name}: ${tip}">${icon}</td>`;
           }).join('');
-          return`<tr><td style="padding:6px 10px;font-weight:500;border-right:1px solid #e5e7eb;white-space:nowrap">${stu.name}</td>${cells}</tr>`;
+          return`<tr><td style="padding:6px 10px;font-weight:500;border-right:1px solid #e5e7eb;white-space:nowrap"><button class="btn btn-ghost" style="padding:0;font-size:12px;font-weight:500;text-decoration:underline;text-underline-offset:2px;cursor:pointer;color:#374151" onclick="openStudentProfile('${stu.id}')">${stu.name}</button></td>${cells}</tr>`;
         }).join('')}</tbody>
       </table>
     </div>`;
@@ -1479,6 +1506,37 @@ function renderResults(){
     notSub.map(s=>`<div style="font-size:13px;padding:.35rem 0;border-bottom:1px solid #f9fafb"><strong>${s.name}</strong> <span style="color:#9ca3af">${s.email}</span></div>`).join('');
     el.appendChild(ns);
   }
+
+  // ── Reflections for this simulation ──────────────────────────────────────
+  const simRefls=allReflections.filter(r=>r.simulation_id===activeSim?.id);
+  if(simRefls.length){
+    const rd=document.createElement('div'); rd.className='card';
+    let rHtml=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div class="card-title" style="margin-bottom:0">Reflections (${simRefls.length}/${allStudents.length})</div>
+      <button class="btn btn-ghost btn-sm" id="refl-toggle" onclick="toggleReflections(this)">Show ▾</button>
+    </div>
+    <div id="refl-list" style="display:none">`;
+    simRefls.forEach(r=>{
+      const stu=allStudents.find(s=>s.id===r.student_id);
+      rHtml+=`<div style="padding:12px 0;border-bottom:1px solid #f3f4f6">
+        <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">${stu?.name||'Unknown'}</div>
+        ${r.mistake?`<div style="margin-bottom:4px"><span style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Mistake: </span><span style="font-size:13px;color:#374151">${r.mistake}</span></div>`:''}
+        ${r.do_differently?`<div style="margin-bottom:4px"><span style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Would do differently: </span><span style="font-size:13px;color:#374151">${r.do_differently}</span></div>`:''}
+        ${r.custom_response?`<div><span style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Response: </span><span style="font-size:13px;color:#374151">${r.custom_response}</span></div>`:''}
+      </div>`;
+    });
+    rHtml+='</div>';
+    rd.innerHTML=rHtml;
+    el.appendChild(rd);
+  }
+}
+
+function toggleReflections(btn){
+  const list=document.getElementById('refl-list');
+  if(!list)return;
+  const showing=list.style.display!=='none';
+  list.style.display=showing?'none':'block';
+  btn.textContent=showing?'Show ▾':'Hide ▴';
 }
 
 function openDetail(idx, rowId){
@@ -2468,6 +2526,85 @@ async function deleteStudent(id,name){
   const r=await api('students?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
   if(r.ok){await loadAll();showSection('roster');alert(name+' and all their data deleted.');}
   else alert('Could not fully delete. Some records may remain.');
+}
+
+// ── STUDENT PROFILE ──────────────────────────────────────────────────────────
+function openStudentProfile(sid){
+  const stu=allStudents.find(s=>s.id===sid)||allArchivedStudents.find(s=>s.id===sid);
+  if(!stu)return;
+  const stuSubs=allSubmissions.filter(s=>s.student_id===sid);
+  const stuRefl=allReflections.filter(r=>r.student_id===sid);
+  const stuAsgs=allAssignments.filter(a=>a.student_id===sid&&a.released);
+
+  // Deal rate
+  const dealCount=stuSubs.filter(s=>{
+    const sim=allSims.find(x=>x.id===s.simulation_id);
+    const df=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
+    return s.form_data?.[df]==='Yes';
+  }).length;
+  const dealRate=stuSubs.length?Math.round(dealCount/stuSubs.length*100):0;
+
+  // Simulation records in order
+  const records=allSims.map(sim=>{
+    const sub=stuSubs.find(s=>s.simulation_id===sim.id);
+    const asg=stuAsgs.find(a=>a.simulation_id===sim.id);
+    const refl=stuRefl.find(r=>r.simulation_id===sim.id);
+    if(!sub&&!asg)return null;
+    const df=(sim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
+    const deal=sub?sub.form_data?.[df]:null;
+    const fields=(sim.fields||[]).filter(f=>!f.id.startsWith('_'));
+    return{sim,sub,asg,refl,deal,fields};
+  }).filter(Boolean);
+
+  const simHtml=records.map(r=>{
+    const dealBadge=r.deal==='Yes'?'<span class="badge badge-green">✓ Deal</span>':r.deal==='No'?'<span class="badge badge-red">No deal</span>':'<span class="badge badge-gray">—</span>';
+    const answers=r.sub?r.fields.map(f=>{
+      const v=r.sub.form_data?.[f.id];
+      if(!v||v==='—')return'';
+      return`<div style="display:flex;gap:12px;padding:4px 0;border-bottom:1px solid #f9fafb;font-size:12px">
+        <span style="color:#9ca3af;min-width:140px;flex-shrink:0;text-transform:uppercase;font-size:10px;font-weight:600;padding-top:1px">${(f.label||f.id).substring(0,30)}</span>
+        <span style="color:#374151">${v}</span>
+      </div>`;
+    }).filter(Boolean).join(''):'';
+
+    const reflHtml=r.refl?`<div style="background:#eff6ff;border-radius:6px;padding:10px 12px;margin-top:8px">
+      <div style="font-size:10px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Reflection</div>
+      ${r.refl.mistake?`<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Biggest mistake</div><div style="font-size:12px;color:#374151;line-height:1.5">${r.refl.mistake}</div></div>`:''}
+      ${r.refl.do_differently?`<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Would do differently</div><div style="font-size:12px;color:#374151;line-height:1.5">${r.refl.do_differently}</div></div>`:''}
+      ${r.refl.custom_response?`<div><div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">${r.sim.reflection_question||'Response'}</div><div style="font-size:12px;color:#374151;line-height:1.5">${r.refl.custom_response}</div></div>`:''}
+    </div>`:'<div style="font-size:12px;color:#d1d5db;font-style:italic;margin-top:4px">No reflection submitted</div>';
+
+    return`<div style="padding:14px 0;border-bottom:1px solid #f3f4f6">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;color:#111">${r.sim.name}</span>
+        <span style="font-size:11px;color:#9ca3af">${r.asg?.role||''}</span>
+        ${dealBadge}
+      </div>
+      ${answers?`<div style="margin-bottom:6px">${answers}</div>`:''}
+      ${reflHtml}
+    </div>`;
+  }).join('');
+
+  showModal(`<div class="modal-header">
+    <div>
+      <div class="modal-title">${stu.name}</div>
+      <div style="font-size:12px;color:#9ca3af;margin-top:2px">${stu.email}</div>
+    </div>
+  </div>
+  <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <div class="stat-card" style="flex:1"><div class="stat-val">${stuSubs.length}</div><div class="stat-lbl">Simulations</div></div>
+      <div class="stat-card" style="flex:1"><div class="stat-val">${dealRate}%</div><div class="stat-lbl">Deal rate</div></div>
+      <div class="stat-card" style="flex:1"><div class="stat-val">${stuRefl.length}</div><div class="stat-lbl">Reflections</div></div>
+    </div>
+    ${records.length
+      ?`<div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Simulation record + reflections</div>${simHtml}`
+      :'<div style="color:#9ca3af;font-size:13px;font-style:italic">No simulations completed yet.</div>'}
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal()">Close</button>
+    <button class="btn btn-primary" onclick="exportStudentProgress('${sid}')">Export CSV</button>
+  </div>`);
 }
 
 function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}

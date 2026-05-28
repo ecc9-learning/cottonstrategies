@@ -250,14 +250,15 @@ async function init(){
 }
 
 async function load(){
-  const [simR,asgR,subR,allSimR,reflR,aaR,saR]=await Promise.all([
+  const [simR,asgR,subR,allSimR,reflR,aaR,saR,notesR]=await Promise.all([
     sb('simulations?is_active=eq.true&select=*&limit=1'),
     sb('assignments?student_id=eq.'+student.id+'&released=eq.true&select=*&order=created_at.desc'),
     sb('submissions?student_id=eq.'+student.id+'&select=*&order=submitted_at.desc'),
     sb('simulations?select=id,name,sort_order,description,is_active,reflection_question&order=sort_order.asc'),
     sb('reflections?student_id=eq.'+student.id+'&select=*'),
     sb('assessment_assignments?is_open=eq.true&select=*'),
-    sb('self_assessments?student_id=eq.'+student.id+'&select=*')
+    sb('self_assessments?student_id=eq.'+student.id+'&select=*'),
+    sb('notes?student_id=eq.'+student.id+'&select=*')
   ]);
 
   activeSim = simR.ok&&simR.data?.length ? {
@@ -270,6 +271,7 @@ async function load(){
   allSims = allSimR.ok ? allSimR.data : [];
   allAssessmentAssignments = aaR.ok ? aaR.data : [];
   myAssessments = saR.ok ? saR.data : [];
+  window._myNotes = notesR.ok ? notesR.data : [];
 
   const currentAsg = asgR.ok&&asgR.data?.length ? asgR.data.find(a=>activeSim&&a.simulation_id===activeSim.id)||null : null;
   assignment = currentAsg;
@@ -445,7 +447,7 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
           <div class="tl-name ${!isDone&&!isActive?'future':''}">${s.name}</div>
           ${isDone&&asg?`<div class="tl-meta">Role: ${asg.role}</div>`:''}
           ${isDone&&sub?`<div class="tl-outcome">${sub.form_data?.f4==='Yes'||sub.form_data?.[dealField]==='Yes'?'✓ Deal reached':'✗ No deal'}</div>`:''}
-          ${isActive?`<div class="tl-meta" style="color:var(--accent);font-weight:600">In progress now</div>`:''}
+          ${isActive?`<div class="tl-meta" style="color:var(--accent);font-weight:600">In progress now</div>${s.description?`<div class="tl-preview">${s.description}</div>`:''}`:''}
           ${!isDone&&!isActive&&s.description?`<div class="tl-preview">${s.description}</div>`:''}
         </div>
       </div>`;
@@ -502,7 +504,68 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     });
   }
 
-  // ── 6. MY PROGRESS ───────────────────────────────────────────────────────
+  // ── 6. MY NOTES (all simulations) ────────────────────────────────────────
+  const allNotes=window._myNotes||[];
+  if(allNotes.filter(n=>n.content&&n.content.trim()).length){
+    html+=`<div class="card">
+      <div class="card-header"><div class="card-title">📝 My notes</div></div>
+      <div class="card-body">`;
+    allSims.forEach(sim=>{
+      const note=allNotes.find(n=>n.simulation_id===sim.id);
+      if(!note||!note.content||!note.content.trim())return;
+      html+=`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">${sim.name}</div>
+        <div style="font-size:13px;color:var(--text-2);white-space:pre-wrap;line-height:1.6">${note.content}</div>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  }
+
+  // ── 7. MY FULL RESULTS (all past submissions) ──────────────────────────
+  if(submissions.length){
+    const pastWithDetails=allSims.map(sim=>{
+      const sub=submissions.find(s=>s.simulation_id===sim.id);
+      const asg=assignments.find(a=>a.simulation_id===sim.id);
+      const refl=reflections.find(r=>r.simulation_id===sim.id);
+      if(!sub)return null;
+      return{sim,sub,asg,refl};
+    }).filter(Boolean);
+
+    if(pastWithDetails.length){
+      html+=`<div class="card">
+        <div class="card-header"><div class="card-title">📊 My full results</div></div>
+        <div class="card-body">`;
+      pastWithDetails.forEach(({sim,sub,asg,refl})=>{
+        const fields=(sim.fields||[]).filter(f=>!f.id.startsWith('_'));
+        const dealField=fields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
+        const deal=sub.form_data?.[dealField];
+        html+=`<div style="padding:14px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:700">${sim.name}</span>
+            <span style="font-size:12px;color:var(--text-3)">${asg?.role||''}</span>
+            <span class="pill ${deal==='Yes'?'pill-green':'pill-gray'}">${deal==='Yes'?'✓ Deal':'No deal'}</span>
+          </div>
+          ${fields.map(f=>{
+            const v=sub.form_data?.[f.id];
+            if(!v||v==='—')return'';
+            return`<div style="display:flex;gap:12px;padding:3px 0;font-size:12px">
+              <span style="color:var(--text-3);min-width:130px;flex-shrink:0">${(f.label||f.id).substring(0,40)}</span>
+              <span style="color:var(--text-2)">${v}</span>
+            </div>`;
+          }).filter(Boolean).join('')}
+          ${refl?`<div style="background:var(--blue-light);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:12px">
+            <div style="font-weight:700;color:var(--blue);margin-bottom:4px">Your reflection</div>
+            ${refl.mistake?`<div style="margin-bottom:3px"><span style="color:var(--text-3)">Mistake: </span>${refl.mistake}</div>`:''}
+            ${refl.do_differently?`<div style="margin-bottom:3px"><span style="color:var(--text-3)">Would do differently: </span>${refl.do_differently}</div>`:''}
+            ${refl.custom_response?`<div><span style="color:var(--text-3)">Response: </span>${refl.custom_response}</div>`:''}
+          </div>`:''}
+        </div>`;
+      });
+      html+=`</div></div>`;
+    }
+  }
+
+  // ── 8. MY PROGRESS ───────────────────────────────────────────────────────
   if(submissions.length>1){
     html+=renderMyProgress(submissions,assignments,reflections);
   }
@@ -645,19 +708,30 @@ function saveDraft(){
 
 function getNotes(){
   if(!activeSim||!student)return'';
-  return localStorage.getItem('notes_'+student.id+'_'+activeSim.id)||'';
+  // Try Supabase first, fall back to localStorage for migration
+  const note=window._myNotes&&window._myNotes.find(n=>n.simulation_id===activeSim.id);
+  return note?.content||localStorage.getItem('notes_'+student.id+'_'+activeSim.id)||'';
 }
 
 function scheduleNotesSave(){
   clearTimeout(notesSaveTimer);
-  notesSaveTimer=setTimeout(()=>{
+  notesSaveTimer=setTimeout(async()=>{
     const area=document.getElementById('notes-area');
-    if(area&&activeSim&&student){
-      localStorage.setItem('notes_'+student.id+'_'+activeSim.id,area.value);
-      const saved=document.getElementById('notes-saved');
-      if(saved){saved.classList.add('show');setTimeout(()=>saved.classList.remove('show'),2000);}
+    if(!area||!activeSim||!student)return;
+    const txt=area.value;
+    // Save to Supabase (upsert)
+    const existing=window._myNotes&&window._myNotes.find(n=>n.simulation_id===activeSim.id);
+    if(existing){
+      await sb('notes?id=eq.'+existing.id,{method:'PATCH',body:JSON.stringify({content:txt,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
+    } else {
+      const r=await sb('notes',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,content:txt}),prefer:'return=representation'});
+      if(r.ok&&r.data?.[0]){if(!window._myNotes)window._myNotes=[];window._myNotes.push(r.data[0]);}
     }
-  },800);
+    // Also keep localStorage as backup
+    localStorage.setItem('notes_'+student.id+'_'+activeSim.id,txt);
+    const saved=document.getElementById('notes-saved');
+    if(saved){saved.classList.add('show');setTimeout(()=>saved.classList.remove('show'),2000);}
+  },1200);
 }
 
 async function loadPartnerName(){
