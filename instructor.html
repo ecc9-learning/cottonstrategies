@@ -11,7 +11,7 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#111;display:flex;flex-direction:column;min-height:100vh}
 
 /* STATUS BAR */
-.status-bar{background:#111;color:#fff;padding:0 1.5rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:200}
+.status-bar{background:#1a1a1a;color:#fff;padding:0 1.5rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:200}
 .status-left{display:flex;align-items:center;gap:1.5rem}
 .status-logo{font-size:14px;font-weight:700;color:#fff;letter-spacing:-.3px}
 .status-divider{width:1px;height:20px;background:#333}
@@ -21,6 +21,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.03em}
 .pill-blue{background:#1d4ed8;color:#fff}
 .pill-green{background:#16a34a;color:#fff}
+.pill-orange{background:#bf5700;color:#fff}
 .pill-red{background:#dc2626;color:#fff}
 .pill-gray{background:#374151;color:#9ca3af}
 .status-right{display:flex;align-items:center;gap:1.25rem}
@@ -195,7 +196,7 @@ textarea{resize:vertical;min-height:70px}
     <div class="field"><label>Email</label><input type="email" id="i-email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="field"><label>Password</label><input type="password" id="i-pw" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn btn-primary btn-lg" style="width:100%" onclick="doLogin()" id="login-btn">Log in</button>
-    <div style="text-align:center;margin-top:1rem;font-size:12px;color:#9ca3af">Default password: <strong>NegClass2025!</strong></div>
+    
   </div>
 </div>
 
@@ -344,6 +345,7 @@ textarea{resize:vertical;min-height:70px}
           <div class="card-title">General</div>
           <div class="field"><label>Cohort name</label><input type="text" id="set-cohort" placeholder="Negotiation Class — Spring 2026"></div>
           <div class="field"><label>Expected class size</label><input type="number" id="set-size" min="1" max="200" placeholder="20"></div>
+          <div class="field"><label>Class access code <span style="font-size:11px;font-weight:400;text-transform:none;color:#9ca3af">— students enter this to register</span></label><input type="text" id="set-code" placeholder="e.g. NEGLAW26" style="text-transform:uppercase"></div>
           <button class="btn btn-primary" onclick="saveSettings()">Save settings</button>
         </div>
         <div class="card">
@@ -674,13 +676,50 @@ function renderRoster() {
       <td><strong>${s.name}</strong></td>
       <td style="color:#9ca3af">${s.email}</td>
       <td>${fmtDate(s.created_at)}</td>
-      <td>${s.last_login?fmtDate(s.last_login):'<span class="badge badge-gray">Never</span>'}</td>
-      <td>${asgn?.released?`<span class="badge badge-blue">${asgn.role}</span>`:'<span class="badge badge-gray">No</span>'}</td>
-      <td>${asgn?.brief_viewed_at?'<span class="badge badge-green">Yes</span>':'<span class="badge badge-gray">No</span>'}</td>
-      <td>${sub?'<span class="badge badge-green">Yes</span>':'<span class="badge badge-gray">No</span>'}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="archiveStudent('${s.id}','${s.name}')">Archive</button></td>
+      <td>${asgn?.released?`<span class="badge badge-blue">${asgn.role}</span>`:'<span class="badge badge-gray">—</span>'}</td>
+      <td>${sub?'<span class="badge badge-green">✓</span>':'<span class="badge badge-gray">No</span>'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="archiveStudent('${s.id}','${s.name}')">Archive</button>
+      </td>
     </tr>`;
   }).join('');
+
+  // ── HEAT MAP ──
+  if(allStudents.length&&allSims.length){
+    const hmDiv=document.createElement('div');
+    hmDiv.style.cssText='margin-top:1.5rem;overflow-x:auto';
+    hmDiv.innerHTML=`<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:.75rem">
+      Semester tracker
+      <span style="font-weight:400;color:#9ca3af;font-size:11px;margin-left:8px">
+        <span style="background:#fef9c3;padding:1px 5px;border-radius:3px">📋</span> Assigned &nbsp;
+        <span style="background:#dcfce7;padding:1px 5px;border-radius:3px">✓</span> Submitted &nbsp;
+        <span style="background:#fecaca;padding:1px 5px;border-radius:3px">⚠</span> Disputed
+      </span>
+    </div>
+    <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:600px">
+        <thead><tr style="background:#f9fafb">
+          <th style="padding:6px 10px;text-align:left;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap">Student</th>
+          ${allSims.map(s=>`<th style="padding:4px 6px;text-align:center;font-weight:500;color:#6b7280;border-bottom:1px solid #e5e7eb;min-width:52px;font-size:10px;line-height:1.3">${s.name.split(' ').slice(0,2).join('<br>')}</th>`).join('')}
+        </tr></thead>
+        <tbody>${allStudents.map(stu=>{
+          const cells=allSims.map(sim=>{
+            const asg=allAssignments.find(a=>a.student_id===stu.id&&a.simulation_id===sim.id);
+            const sub=allSubmissions.find(s=>s.student_id===stu.id&&s.simulation_id===sim.id);
+            let bg='',icon='',tip='Not assigned';
+            if(asg?.released){bg='background:#fef9c3';icon='📋';tip='Assigned';}
+            if(sub){bg='background:#dcfce7';icon='✓';tip='Submitted';}
+            if(sub?.form_data?._confirmed){bg='background:#bbf7d0';icon='✓✓';tip='Confirmed';}
+            if(sub?.form_data?._disputed){bg='background:#fecaca';icon='⚠';tip='Disputed';}
+            return`<td style="text-align:center;padding:5px;${bg};border:1px solid #f3f4f6" title="${stu.name} — ${sim.name}: ${tip}">${icon}</td>`;
+          }).join('');
+          return`<tr><td style="padding:6px 10px;font-weight:500;border-right:1px solid #e5e7eb;white-space:nowrap">${stu.name}</td>${cells}</tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+    document.getElementById('roster-body').parentElement.appendChild(hmDiv);
+  }
 }
 
 // ── ASSIGNMENTS ───────────────────────────────────────────────────────────────
@@ -883,6 +922,7 @@ function renderSimulations(){
       <div class="sim-actions">
         ${!s.is_active?`<button class="btn btn-primary btn-sm" onclick="setActiveSim('${s.id}')">Set active</button>`:`<button class="btn btn-danger btn-sm" onclick="deactivateSim('${s.id}')">Deactivate</button>`}
         <button class="btn btn-outline btn-sm" onclick="manageSim('${s.id}')">Manage</button>
+        <button class="btn btn-ghost btn-sm" onclick="renameSim('${s.id}')">Rename</button>
       </div>`;
     // Drag events
     div.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',s.id);div.classList.add('dragging');});
@@ -1182,7 +1222,7 @@ function renderResults(){
             if(String(v).length>30){return`<td title="${v}" style="cursor:help">${String(v).substring(0,30)+'…'}</td>`;}
             return`<td>${v}</td>`;
           }).join('');
-          return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')">${`<td><strong>${st?.name||'Unknown'}</strong></td>`}${cells}<td>${status}</td></tr>`;
+          return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')">${`<td><strong>${st?.name||'Unknown'}</strong></td>`}${cells}<td>${status}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSubmission('${row.id}')">Edit</button></td></tr>`;
         }).join('')}</tbody>
       </table></div>`;
     el.appendChild(tcard);
@@ -1299,14 +1339,16 @@ function loadSettings(){
   if(instructor){
     const c=document.getElementById('set-cohort'); if(c)c.value=instructor.cohort_name||'';
     const s=document.getElementById('set-size'); if(s)s.value=instructor.class_size||20;
+    const ac=document.getElementById('set-code'); if(ac)ac.value=instructor.access_code||'NEGLAW26';
   }
 }
 
 async function saveSettings(){
   const cohort=document.getElementById('set-cohort').value.trim();
   const size=parseInt(document.getElementById('set-size').value)||20;
-  const res=await dbPatch('instructors?id=eq.'+instructor.id,{cohort_name:cohort,class_size:size});
-  if(res.ok){instructor.cohort_name=cohort;instructor.class_size=size;alert('Settings saved.');}
+  const code=(document.getElementById('set-code')?.value||'').trim().toUpperCase()||'NEGLAW26';
+  const res=await dbPatch('instructors?id=eq.'+instructor.id,{cohort_name:cohort,class_size:size,access_code:code});
+  if(res.ok){instructor.cohort_name=cohort;instructor.class_size=size;instructor.access_code=code;alert('Settings saved.');}
   else{alert('Could not save. Status: '+res.status);}
 }
 
@@ -1369,6 +1411,129 @@ async function doAddStudent(){
     document.getElementById('add-btn').style.display='none';
     await loadAll();
   }else{alert('Could not add student. Email may already be registered.');}
+}
+
+// ── STUDENT ADMIN ────────────────────────────────────────────────────────────
+function editStudent(sid){
+  const s=allStudents.find(x=>x.id===sid); if(!s)return;
+  showModal(`<div class="modal-header"><div class="modal-title">Edit Student — ${s.name}</div></div>
+    <div class="modal-body">
+      <div class="field"><label class="field-label">Full name</label>
+        <input type="text" id="es-name" value="${s.name}" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>
+      <div class="field"><label class="field-label">Email address</label>
+        <input type="email" id="es-email" value="${s.email}" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>
+      <div class="field"><label class="field-label">Reset PIN <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(leave blank to keep current)</span></label>
+        <input type="password" id="es-pin" placeholder="New PIN (optional)" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 12px;font-size:12px;color:#dc2626;margin-top:.5rem">
+        <strong>Archive student</strong> — removes them from the active roster.<br>
+        <button class="btn btn-sm" style="background:#dc2626;color:#fff;margin-top:8px" onclick="archiveStudent('${s.id}','${s.name}')">Archive this student</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditStudent('${sid}')">Save changes</button>
+    </div>`);
+}
+
+async function submitEditStudent(sid){
+  const name=document.getElementById('es-name')?.value.trim();
+  const email=document.getElementById('es-email')?.value.trim().toLowerCase();
+  const pin=document.getElementById('es-pin')?.value;
+  if(!name||!email){alert('Name and email are required.');return;}
+  const updates={name,email};
+  if(pin&&pin.length>=4){
+    const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin));
+    updates.pin_hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  const r=await dbPatch('students?id=eq.'+sid,updates);
+  if(r.ok){closeModal();await loadAll();showSection('roster');}
+  else{alert('Could not save. Status: '+r.status);}
+}
+
+function editSubmission(subId){
+  const sub=allSubmissions.find(s=>s.id===subId);
+  const stu=sub?allStudents.find(s=>s.id===sub.student_id):null;
+  const sim=sub?allSims.find(s=>s.id===sub.simulation_id):null;
+  if(!sub||!sim)return;
+  const fields=(sim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  const formHtml=fields.map(f=>{
+    const val=sub.form_data?.[f.id]||'';
+    if(f.type==='radio'){
+      return`<div class="field"><label class="field-label">${f.label||f.id}</label>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          ${(f.options||[]).map(o=>`<label style="display:flex;align-items:center;gap:.35rem;font-size:13px;cursor:pointer;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px;background:${val===o?'#fdf3eb':'#fff'}">
+            <input type="radio" name="es_${f.id}" value="${o}" ${val===o?'checked':''}> ${o}
+          </label>`).join('')}
+        </div>
+      </div>`;
+    }
+    if(f.type==='textarea'){
+      return`<div class="field"><label class="field-label">${f.label||f.id}</label>
+        <textarea id="es_${f.id}" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:60px;resize:vertical">${val}</textarea>
+      </div>`;
+    }
+    return`<div class="field"><label class="field-label">${f.label||f.id}</label>
+      <input type="${f.type==='number'?'number':'text'}" id="es_${f.id}" value="${val}" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+    </div>`;
+  }).join('');
+  showModal(`<div class="modal-header"><div class="modal-title">Edit Results — ${stu?.name||'Student'}</div></div>
+    <div class="modal-body"><div style="font-size:12px;color:#9ca3af;margin-bottom:1rem">${sim.name}</div>${formHtml}</div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditSubmission('${subId}','${sim.id}')">Save changes</button>
+    </div>`);
+}
+
+async function submitEditSubmission(subId,simId){
+  const sim=allSims.find(s=>s.id===simId); if(!sim)return;
+  const sub=allSubmissions.find(s=>s.id===subId); if(!sub)return;
+  const fields=(sim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  const fd={...sub.form_data};
+  fields.forEach(f=>{
+    if(f.type==='radio'){
+      const checked=document.querySelector(`input[name="es_${f.id}"]:checked`);
+      if(checked)fd[f.id]=checked.value;
+    } else {
+      const el=document.getElementById('es_'+f.id);
+      if(el)fd[f.id]=el.value;
+    }
+  });
+  const r=await dbPatch('submissions?id=eq.'+subId,{form_data:fd,updated_at:new Date().toISOString()});
+  if(r.ok){closeModal();await loadAll();showSection('results');}
+  else{alert('Could not save. Status: '+r.status);}
+}
+
+function renameSim(simId){
+  const sim=allSims.find(s=>s.id===simId); if(!sim)return;
+  showModal(`<div class="modal-header"><div class="modal-title">Rename Simulation</div></div>
+    <div class="modal-body">
+      <div class="field"><label class="field-label">Simulation name</label>
+        <input type="text" id="rn-name" value="${sim.name}" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>
+      <div class="field"><label class="field-label">Preview description <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(shown to students before brief is released)</span></label>
+        <textarea id="rn-desc" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:90px;resize:vertical">${sim.description||''}</textarea>
+      </div>
+      <div class="field"><label class="field-label">Reflection question <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(shown after student submits results)</span></label>
+        <textarea id="rn-refl" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:60px;resize:vertical">${sim.reflection_question||''}</textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRenameSim('${simId}')">Save</button>
+    </div>`);
+}
+
+async function submitRenameSim(simId){
+  const name=document.getElementById('rn-name')?.value.trim();
+  const desc=document.getElementById('rn-desc')?.value||'';
+  const refl=document.getElementById('rn-refl')?.value||'';
+  if(!name){alert('Name is required.');return;}
+  const r=await dbPatch('simulations?id=eq.'+simId,{name,description:desc,reflection_question:refl});
+  if(r.ok){closeModal();await loadAll();showSection('simulations');}
+  else{alert('Could not save. Status: '+r.status);}
 }
 
 function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}

@@ -2,450 +2,601 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Negotiation Class — Cotton Strategies</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cotton Strategies — My Dashboard</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;min-height:100vh;color:#111}
-.header{background:#fff;border-bottom:1px solid #e5e7eb;padding:0 1.25rem;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.header-left{font-size:14px;font-weight:700;color:#111;letter-spacing:-.3px}
-.header-right{display:flex;align-items:center;gap:.75rem}
-.header-name{font-size:13px;color:#6b7280}
-.logout{font-size:12px;color:#9ca3af;background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px}
-.logout:hover{color:#111;background:#f3f4f6}
-.main{max-width:620px;margin:0 auto;padding:1.5rem 1rem 5rem}
+:root{
+  --bg:#f8f7f5;
+  --surface:#ffffff;
+  --border:#e8e3dc;
+  --text:#1a1a1a;
+  --text-2:#4a4540;
+  --text-3:#6b6560;
+  --accent:#bf5700;
+  --accent-light:#fdf3eb;
+  --accent-border:#f0d9c0;
+  --blue:#2563eb;
+  --blue-light:#eff6ff;
+  --green:#16a34a;
+  --green-light:#f0fdf4;
+  --red:#dc2626;
+  --red-light:#fef2f2;
+  --yellow:#d97706;
+  --yellow-light:#fffbeb;
+  --radius:12px;
+  --radius-sm:8px;
+  --shadow:0 2px 12px rgba(0,0,0,.06);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.1);
+}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 
-/* STATES */
-.state{text-align:center;padding:3rem 1.5rem;background:#fff;border-radius:14px;border:1px solid #e5e7eb;margin-bottom:1rem}
-.state-icon{font-size:36px;margin-bottom:.75rem}
-.state-title{font-size:17px;font-weight:700;color:#111;margin-bottom:.4rem}
-.state-sub{font-size:14px;color:#6b7280;line-height:1.6;max-width:340px;margin:0 auto}
-.spinner{width:22px;height:22px;border:2.5px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
-@keyframes spin{to{transform:rotate(360deg)}}
+/* NAV */
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:14px;font-weight:700;letter-spacing:-.01em}.nav-logo span{color:var(--accent)}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-name{font-size:13px;color:var(--text-3)}
+.nav-logout{font-size:12px;color:var(--text-3);cursor:pointer;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;transition:all .15s}.nav-logout:hover{background:var(--bg);color:var(--text)}
+
+/* LAYOUT */
+main{flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 16px 40px}
+
+/* CARDS */
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.card-header{padding:16px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.card-title{font-size:15px;font-weight:700;color:var(--text)}
+.card-sub{font-size:13px;color:var(--text-3);margin-top:2px;line-height:1.5}
+.card-body{padding:16px 20px 20px}
+.card-divider{height:1px;background:var(--border);margin:0 20px}
+
+/* STATUS PILLS */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.02em}
+.pill-green{background:var(--green-light);color:var(--green)}
+.pill-blue{background:var(--blue-light);color:var(--blue)}
+.pill-orange{background:var(--accent-light);color:var(--accent)}
+.pill-yellow{background:var(--yellow-light);color:var(--yellow)}
+.pill-gray{background:var(--bg);color:var(--text-3);border:1px solid var(--border)}
+
+/* TIMELINE */
+.timeline{padding:20px;display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:14px;position:relative}
+.tl-item:not(:last-child) .tl-line{position:absolute;left:10px;top:22px;width:1px;height:100%;background:var(--border)}
+.tl-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:1}
+.tl-dot-done{background:var(--green-light);color:var(--green);border:2px solid var(--green)}
+.tl-dot-active{background:var(--accent);color:#fff;border:2px solid var(--accent)}
+.tl-dot-future{background:var(--surface);color:var(--text-3);border:2px solid var(--border)}
+.tl-content{flex:1;padding-bottom:20px}
+.tl-name{font-size:13px;font-weight:600;color:var(--text)}
+.tl-name.future{color:var(--text-3)}
+.tl-meta{font-size:12px;color:var(--text-3);margin-top:2px}
+.tl-outcome{font-size:12px;color:var(--green);margin-top:3px;font-weight:500}
+.tl-preview{font-size:12px;color:var(--text-3);margin-top:4px;line-height:1.5;font-style:italic}
 
 /* ASSIGNMENT CARD */
-.assignment-card{background:#fff;border-radius:14px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:1rem}
-.assignment-header{padding:1rem 1.25rem;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between}
-.assignment-label{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.07em}
-.assignment-sim{font-size:16px;font-weight:700;color:#111;margin-top:2px}
-.assignment-body{padding:1.25rem;display:grid;grid-template-columns:auto 1fr;gap:1rem}
-.group-box{background:#f3f4f6;border-radius:10px;padding:.875rem 1.25rem;text-align:center;min-width:80px}
-.group-label{font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
-.group-number{font-size:32px;font-weight:800;color:#111;line-height:1}
-.role-box{display:flex;flex-direction:column;justify-content:center}
-.role-label{font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
-.role-name{font-size:20px;font-weight:700}
-.role-seller{color:#1d4ed8}.role-buyer{color:#16a34a}.role-other{color:#7c3aed}
-.counterpart{font-size:13px;color:#6b7280;margin-top:6px}
-.download-btn{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:12px;font-size:14px;font-weight:600;border:none;border-radius:0 0 14px 14px;background:#2563eb;color:#fff;cursor:pointer;transition:background .15s;margin-top:0}
-.download-btn:hover{background:#1d4ed8}
-.download-btn:disabled{opacity:.5;cursor:not-allowed}
+.assignment-block{background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:16px}
+.assignment-role{font-size:22px;font-weight:800;color:var(--accent);line-height:1.2}
+.assignment-sim{font-size:13px;color:var(--text-2);margin-top:2px;font-weight:500}
+.assignment-partner{font-size:13px;color:var(--text-3);margin-top:6px}
 
-/* ANNOUNCEMENT */
-.announcement{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:11px 14px;font-size:14px;color:#92400e;margin-bottom:1rem;display:flex;align-items:flex-start;gap:.5rem}
-
-/* RESULTS SECTION */
-.section-card{background:#fff;border-radius:14px;border:1px solid #e5e7eb;margin-bottom:1rem;overflow:hidden}
-.section-card-header{padding:1rem 1.25rem;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between}
-.section-card-title{font-size:14px;font-weight:600;color:#111}
-.section-card-body{padding:1.25rem}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;font-size:13px;font-weight:600;border:none;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;text-decoration:none}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#a84a00}
+.btn-outline{background:var(--surface);color:var(--text);border:1px solid var(--border)}.btn-outline:hover{background:var(--bg)}
+.btn-block{width:100%}
+.btn-sm{padding:7px 14px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* FORM */
-.progress-bar-wrap{height:3px;background:#f3f4f6;border-radius:2px;margin-bottom:1.25rem;overflow:hidden}
-.progress-bar-fill{height:100%;background:#2563eb;border-radius:2px;transition:width .3s}
-.field{margin-bottom:1.1rem}
-.field-label{display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:.4rem}
-.field-req{color:#dc2626}
-.radio-group{display:flex;flex-wrap:wrap;gap:.4rem}
-.radio-opt{padding:7px 13px;border:1.5px solid #e0e0e0;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;transition:all .12s;user-select:none}
-.radio-opt:hover{border-color:#93c5fd;background:#eff6ff}
-.radio-opt.sel{border-color:#2563eb;background:#eff6ff;color:#1d4ed8;font-weight:500}
-input[type=text],input[type=number],textarea{width:100%;padding:9px 12px;font-size:14px;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#111;outline:none;transition:border-color .15s}
-input:focus,textarea:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
-textarea{min-height:75px;resize:vertical}
-.submit-btn{width:100%;padding:12px;font-size:14px;font-weight:600;border:none;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer;margin-top:.5rem;transition:background .15s}
-.submit-btn:hover{background:#1d4ed8}
-.submit-btn:disabled{opacity:.4;cursor:not-allowed}
-.edit-btn{width:100%;padding:10px;font-size:13px;font-weight:500;border:1.5px solid #e0e0e0;border-radius:10px;background:#fff;color:#374151;cursor:pointer;margin-top:.5rem}
-.edit-btn:hover{background:#f9fafb}
+.field{margin-bottom:16px}
+.field-label{display:block;font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.field-req{color:var(--accent)}
+.field input,.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border .15s;font-family:inherit}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:80px;line-height:1.5}
+.radio-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.radio-option{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;transition:all .15s;background:var(--surface)}
+.radio-option:hover{border-color:var(--accent);background:var(--accent-light)}
+.radio-option.selected{border-color:var(--accent);background:var(--accent-light);color:var(--accent);font-weight:600}
+.radio-option input{display:none}
 
-/* SUCCESS */
-.success-banner{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:11px 14px;font-size:14px;color:#166534;display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
-.confirmed-banner{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:11px 14px;font-size:14px;color:#1d4ed8;display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
-.disputed-banner{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:11px 14px;font-size:14px;color:#dc2626;margin-bottom:1rem}
+/* PROGRESS BAR */
+.progress-wrap{height:4px;background:var(--border);border-radius:2px;margin-bottom:20px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
 
-/* READONLY */
-.readonly-row{padding:.6rem 0;border-bottom:1px solid #f9fafb;display:flex;gap:.75rem}
+/* NOTES */
+.notes-wrap{margin-top:12px}
+.notes-label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.notes-area{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:#fffdf9;outline:none;resize:vertical;min-height:100px;line-height:1.6;font-family:inherit}
+.notes-area:focus{border-color:var(--accent)}
+.notes-saved{font-size:11px;color:var(--text-3);margin-top:4px;opacity:0;transition:opacity .3s}
+.notes-saved.show{opacity:1}
+
+/* READONLY RESULTS */
+.readonly-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--bg);align-items:flex-start}
 .readonly-row:last-child{border-bottom:none}
-.readonly-label{font-size:11px;color:#9ca3af;font-weight:500;min-width:120px;flex-shrink:0;padding-top:1px}
-.readonly-value{font-size:13px;color:#374151;line-height:1.5}
+.readonly-label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;min-width:120px;flex-shrink:0;padding-top:1px}
+.readonly-value{font-size:13px;color:var(--text);line-height:1.5;flex:1}
 
-/* REVIEW */
-.review-card{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
-.review-card-title{font-size:14px;font-weight:700;color:#92400e;margin-bottom:.4rem}
-.review-card-sub{font-size:13px;color:#92400e;margin-bottom:1rem;line-height:1.5}
-.review-answers{background:#fff;border-radius:8px;padding:.875rem;margin-bottom:1rem;border:1px solid #fde68a}
-.review-item{padding:.4rem 0;border-bottom:1px solid #fef9c3;font-size:13px}
+/* PARTNER REVIEW */
+.review-card{background:var(--yellow-light);border:1px solid #fde68a;border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:16px}
+.review-title{font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:4px}
+.review-sub{font-size:12px;color:#92400e;margin-bottom:12px;line-height:1.5}
+.review-answers{background:var(--surface);border-radius:6px;padding:12px;margin-bottom:12px;border:1px solid #fde68a}
+.review-item{padding:6px 0;border-bottom:1px solid #fef9c3;font-size:13px}
 .review-item:last-child{border-bottom:none}
-.review-item-label{font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px}
-.review-item-value{color:#374151;font-weight:500}
-.review-actions{display:flex;gap:.5rem}
-.btn-confirm{flex:1;padding:10px;font-size:13px;font-weight:600;border:none;border-radius:8px;background:#166534;color:#fff;cursor:pointer}
-.btn-confirm:hover{background:#14532d}
-.btn-dispute{flex:1;padding:10px;font-size:13px;font-weight:600;border:1.5px solid #dc2626;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer}
-.btn-dispute:hover{background:#fef2f2}
-.dispute-form{margin-top:.875rem;display:none}
+.review-item-lbl{font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.review-actions{display:flex;gap:8px}
+.btn-confirm{flex:1;padding:10px;font-size:13px;font-weight:600;border:none;border-radius:var(--radius-sm);background:var(--green);color:#fff;cursor:pointer}.btn-confirm:hover{background:#15803d}
+.btn-dispute{flex:1;padding:10px;font-size:13px;font-weight:600;border:1px solid var(--red);border-radius:var(--radius-sm);background:var(--surface);color:var(--red);cursor:pointer}.btn-dispute:hover{background:var(--red-light)}
+.dispute-form{margin-top:12px;display:none}
 .dispute-form.show{display:block}
 
-/* HISTORY */
-.history-row{padding:.6rem 0;border-bottom:1px solid #f9fafb;display:flex;justify-content:space-between;align-items:center;font-size:13px}
-.history-row:last-child{border-bottom:none}
-.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600}
-.badge-green{background:#dcfce7;color:#166534}
-.badge-gray{background:#f3f4f6;color:#6b7280}
-.draft-notice{font-size:12px;color:#6b7280;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:1rem;display:flex;align-items:center;gap:.4rem}
+/* BANNERS */
+.banner{border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.banner-green{background:var(--green-light);color:var(--green);border:1px solid #bbf7d0}
+.banner-red{background:var(--red-light);color:var(--red);border:1px solid #fecaca}
+.banner-blue{background:var(--blue-light);color:var(--blue);border:1px solid #bfdbfe}
+.banner-orange{background:var(--accent-light);color:var(--accent);border:1px solid var(--accent-border)}
 
-/* SUBMIT SUCCESS */
-.submit-success{text-align:center;padding:2.5rem 1.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px}
+/* HISTORY */
+.history-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bg);font-size:13px}
+.history-row:last-child{border-bottom:none}
+
+/* REFLECTION */
+.reflection-card{background:var(--blue-light);border:1px solid #bfdbfe;border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:16px}
+.reflection-title{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:4px}
+.reflection-sub{font-size:12px;color:#1e40af;margin-bottom:14px;line-height:1.5}
+
+/* STATES */
+.state{text-align:center;padding:36px 20px}
+.state-icon{font-size:36px;margin-bottom:12px}
+.state-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px}
+.state-sub{font-size:13px;color:var(--text-3);line-height:1.6;max-width:320px;margin:0 auto}
+.spinner{width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SUBMIT BTN */
+.submit-btn{width:100%;padding:13px;font-size:14px;font-weight:700;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;cursor:pointer;transition:all .15s;margin-top:8px}
+.submit-btn:hover{background:#a84a00}
+.submit-btn:disabled{background:#d1cfc9;cursor:not-allowed}
+
+/* DRAFT NOTICE */
+.draft-notice{background:var(--yellow-light);border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+
+@media(max-width:480px){
+  main{padding:12px 12px 32px}
+  .card-header{padding:14px 16px 0}
+  .card-body{padding:14px 16px 18px}
+  .assignment-role{font-size:20px}
+  .readonly-label{min-width:90px;font-size:10px}
+}
 </style>
 </head>
 <body>
-<div class="header">
-  <div class="header-left">Cotton Strategies</div>
-  <div class="header-right">
-    <span class="header-name" id="header-name"></span>
-    <button class="logout" onclick="doLogout()">Log out</button>
+<nav>
+  <div class="nav-logo">Cotton <span>Strategies</span></div>
+  <div class="nav-right">
+    <span class="nav-name" id="nav-name"></span>
+    <button class="nav-logout" onclick="logout()">Log out</button>
   </div>
-</div>
-
-<div class="main" id="main">
-  <div class="state"><div class="spinner"></div></div>
-</div>
+</nav>
+<main id="main"><div class="state"><div class="spinner"></div></div></main>
 
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
 
+let student=null,activeSim=null,assignment=null,submission=null,partnerSub=null,allSims=[],reflection=null;
+let formValues={},editMode=false,draftKey='',notesSaveTimer=null;
+
 async function sb(path,opts={}){
-  const res=await fetch(SUPA_URL+'/rest/v1/'+path,{
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':opts.prefer||'return=representation',...(opts.headers||{})},
+  const prefer=opts.prefer||'return=representation';
+  const r=await fetch(SUPA_URL+'/rest/v1/'+path,{
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':prefer,...(opts.headers||{})},
     ...opts
   });
-  const txt=await res.text();
-  let data;try{data=JSON.parse(txt);}catch(e){data=txt;}
-  return{ok:res.ok,status:res.status,data};
+  let data=null;
+  try{const t=await r.text();data=t?JSON.parse(t):null;}catch(e){}
+  return{ok:r.ok,status:r.status,data};
 }
 
-function getSession(){
-  const t=localStorage.getItem('neg_token'),e=localStorage.getItem('neg_expires'),id=localStorage.getItem('neg_student_id');
-  if(!t||!e||!id||new Date(e)<new Date()){
-    ['neg_token','neg_expires','neg_student_id'].forEach(k=>localStorage.removeItem(k));
-    return null;
-  }
-  return{token:t,studentId:id};
+async function hashPin(pin){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-function doLogout(){
-  ['neg_token','neg_expires','neg_student_id'].forEach(k=>localStorage.removeItem(k));
-  window.location.href='index.html';
-}
-
-let student=null,activeSim=null,assignment=null,submission=null,partnerSub=null;
-let formValues={},editMode=false,draftKey='';
+function logout(){localStorage.removeItem('neg_student_id');window.location.href='/register.html';}
 
 async function init(){
-  const sess=getSession();
-  if(!sess){window.location.href='register.html';return;}
-  try{
-    const r=await sb('students?id=eq.'+sess.studentId+'&select=id,name,email');
-    if(!r.ok||!r.data.length){doLogout();return;}
-    student=r.data[0];
-    document.getElementById('header-name').textContent=student.name;
-    await load();
-  }catch(e){showError('Something went wrong. Please refresh.');}
+  const sid=localStorage.getItem('neg_student_id');
+  if(!sid){window.location.href='/register.html';return;}
+  const r=await sb('students?id=eq.'+sid+'&select=*');
+  if(!r.ok||!r.data?.length){localStorage.removeItem('neg_student_id');window.location.href='/register.html';return;}
+  student=r.data[0];
+  document.getElementById('nav-name').textContent=student.name.split(' ')[0];
+  await load();
 }
 
 async function load(){
-  const[simR,aR,subR]=await Promise.all([
-    sb('simulations?is_active=eq.true&select=*'),
-    sb('assignments?student_id=eq.'+student.id+'&select=*'),
-    sb('submissions?student_id=eq.'+student.id+'&select=*')
+  const [simR,asgR,subR,allSimR,reflR]=await Promise.all([
+    sb('simulations?is_active=eq.true&select=*&limit=1'),
+    sb('assignments?student_id=eq.'+student.id+'&released=eq.true&select=*&order=created_at.desc'),
+    sb('submissions?student_id=eq.'+student.id+'&select=*&order=submitted_at.desc'),
+    sb('simulations?select=id,name,sort_order,description,is_active&order=sort_order.asc'),
+    sb('reflections?student_id=eq.'+student.id+'&select=*')
   ]);
-  activeSim=simR.ok&&simR.data.length?{
+
+  activeSim = simR.ok&&simR.data?.length ? {
     ...simR.data[0],
     fields: typeof simR.data[0].fields==='string'?JSON.parse(simR.data[0].fields):(simR.data[0].fields||[]),
-    roles: typeof simR.data[0].roles==='string'?JSON.parse(simR.data[0].roles):(simR.data[0].roles||[])
-  }:null;
-  if(!activeSim){renderNoSim();setTimeout(load,30000);return;}
+    roles: typeof simR.data[0].roles==='string'?JSON.parse(simR.data[0].roles):(simR.data[0].roles||[]),
+    role_docs: typeof simR.data[0].role_docs==='string'?JSON.parse(simR.data[0].role_docs):(simR.data[0].role_docs||{})
+  } : null;
 
-  draftKey='neg_draft_'+student.id+'_'+activeSim.id;
-  assignment=aR.ok?aR.data.find(a=>a.simulation_id===activeSim.id):null;
-  submission=subR.ok?subR.data.find(s=>s.simulation_id===activeSim.id):null;
+  allSims = allSimR.ok ? allSimR.data : [];
+
+  const currentAsg = asgR.ok&&asgR.data?.length ? asgR.data.find(a=>activeSim&&a.simulation_id===activeSim.id)||null : null;
+  assignment = currentAsg;
+
+  const currentSub = subR.ok&&subR.data?.length ? subR.data.find(s=>activeSim&&s.simulation_id===activeSim.id)||null : null;
+  submission = currentSub;
+
+  const submissions = subR.ok ? subR.data : [];
+  const assignments = asgR.ok ? asgR.data : [];
+  const reflections = reflR.ok ? reflR.data : [];
 
   // Load partner submission
-  partnerSub=null;
-  if(assignment?.released){
-    const pR=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&student_id=neq.'+student.id+'&select=student_id');
-    if(pR.ok&&pR.data.length){
-      const psR=await sb('submissions?student_id=eq.'+pR.data[0].student_id+'&simulation_id=eq.'+activeSim.id+'&select=*');
-      if(psR.ok&&psR.data.length)partnerSub=psR.data[0];
+  partnerSub = null;
+  if(assignment&&activeSim){
+    const partners=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id');
+    if(partners.ok&&partners.data?.length){
+      const pid=partners.data[0].student_id;
+      const ps=await sb('submissions?student_id=eq.'+pid+'&simulation_id=eq.'+activeSim.id+'&select=*');
+      if(ps.ok&&ps.data?.length)partnerSub=ps.data[0];
     }
   }
 
-  const histR=await sb('assignments?student_id=eq.'+student.id+'&released=eq.true&select=simulation_id,role,group_number,released_at&order=released_at.desc');
-  render(histR.ok?histR.data:[]);
+  draftKey = activeSim ? 'draft_'+student.id+'_'+activeSim.id : '';
+  render(assignments,submissions,reflections);
 }
 
-function showError(msg){
-  document.getElementById('main').innerHTML=`<div class="state"><div class="state-icon">⚠️</div><div class="state-title">Something went wrong</div><div class="state-sub">${msg}</div></div>`;
-}
-
-function renderNoSim(){
-  document.getElementById('main').innerHTML=`<div class="state">
-    <div class="state-icon">📋</div>
-    <div class="state-title">You're all set!</div>
-    <div class="state-sub">Check back before class — your assignment will appear here when your instructor releases it.</div>
-  </div>`;
-}
-
-function roleColor(role){
-  const r=role.toLowerCase();
-  if(r.includes('seller')||r.includes('director')||r.includes('morgan')||r.includes('atlas')||r.includes('meridian')||r.includes('stockman')||r.includes('downtown'))return'role-seller';
-  if(r.includes('buyer')||r.includes('tutor')||r.includes('martinez')||r.includes('blue horizon')||r.includes('crestwood')||r.includes('turbo')||r.includes('united')||r.includes('absentia'))return'role-buyer';
-  return'role-other';
-}
-
-async function render(history){
+function render(assignments,submissions,reflections){
   const main=document.getElementById('main');
   let html='';
 
-  // Announcement
-  if(activeSim?.announcement){
-    html+=`<div class="announcement">📌 <span>${activeSim.announcement}</span></div>`;
-  }
-
-  // Assignment card
-  if(!assignment?.released){
-    html+=`<div class="state">
-      <div class="state-icon">⏳</div>
-      <div class="state-title">Assignment coming soon</div>
-      <div class="state-sub">${activeSim.name} is this week. Your group and role will appear here when your instructor releases assignments.</div>
-    </div>`;
-    setTimeout(load,60000);
-  } else {
-    // Mark brief viewed
-    if(!assignment.brief_viewed_at){
-      await sb('assignments?id=eq.'+assignment.id,{method:'PATCH',body:JSON.stringify({brief_viewed_at:new Date().toISOString()}),prefer:'return=minimal'});
-    }
-
-    html+=`<div class="assignment-card">
-      <div class="assignment-header">
+  // ── CURRENT SIMULATION ──────────────────────────────────────────────────
+  if(activeSim){
+    html+=`<div class="card">
+      <div class="card-header">
         <div>
-          <div class="assignment-label">Your assignment</div>
-          <div class="assignment-sim">${activeSim.name}</div>
+          <div class="card-title">${activeSim.name}</div>
+          <div class="card-sub">Active simulation</div>
         </div>
+        <span class="pill pill-orange">● Live</span>
       </div>
-      <div class="assignment-body">
-        <div class="group-box">
-          <div class="group-label">Group</div>
-          <div class="group-number">${assignment.group_number}</div>
-        </div>
-        <div class="role-box">
-          <div class="role-label">Your role</div>
-          <div class="role-name ${roleColor(assignment.role)}">${assignment.role}</div>
-          <div class="counterpart" id="counterpart-area">Loading group members…</div>
-        </div>
-      </div>
-      <button class="download-btn" id="dl-btn" onclick="downloadBrief()">
-        ↓ &nbsp;Download role brief (PDF)
-      </button>
-    </div>`;
-    setTimeout(loadCounterparts,100);
-  }
+      <div class="card-body">`;
 
-  // Results section
-  if(assignment?.released){
-    if(!activeSim.submission_open&&!submission){
-      html+=`<div class="section-card">
-        <div class="section-card-header"><div class="section-card-title">Results</div></div>
-        <div class="section-card-body">
-          <div class="state" style="border:none;padding:1.5rem .5rem">
-            <div class="state-icon">📝</div>
-            <div class="state-title">Results form not yet open</div>
-            <div class="state-sub">Your instructor will open the form after the simulation ends.</div>
-          </div>
-        </div>
+    if(!assignment){
+      html+=`<div class="state" style="padding:24px 0">
+        <div class="state-icon">⏳</div>
+        <div class="state-title">Assignment coming soon</div>
+        <div class="state-sub">You're registered and your instructor will release pairings before class. Check back shortly.</div>
       </div>`;
-    } else if(submission&&!editMode){
-      const fd=submission.form_data||{};
+    } else {
+      // Assignment shown
+      html+=`<div class="assignment-block">
+        <div class="assignment-role">${assignment.role}</div>
+        <div class="assignment-sim">${activeSim.name} · Group ${assignment.group_number}</div>
+        <div class="assignment-partner" id="partner-line">Loading partner…</div>
+      </div>`;
+
+      // Role brief download
+      const roleName=assignment.role.replace(/[^a-zA-Z0-9]/g,'-');
+      const briefUrl=SUPA_URL+'/storage/v1/object/public/role-briefs/'+activeSim.id+'/'+roleName+'.pdf';
+      html+=`<button class="btn btn-primary btn-block" id="dl-btn" onclick="downloadBrief('${briefUrl}')">↓ &nbsp;Download role brief (PDF)</button>`;
+
+      // Notes scratchpad
+      html+=`<div class="notes-wrap">
+        <div class="notes-label">📝 My notes <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--text-3)">— private, only you can see these</span></div>
+        <textarea class="notes-area" id="notes-area" placeholder="Take notes on your brief, strategy, key interests…" oninput="scheduleNotesSave()">${getNotes()}</textarea>
+        <div class="notes-saved" id="notes-saved">Saved ✓</div>
+      </div>`;
+    }
+    html+=`</div></div>`;
+
+    // ── RESULTS FORM ──────────────────────────────────────────────────────
+    if(assignment){
+      const fd=submission?.form_data||{};
       const confirmed=fd._confirmed,disputed=fd._disputed;
 
-      // Auto-refresh every 20s to catch partner submission
-      if(!partnerSub&&!confirmed&&!disputed){
+      // Auto-refresh while waiting for partner
+      if(submission&&!partnerSub&&!confirmed&&!disputed){
         setTimeout(load,20000);
       }
 
-      // Partner review prompt
-      if(partnerSub&&!confirmed&&!disputed){
-        html+=renderReviewPrompt();
+      if(submission&&!editMode){
+        // Show partner review if ready
+        if(partnerSub&&!confirmed&&!disputed){
+          html+=renderReviewCard();
+        }
+        html+=`<div class="card">
+          <div class="card-header">
+            <div class="card-title">Your submitted results</div>
+            <span class="pill pill-green">✓ Submitted</span>
+          </div>
+          <div class="card-body">
+            ${confirmed?'<div class="banner banner-green">✓ Results confirmed with your partner</div>':''}
+            ${disputed?'<div class="banner banner-red">⚠ Disagreement flagged — your instructor will review</div>':''}
+            ${renderReadonly(activeSim.fields,fd)}
+            ${canEdit()?`<button class="btn btn-outline btn-block" style="margin-top:12px" onclick="enterEdit()">✏️ Edit my results</button>`:''}
+          </div>
+        </div>`;
+        // Show reflection prompt if submitted but not yet reflected
+        const hasReflection=reflections.find(r=>r.simulation_id===activeSim.id);
+        if(!hasReflection){
+          html+=renderReflectionForm();
+        } else {
+          html+=`<div class="card"><div class="card-body"><div class="banner banner-green">✓ Reflection submitted for this simulation</div></div></div>`;
+        }
+      } else if(activeSim.submission_open||editMode){
+        const draft=localStorage.getItem(draftKey);
+        if(draft&&!editMode){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}
+        else if(editMode&&submission){formValues={...submission.form_data};}
+        html+=`<div class="card">
+          <div class="card-header"><div class="card-title">${editMode?'Edit your results':'Submit your results'}</div></div>
+          <div class="card-body">
+            ${draft&&!editMode?'<div class="draft-notice">💾 Your progress was saved — picking up where you left off.</div>':''}
+            <div class="progress-wrap"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+            <div id="form-fields">${renderForm(activeSim.fields,formValues)}</div>
+            <button class="submit-btn" id="sub-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
+            ${editMode?`<button class="btn btn-outline btn-block" style="margin-top:8px" onclick="cancelEdit()">Cancel</button>`:''}
+          </div>
+        </div>`;
+        setTimeout(startAutosave,100);
+      } else {
+        html+=`<div class="card"><div class="card-body"><div class="state" style="padding:20px 0">
+          <div class="state-icon">📝</div>
+          <div class="state-title">Results form not yet open</div>
+          <div class="state-sub">Your instructor will open the form after the simulation ends. Come back then to submit your results.</div>
+        </div></div></div>`;
       }
-
-      html+=`<div class="section-card">
-        <div class="section-card-header">
-          <div class="section-card-title">Your submitted results</div>
-          <span style="font-size:12px;color:#9ca3af">${fmtTime(submission.submitted_at)}</span>
-        </div>
-        <div class="section-card-body">
-          ${confirmed?`<div class="confirmed-banner">✓ Results confirmed with your partner</div>`:''}
-          ${disputed?`<div class="disputed-banner">⚠️ Disagreement flagged — your instructor will review both versions</div>`:''}
-          <div class="success-banner">✓ Submitted successfully</div>
-          ${renderReadonly(activeSim.fields,fd)}
-          ${canEdit()?`<button class="edit-btn" onclick="enterEdit()">✏️ Edit my results</button>`:''}
-        </div>
-      </div>`;
-
-    } else if(activeSim.submission_open){
-      const draft=localStorage.getItem(draftKey);
-      if(draft&&!editMode){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}
-      else if(editMode&&submission){formValues={...submission.form_data};}
-
-      html+=`<div class="section-card">
-        <div class="section-card-header"><div class="section-card-title">${editMode?'Edit your results':'Submit your results'}</div></div>
-        <div class="section-card-body">
-          ${draft&&!editMode?`<div class="draft-notice">💾 We saved your progress from earlier.</div>`:''}
-          <div class="progress-bar-wrap"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
-          <div id="form-fields">${renderForm(activeSim.fields,formValues)}</div>
-          <button class="submit-btn" id="sub-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
-          ${editMode?`<button class="edit-btn" onclick="cancelEdit()">Cancel</button>`:''}
-        </div>
-      </div>`;
-      startAutosave();
     }
+  } else {
+    html+=`<div class="card"><div class="card-body"><div class="state">
+      <div class="state-icon">📚</div>
+      <div class="state-title">No active simulation right now</div>
+      <div class="state-sub">Your instructor will activate the next simulation before class. You'll see your assignment here when it's ready.</div>
+    </div></div></div>`;
   }
 
-  // History
-  if(history.length>1){
-    html+=`<div class="section-card">
-      <div class="section-card-header"><div class="section-card-title">Past simulations</div></div>
-      <div class="section-card-body" style="padding:.5rem 1.25rem">
-        ${history.slice(1).map(h=>`<div class="history-row">
-          <div><strong style="font-size:13px">${h.simulation_id}</strong> <span style="color:#9ca3af;font-size:12px">${h.role}</span></div>
-          <span class="badge badge-gray">Group ${h.group_number}</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
+  // ── SEMESTER TIMELINE ───────────────────────────────────────────────────
+  if(allSims.length){
+    const submittedIds=submissions.map(s=>s.simulation_id);
+    const assignedIds=assignments.map(a=>a.simulation_id);
+    html+=`<div class="card">
+      <div class="card-header"><div class="card-title">Semester timeline</div></div>
+      <div class="timeline">`;
+    allSims.forEach((s,i)=>{
+      const isDone=submittedIds.includes(s.id)&&!s.is_active;
+      const isActive=s.is_active;
+      const isAssigned=assignedIds.includes(s.id);
+      const sub=submissions.find(x=>x.simulation_id===s.id);
+      const dotClass=isDone?'tl-dot-done':isActive?'tl-dot-active':'tl-dot-future';
+      const dotLabel=isDone?'✓':isActive?'●':(i+1);
+      const asg=assignments.find(a=>a.simulation_id===s.id);
+      html+=`<div class="tl-item">
+        <div class="tl-line"></div>
+        <div class="tl-dot ${dotClass}">${dotLabel}</div>
+        <div class="tl-content">
+          <div class="tl-name ${!isDone&&!isActive?'future':''}">${s.name}</div>
+          ${isDone&&asg?`<div class="tl-meta">Your role: ${asg.role}</div>`:''}
+          ${isDone&&sub?`<div class="tl-outcome">${sub.form_data?.f4==='Yes'?'✓ Deal reached':'✗ No deal'}</div>`:''}
+          ${isActive?`<div class="tl-meta" style="color:var(--accent);font-weight:600">In progress now</div>`:''}
+          ${!isDone&&!isActive&&s.description?`<div class="tl-preview">${s.description}</div>`:''}
+        </div>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  }
+
+  // ── PAST RESULTS ────────────────────────────────────────────────────────
+  const pastSubs=submissions.filter(s=>!activeSim||s.simulation_id!==activeSim.id);
+  if(pastSubs.length){
+    html+=`<div class="card">
+      <div class="card-header"><div class="card-title">Past simulation results</div></div>
+      <div class="card-body">`;
+    pastSubs.forEach(sub=>{
+      const sim=allSims.find(s=>s.id===sub.simulation_id);
+      const asg=assignments.find(a=>a.simulation_id===sub.simulation_id);
+      html+=`<div class="history-row">
+        <div>
+          <div style="font-size:13px;font-weight:600">${sim?.name||sub.simulation_id}</div>
+          <div style="font-size:12px;color:var(--text-3)">${asg?'Role: '+asg.role:''}</div>
+        </div>
+        <span class="pill ${sub.form_data?.f4==='Yes'?'pill-green':'pill-gray'}">${sub.form_data?.f4==='Yes'?'✓ Deal':'No deal'}</span>
+      </div>`;
+    });
+    html+=`</div></div>`;
   }
 
   main.innerHTML=html;
-  restoreRadios();
+
+  // Load partner name async
+  if(assignment){
+    loadPartnerName();
+  }
   updateProgress();
+  restoreRadios();
 }
 
-function renderReviewPrompt(){
+function renderReviewCard(){
   if(!partnerSub||!activeSim)return'';
-  const fields=(activeSim.fields||[]).filter(f=>f.id!=='f1'&&f.id!=='f3');
+  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note','f1','f3'].includes(f.id));
   const answers=fields.map(f=>{
     const v=partnerSub.form_data?.[f.id];
     if(!v)return'';
-    return`<div class="review-item"><div class="review-item-label">${f.label}</div><div class="review-item-value">${v}</div></div>`;
+    return`<div class="review-item"><div class="review-item-lbl">${f.label}</div><div>${v}</div></div>`;
   }).filter(Boolean).join('');
-
   return`<div class="review-card">
-    <div class="review-card-title">📋 Your partner submitted results</div>
-    <div class="review-card-sub">Review their answers. If they match your understanding, confirm. If not, flag a disagreement.</div>
+    <div class="review-title">📋 Your partner submitted their results</div>
+    <div class="review-sub">Review their answers below. If they match your understanding of what happened, confirm. If something is off, flag it for your instructor.</div>
     <div class="review-answers">${answers}</div>
     ${!submission
-      ?`<div style="font-size:13px;color:#92400e;margin-bottom:.75rem">Submit your own results first, then confirm or dispute.</div>`
+      ?'<div style="font-size:12px;color:#92400e">Submit your own results first, then you can confirm or dispute.</div>'
       :`<div class="review-actions">
         <button class="btn-confirm" onclick="doConfirm()">✓ Confirm — this matches</button>
         <button class="btn-dispute" onclick="showDisputeForm()">⚠ Disagree</button>
       </div>
       <div class="dispute-form" id="dispute-form">
-        <div class="field" style="margin-top:.75rem">
-          <label class="field-label">What's different? (optional note for your instructor)</label>
-          <textarea id="dispute-note" placeholder="e.g. We agreed on $3,200, not $3,100"></textarea>
+        <div class="field" style="margin-top:10px">
+          <label class="field-label">What's different? <span style="font-weight:400;text-transform:none">(optional note for your instructor)</span></label>
+          <textarea id="dispute-note" placeholder="e.g. We agreed on $3,200, not $3,100" style="min-height:60px"></textarea>
         </div>
-        <button class="submit-btn" style="background:#dc2626" onclick="doDispute()">Flag disagreement</button>
+        <button class="submit-btn" style="background:var(--red)" onclick="doDispute()">Flag disagreement</button>
       </div>`}
   </div>`;
+}
+
+function renderReflectionForm(){
+  if(!activeSim)return'';
+  const customQ=activeSim.reflection_question||'What was your biggest takeaway from this simulation?';
+  return`<div class="reflection-card">
+    <div class="reflection-title">💭 Reflection</div>
+    <div class="reflection-sub">Take 2 minutes to reflect. Your responses are private — only you and your instructor can see them.</div>
+    <div class="field">
+      <label class="field-label">What was your most important mistake?</label>
+      <textarea id="ref-mistake" placeholder="Be honest — this is for your learning." style="min-height:70px"></textarea>
+    </div>
+    <div class="field">
+      <label class="field-label">What would you do differently?</label>
+      <textarea id="ref-different" placeholder="Specific changes to your strategy or approach." style="min-height:70px"></textarea>
+    </div>
+    <div class="field">
+      <label class="field-label">${customQ}</label>
+      <textarea id="ref-custom" placeholder="Your response…" style="min-height:70px"></textarea>
+    </div>
+    <button class="submit-btn" onclick="doReflect()">Submit reflection</button>
+  </div>`;
+}
+
+function renderForm(fields,values){
+  return (fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id)).map(f=>{
+    const req=f.required?`<span class="field-req">*</span>`:'';
+    if(f.type==='radio'){
+      const opts=(f.options||[]).map(o=>`<label class="radio-option ${values[f.id]===o?'selected':''}" onclick="selectRadio('${f.id}','${o}',this)"><input type="radio" name="${f.id}" value="${o}" ${values[f.id]===o?'checked':''}>${o}</label>`).join('');
+      return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><div class="radio-group">${opts}</div></div>`;
+    }
+    if(f.type==='number'){
+      return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><input type="number" id="ff_${f.id}" value="${values[f.id]||''}" oninput="formValues['${f.id}']=this.value;updateProgress()" placeholder="Enter number"></div>`;
+    }
+    if(f.type==='textarea'){
+      return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><textarea id="ff_${f.id}" oninput="formValues['${f.id}']=this.value;updateProgress()" placeholder="Your answer…">${values[f.id]||''}</textarea></div>`;
+    }
+    return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><input type="text" id="ff_${f.id}" value="${values[f.id]||''}" oninput="formValues['${f.id}']=this.value;updateProgress()" placeholder="Your answer"></div>`;
+  }).join('');
 }
 
 function renderReadonly(fields,data){
   return(fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id)).map(f=>`
     <div class="readonly-row">
-      <div class="readonly-label">${f.label||''}</div>
+      <div class="readonly-label">${f.label||f.id}</div>
       <div class="readonly-value">${data[f.id]||'—'}</div>
     </div>`).join('');
 }
 
-function renderForm(fields,values){
-  return(fields||[]).map(f=>`
-    <div class="field">
-      <label class="field-label">${f.label||''}${f.required?'<span class="field-req"> *</span>':''}</label>
-      ${f.type==='radio'&&f.options
-        ?`<div class="radio-group">${(f.options||[]).map(o=>`<div class="radio-opt${values[f.id]===o?' sel':''}" onclick="selR('${f.id}','${o.replace(/'/g,"\\'")}',this)" data-f="${f.id}">${o}</div>`).join('')}</div>`
-        :f.type==='textarea'
-          ?`<textarea id="ff-${f.id}" oninput="setV('${f.id}',this.value)">${values[f.id]||''}</textarea>`
-          :`<input type="${f.type==='number'?'number':'text'}" id="ff-${f.id}" value="${values[f.id]||''}" oninput="setV('${f.id}',this.value)">`}
-    </div>`).join('');
+function selectRadio(fid,val,el){
+  formValues[fid]=val;
+  document.querySelectorAll(`.radio-option`).forEach(o=>{
+    if(o.querySelector('input')?.name===fid)o.classList.remove('selected');
+  });
+  el.classList.add('selected');
+  updateProgress();
 }
 
 function restoreRadios(){
-  if(!activeSim)return;
-  (activeSim.fields||[]).forEach(f=>{
-    if(f.type==='radio'&&formValues[f.id]){
-      document.querySelectorAll('[data-f="'+f.id+'"]').forEach(el=>{
-        el.classList.toggle('sel',el.textContent===formValues[f.id]);
-      });
-    }
+  Object.entries(formValues).forEach(([fid,val])=>{
+    document.querySelectorAll('.radio-option').forEach(o=>{
+      if(o.querySelector('input')?.name===fid&&o.querySelector('input')?.value===val){
+        o.classList.add('selected');
+      }
+    });
   });
 }
 
-function selR(fid,val,el){
-  document.querySelectorAll('[data-f="'+fid+'"]').forEach(x=>x.classList.remove('sel'));
-  el.classList.add('sel');
-  formValues[fid]=val;
-  updateProgress();
-  saveDraft();
-}
-
-function setV(fid,val){formValues[fid]=val;updateProgress();saveDraft();}
-
 function updateProgress(){
   if(!activeSim)return;
-  const filled=(activeSim.fields||[]).filter(f=>formValues[f.id]&&String(formValues[f.id]).trim()).length;
-  const total=(activeSim.fields||[]).length;
-  const fill=document.getElementById('prog-fill');
-  if(fill)fill.style.width=Math.round((filled/total)*100)+'%';
+  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  const filled=fields.filter(f=>formValues[f.id]&&String(formValues[f.id]).trim()).length;
+  const pct=fields.length?Math.round(filled/fields.length*100):0;
+  const bar=document.getElementById('prog-fill');
+  if(bar)bar.style.width=pct+'%';
 }
 
-function saveDraft(){if(draftKey)localStorage.setItem(draftKey,JSON.stringify(formValues));}
-let autosaveTimer=null;
-function startAutosave(){if(autosaveTimer)clearInterval(autosaveTimer);autosaveTimer=setInterval(saveDraft,30000);}
+function startAutosave(){
+  clearInterval(window._autosave);
+  window._autosave=setInterval(saveDraft,30000);
+}
+
+function saveDraft(){
+  if(draftKey&&Object.keys(formValues).length){
+    localStorage.setItem(draftKey,JSON.stringify(formValues));
+  }
+}
+
+function getNotes(){
+  if(!activeSim||!student)return'';
+  return localStorage.getItem('notes_'+student.id+'_'+activeSim.id)||'';
+}
+
+function scheduleNotesSave(){
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer=setTimeout(()=>{
+    const area=document.getElementById('notes-area');
+    if(area&&activeSim&&student){
+      localStorage.setItem('notes_'+student.id+'_'+activeSim.id,area.value);
+      const saved=document.getElementById('notes-saved');
+      if(saved){saved.classList.add('show');setTimeout(()=>saved.classList.remove('show'),2000);}
+    }
+  },800);
+}
+
+async function loadPartnerName(){
+  if(!assignment||!activeSim)return;
+  const r=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id,role');
+  if(!r.ok||!r.data?.length){const el=document.getElementById('partner-line');if(el)el.textContent='No partner assigned yet.';return;}
+  const ids=r.data.map(a=>'\"'+a.student_id+'\"').join(',');
+  const nr=await sb('students?id=in.('+ids+')&select=id,name');
+  if(!nr.ok||!nr.data?.length)return;
+  const nm={};nr.data.forEach(s=>nm[s.id]=s.name);
+  const parts=r.data.map(a=>(nm[a.student_id]||'Unknown')+' ('+a.role+')').join(', ');
+  const el=document.getElementById('partner-line');
+  if(el)el.textContent='Negotiating with: '+parts;
+}
+
+function downloadBrief(url){
+  window.open(url,'_blank');
+}
 
 function canEdit(){
-  // Allow editing anytime the form is open and student has submitted
-  return !!(submission && activeSim?.submission_open);
+  return !!(submission&&activeSim?.submission_open);
 }
-
-function minsLeft(){ return 0; } // kept for compatibility
 
 function enterEdit(){editMode=true;load();}
 function cancelEdit(){editMode=false;load();}
 
 async function doSubmit(){
   if(!activeSim)return;
-  const missing=(activeSim.fields||[]).filter(f=>f.required&&!formValues[f.id]);
+  const missing=(activeSim.fields||[]).filter(f=>f.required&&!formValues[f.id]&&!['_confirmed','_disputed','_dispute_note'].includes(f.id));
   if(missing.length){alert('Please fill in: '+missing.map(f=>f.label).join(', '));return;}
   if(!confirm('Submit your results for '+activeSim.name+'?'))return;
   const btn=document.getElementById('sub-btn');
   btn.disabled=true;btn.textContent='Submitting…';
   try{
-    const payload={student_id:student.id,simulation_id:activeSim.id,form_data:formValues,submitted_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    const now=new Date().toISOString();
     if(submission){
-      await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:formValues,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
-    }else{
-      await sb('submissions',{method:'POST',body:JSON.stringify(payload),prefer:'return=minimal'});
+      await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:formValues,updated_at:now}),prefer:'return=minimal'});
+    } else {
+      await sb('submissions',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,form_data:formValues,submitted_at:now,updated_at:now}),prefer:'return=minimal'});
     }
     if(draftKey)localStorage.removeItem(draftKey);
     editMode=false;
@@ -453,32 +604,20 @@ async function doSubmit(){
   }catch(e){
     saveDraft();
     btn.disabled=false;btn.textContent=editMode?'Update results':'Submit results';
-    alert('Submission failed — your answers are saved as a draft. Please try again.');
+    alert('Submission failed — your progress is saved. Please try again.');
   }
 }
 
-async function downloadBrief(){
-  const btn=document.getElementById('dl-btn');
-  btn.disabled=true;btn.textContent='Opening…';
-  const roleName=assignment.role.replace(/[^a-zA-Z0-9]/g,'-');
-  const url=SUPA_URL+'/storage/v1/object/public/role-briefs/'+activeSim.id+'/'+roleName+'.pdf';
-  window.open(url,'_blank');
-  setTimeout(()=>{btn.disabled=false;btn.innerHTML='↓ &nbsp;Download role brief (PDF)';},1000);
-}
-
-async function loadCounterparts(){
-  if(!assignment||!activeSim)return;
-  const r=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&select=student_id,role');
-  if(!r.ok)return;
-  const others=r.data.filter(a=>a.student_id!==student.id);
-  if(!others.length){const el=document.getElementById('counterpart-area');if(el)el.textContent='';return;}
-  const ids=others.map(o=>'"'+o.student_id+'"').join(',');
-  const nr=await sb('students?id=in.('+ids+')&select=id,name');
-  if(!nr.ok)return;
-  const nm={};nr.data.forEach(s=>nm[s.id]=s.name);
-  const parts=others.map(o=>(nm[o.student_id]||'Unknown')+' ('+o.role+')').join(', ');
-  const el=document.getElementById('counterpart-area');
-  if(el)el.textContent='With: '+parts;
+async function doReflect(){
+  if(!activeSim||!student)return;
+  const mistake=document.getElementById('ref-mistake')?.value||'';
+  const different=document.getElementById('ref-different')?.value||'';
+  const custom=document.getElementById('ref-custom')?.value||'';
+  const btn=document.querySelector('.reflection-card .submit-btn');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  const r=await sb('reflections',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,mistake,do_differently:different,custom_response:custom}),prefer:'return=minimal'});
+  if(r.ok){await load();}
+  else{if(btn){btn.disabled=false;btn.textContent='Submit reflection';}alert('Could not save. Please try again.');}
 }
 
 async function doConfirm(){
@@ -495,8 +634,6 @@ async function doDispute(){
   await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:{...submission.form_data,_disputed:true,_dispute_note:note},updated_at:new Date().toISOString()}),prefer:'return=minimal'});
   await load();
 }
-
-function fmtTime(iso){return new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
 
 init();
 </script>
