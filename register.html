@@ -32,6 +32,10 @@ main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 
 .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px}
 .tab{flex:1;padding:10px;font-size:13px;font-weight:500;color:var(--text-secondary);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.split-btns{display:flex;gap:8px;margin-bottom:24px}
+.split-btn{flex:1;padding:11px;font-size:14px;font-weight:600;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;background:#fff;color:var(--text-secondary);transition:all .15s;font-family:inherit}
+.split-btn:hover{border-color:var(--accent);color:var(--accent)}
+.split-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .field{margin-bottom:16px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .field input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);background:var(--surface);transition:border .15s;outline:none}
@@ -58,11 +62,10 @@ footer{text-align:center;padding:16px;font-size:12px;color:var(--text-secondary)
 <main>
   <div class="card">
     <div class="card-title">Welcome</div>
-    <div class="card-sub">Register once at the start of semester. Use the same login each week.</div>
-    <div class="tabs">
-      <button class="tab active" id="tab-reg" onclick="switchTab('register')">Register</button>
-      <button class="tab" id="tab-login" onclick="switchTab('login')">Log in</button>
-      <button class="tab" id="tab-forgot" onclick="switchTab('forgot')">Forgot PIN</button>
+    <div class="card-sub">New to the class? Register below. Already registered? Log in.</div>
+    <div class="split-btns">
+      <button class="split-btn active" id="tab-reg" onclick="switchTab('register')">Register</button>
+      <button class="split-btn" id="tab-login" onclick="switchTab('login')">Log in</button>
     </div>
 
     <!-- REGISTER -->
@@ -88,17 +91,19 @@ footer{text-align:center;padding:16px;font-size:12px;color:var(--text-secondary)
       <div class="field"><label>PIN</label><input type="password" id="l-pin" placeholder="Your PIN" autocomplete="current-password"></div>
       <button class="btn btn-primary" id="l-btn" onclick="doLogin()">Log in</button>
       <div class="msg" id="l-msg"></div>
-      <div class="divider"><span class="link" onclick="switchTab('forgot')">Forgot your PIN?</span></div>
+      <div style="text-align:center;margin-top:12px"><span class="link" onclick="switchTab('forgot')">Forgot your PIN?</span></div>
     </div>
 
     <!-- FORGOT PIN -->
     <div id="pane-forgot" style="display:none">
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Enter your email and choose a new PIN. You'll need the class access code to verify.</div>
       <div class="field"><label>Email address</label><input type="email" id="f-email" placeholder="you@utexas.edu"></div>
       <div class="field"><label>New PIN</label><input type="password" id="f-pin" placeholder="Choose a new PIN"></div>
       <div class="field"><label>Confirm new PIN</label><input type="password" id="f-pin2" placeholder="Repeat PIN"></div>
       <div class="field"><label>Class access code <span style="font-weight:400;text-transform:none;font-size:11px">(to verify you're in the class)</span></label><input type="text" id="f-code" placeholder="Class access code" style="text-transform:uppercase"></div>
       <button class="btn btn-primary" id="f-btn" onclick="doForgot()">Reset PIN</button>
       <div class="msg" id="f-msg"></div>
+      <div style="text-align:center;margin-top:12px"><span class="link" onclick="switchTab('login')">← Back to login</span></div>
     </div>
   </div>
 </main>
@@ -127,11 +132,10 @@ async function hashPin(pin){
 function switchTab(t){
   ['register','login','forgot'].forEach(id=>{
     document.getElementById('pane-'+id).style.display=id===t?'block':'none';
-    document.getElementById('tab-'+id.replace('forgot','forgot')).classList.toggle('active',id===t);
+    const btn=document.getElementById('tab-'+id);
+    if(btn) btn.classList.toggle('active',id===t);
   });
 }
-// Fix tab IDs
-document.getElementById('tab-forgot').id='tab-forgot';
 
 async function doRegister(){
   const name=document.getElementById('r-name').value.trim();

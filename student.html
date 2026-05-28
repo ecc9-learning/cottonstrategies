@@ -281,22 +281,28 @@ async function load(){
   const assignments = asgR.ok ? asgR.data : [];
   const reflections = reflR.ok ? reflR.data : [];
 
-  // Load partner submission
+  // Load ALL partners' submissions (supports groups of 2, 3, or 4)
   partnerSub = null;
+  let partnerSubs = [];  // All partners who have submitted
+  let partnerAssignments = []; // All partner assignments in this group
   if(assignment&&activeSim){
-    const partners=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id');
+    const partners=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id,role');
     if(partners.ok&&partners.data?.length){
-      const pid=partners.data[0].student_id;
-      const ps=await sb('submissions?student_id=eq.'+pid+'&simulation_id=eq.'+activeSim.id+'&select=*');
-      if(ps.ok&&ps.data?.length)partnerSub=ps.data[0];
+      partnerAssignments=partners.data;
+      const ids=partners.data.map(a=>'"'+a.student_id+'"').join(',');
+      const ps=await sb('submissions?student_id=in.('+ids+')&simulation_id=eq.'+activeSim.id+'&select=*');
+      if(ps.ok&&ps.data?.length){
+        partnerSubs=ps.data;
+        partnerSub=ps.data[0]; // keep for backwards compat
+      }
     }
   }
 
   draftKey = activeSim ? 'draft_'+student.id+'_'+activeSim.id : '';
-  render(assignments,submissions,reflections,allAssessmentAssignments,myAssessments);
+  render(assignments,submissions,reflections,allAssessmentAssignments,myAssessments,partnerSubs,partnerAssignments);
 }
 
-function render(assignments,submissions,reflections,assessmentAssignments,myAssess){
+function render(assignments,submissions,reflections,assessmentAssignments,myAssess,pSubs,pAsgs){
   const main=document.getElementById('main');
   let html='';
 
@@ -365,10 +371,12 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     if(assignment){
       const fd=submission?.form_data||{};
       const confirmed=fd._confirmed,disputed=fd._disputed;
-      if(submission&&!partnerSub&&!confirmed&&!disputed) setTimeout(load,20000);
+      if(submission&&!(pSubs&&pSubs.length)&&!confirmed&&!disputed) setTimeout(load,20000);
 
       if(submission&&!editMode){
-        if(partnerSub&&!confirmed&&!disputed) html+=renderReviewCard();
+        // Show review when any partner has submitted and not yet confirmed/disputed
+        const pendingReview=(pSubs||[]).filter(ps=>!confirmed&&!disputed&&ps.student_id!==student.id);
+        if(pendingReview.length) html+=renderReviewCard(pendingReview,pAsgs||[]);
         html+=`<div class="card">
           <div class="card-header">
             <div class="card-title">Your results</div>
@@ -508,20 +516,31 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
   restoreRadios();
 }
 
-function renderReviewCard(){
-  if(!partnerSub||!activeSim)return'';
-  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note','f1','f3'].includes(f.id));
-  const answers=fields.map(f=>{
-    const v=partnerSub.form_data?.[f.id];
-    if(!v)return'';
-    return`<div class="review-item"><div class="review-item-lbl">${f.label}</div><div>${v}</div></div>`;
-  }).filter(Boolean).join('');
+function renderReviewCard(pendingReviews,pAsgs){
+  if(!pendingReviews||!pendingReviews.length||!activeSim)return'';
+  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  // Show each submitting partner's answers
+  const partnerCards=pendingReviews.map(ps=>{
+    const pAsg=pAsgs.find(a=>a.student_id===ps.student_id);
+    const role=pAsg?.role||'Partner';
+    const answers=fields.map(f=>{
+      const v=ps.form_data?.[f.id];
+      if(!v)return'';
+      return`<div class="review-item"><div class="review-item-lbl">${f.label}</div><div>${v}</div></div>`;
+    }).filter(Boolean).join('');
+    return`<div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${role}'s answers</div>
+      <div class="review-answers">${answers||'<div style="color:#9ca3af;font-size:12px">No answers recorded.</div>'}</div>
+    </div>`;
+  }).join('');
+
+  const allSubmitted=pendingReviews.length>0&&submission;
   return`<div class="review-card">
-    <div class="review-title">📋 Your partner submitted their results</div>
-    <div class="review-sub">Review their answers below. If they match your understanding of what happened, confirm. If something is off, flag it for your instructor.</div>
-    <div class="review-answers">${answers}</div>
-    ${!submission
-      ?'<div style="font-size:12px;color:#92400e">Submit your own results first, then you can confirm or dispute.</div>'
+    <div class="review-title">📋 ${pendingReviews.length===1?'Your partner has':'Your partners have'} submitted their results</div>
+    <div class="review-sub">Review ${pendingReviews.length===1?'their':'each partner\u2019s'} answers below. If they match your understanding, confirm. If something is off, flag it for your instructor.</div>
+    ${partnerCards}
+    ${!allSubmitted
+      ?'<div style="font-size:12px;color:#92400e;padding:8px 0">Submit your own results first, then you can confirm or dispute.</div>'
       :`<div class="review-actions">
         <button class="btn-confirm" onclick="doConfirm()">✓ Confirm — this matches</button>
         <button class="btn-dispute" onclick="showDisputeForm()">⚠ Disagree</button>
@@ -644,7 +663,7 @@ async function loadPartnerName(){
   const r=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id,role');
   if(!r.ok||!r.data?.length){const el=document.getElementById('partner-line');if(el)el.textContent='No partner assigned yet.';return;}
   const ids=r.data.map(a=>'\"'+a.student_id+'\"').join(',');
-  const nr=await sb('students?id=in.('+ids+')&select=id,name');
+  const nr=await sb('students?id=in.('+ids+')&is_archived=eq.false&select=id,name');
   if(!nr.ok||!nr.data?.length)return;
   const nm={};nr.data.forEach(s=>nm[s.id]=s.name);
   const parts=r.data.map(a=>(nm[a.student_id]||'Unknown')+' ('+a.role+')').join(', ');

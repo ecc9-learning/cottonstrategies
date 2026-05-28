@@ -566,15 +566,18 @@ async function launchApp() {
 // ── DATA LOADING ─────────────────────────────────────────────────────────────
 let allReflections=[], allSelfAssessments=[], allAssessmentAssignments=[];
 
+let allArchivedStudents=[];
+
 async function loadAll() {
-  const [sR,simR,aR,subR,reflR,saR,aaR] = await Promise.all([
+  const [sR,simR,aR,subR,reflR,saR,aaR,arR] = await Promise.all([
     dbGet('students?is_archived=eq.false&select=*&order=created_at.asc'),
     dbGet('simulations?select=*&order=sort_order.asc,name.asc'),
     dbGet('assignments?select=*'),
     dbGet('submissions?select=*'),
     dbGet('reflections?select=*'),
     dbGet('self_assessments?select=*'),
-    dbGet('assessment_assignments?select=*')
+    dbGet('assessment_assignments?select=*'),
+    dbGet('students?is_archived=eq.true&select=*&order=created_at.desc')
   ]);
   allStudents = sR.ok?sR.data:[];
   const rawSims = (simR.ok?simR.data:[]).map(s=>({
@@ -602,6 +605,7 @@ async function loadAll() {
   allReflections = reflR.ok?reflR.data:[];
   allSelfAssessments = saR.ok?saR.data:[];
   allAssessmentAssignments = aaR.ok?aaR.data:[];
+  allArchivedStudents = arR&&arR.ok?arR.data:[];
   activeSim = allSims.find(s=>s.is_active)||null;
 
   updateStatusBar();
@@ -794,6 +798,32 @@ function renderRoster() {
       </table>
     </div>`;
     document.getElementById('roster-body').parentElement.appendChild(hmDiv);
+  }
+
+  // ── ARCHIVED STUDENTS ───────────────────────────────────────────────────────
+  if(allArchivedStudents.length){
+    const archDiv=document.createElement('div');
+    archDiv.style.cssText='margin-top:1.5rem';
+    let archHtml=`<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:.75rem;display:flex;align-items:center;gap:10px">
+      Archived students
+      <span style="font-size:11px;font-weight:400;color:#9ca3af">${allArchivedStudents.length} student${allArchivedStudents.length>1?'s':''}</span>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fff">`;
+    allArchivedStudents.forEach((s,i)=>{
+      archHtml+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;${i<allArchivedStudents.length-1?'border-bottom:1px solid #f3f4f6':''}">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#374151">${s.name}</div>
+          <div style="font-size:12px;color:#9ca3af">${s.email} · Archived ${fmtDate(s.created_at)}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="restoreStudent('${s.id}','${s.name}')">Restore</button>
+          <button class="btn btn-ghost btn-sm" style="color:#dc2626" onclick="deleteStudent('${s.id}','${s.name}')">Delete all data</button>
+        </div>
+      </div>`;
+    });
+    archHtml+='</div>';
+    archDiv.innerHTML=archHtml;
+    document.getElementById('roster-body').parentElement.appendChild(archDiv);
   }
 }
 
@@ -2385,6 +2415,26 @@ function exportAssessmentCSV(){
   a.href=URL.createObjectURL(blob);
   a.download='assessment_pre_post.csv';
   a.click();
+}
+
+async function restoreStudent(id,name){
+  if(!confirm('Restore '+name+' to the active roster?'))return;
+  const r=await dbPatch('students?id=eq.'+id,{is_archived:false});
+  if(r.ok){await loadAll();showSection('roster');alert(name+' restored.');}
+  else alert('Could not restore. Status: '+r.status);
+}
+
+async function deleteStudent(id,name){
+  if(!confirm('DELETE ALL DATA for '+name+'?\n\nThis will permanently delete:\n• Their account\n• All submissions\n• All reflections\n• All assessment responses\n\nThis cannot be undone.'))return;
+  if(!confirm('Are you absolutely sure? Type OK to confirm deletion of '+name+'.'))return;
+  // Delete in order: reflections, self_assessments, submissions, assignments, student
+  await api('reflections?student_id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
+  await api('self_assessments?student_id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
+  await api('submissions?student_id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
+  await api('assignments?student_id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
+  const r=await api('students?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
+  if(r.ok){await loadAll();showSection('roster');alert(name+' and all their data deleted.');}
+  else alert('Could not fully delete. Some records may remain.');
 }
 
 function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}
