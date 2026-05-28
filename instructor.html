@@ -167,7 +167,32 @@ textarea{resize:vertical;min-height:70px}
 .alert-error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
 
 /* PROJECTION MODE */
-.projection-mode{display:none;position:fixed;inset:0;background:#fff;z-index:999;padding:2rem;overflow:auto}
+.projection-mode{display:none;position:fixed;inset:0;background:#111;z-index:999;padding:0;overflow:auto;color:#fff}
+.proj-header{background:#1a1a1a;border-bottom:1px solid #333;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between}
+.proj-title-text{font-size:20px;font-weight:800;color:#fff}
+.proj-sub{font-size:13px;color:#9ca3af;margin-top:2px}
+.proj-body{padding:2rem;display:flex;flex-direction:column;gap:2rem}
+.proj-stats-row{display:flex;gap:1rem}
+.proj-stat{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:1.25rem 1.5rem;flex:1;text-align:center}
+.proj-stat-val{font-size:36px;font-weight:800;color:#fff;line-height:1}
+.proj-stat-lbl{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-top:6px}
+.proj-section{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:1.5rem}
+.proj-section-title{font-size:13px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1.25rem}
+.proj-nav{display:flex;align-items:center;gap:8px}
+.proj-nav-btn{background:#333;border:none;color:#fff;width:36px;height:36px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.proj-nav-btn:hover{background:#444}
+.proj-chart-label{font-size:14px;font-weight:600;color:#fff;margin-bottom:1rem}
+.proj-group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+.proj-group-card{background:#222;border:1px solid #333;border-radius:10px;padding:1rem}
+.proj-group-num{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem}
+.proj-member{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a}
+.proj-member:last-child{border-bottom:none}
+.proj-member-name{font-size:14px;font-weight:600;color:#fff}
+.proj-member-role{font-size:11px;color:#9ca3af}
+.proj-member-deal{font-size:13px;font-weight:700}
+.proj-deal-yes{color:#4ade80}
+.proj-deal-no{color:#f87171}
+.proj-disputed{background:#422;border:1px solid #633;border-radius:4px;padding:2px 8px;font-size:10px;color:#f87171;font-weight:600}
 .projection-mode.active{display:block}
 
 /* LOGIN */
@@ -249,6 +274,14 @@ textarea{resize:vertical;min-height:70px}
       <div class="nav-item" onclick="showSection('simulations')" id="nav-simulations">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
         All Simulations
+      </div>
+      <div class="nav-item" onclick="showSection('progress')" id="nav-progress">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Progress
+      </div>
+      <div class="nav-item" onclick="showSection('assessment')" id="nav-assessment">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Assessment
       </div>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-bottom">
@@ -339,6 +372,18 @@ textarea{resize:vertical;min-height:70px}
       </div>
 
       <!-- SETTINGS -->
+      <!-- PROGRESS -->
+      <div class="section" id="section-progress">
+        <div class="section-title">Student Progress</div>
+        <div id="progress-body"></div>
+      </div>
+
+      <!-- ASSESSMENT -->
+      <div class="section" id="section-assessment">
+        <div class="section-title">Self-Assessment</div>
+        <div id="assessment-body"></div>
+      </div>
+
       <div class="section" id="section-settings">
         <div class="section-title">Settings</div>
         <div class="card">
@@ -382,12 +427,30 @@ textarea{resize:vertical;min-height:70px}
 
 <!-- PROJECTION -->
 <div class="projection-mode" id="projection-mode">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
-    <div style="font-size:22px;font-weight:800" id="proj-title"></div>
-    <button class="btn btn-outline" onclick="exitProjection()">Exit projection mode</button>
+  <div class="proj-header">
+    <div>
+      <div class="proj-title-text" id="proj-title">Results</div>
+      <div class="proj-sub" id="proj-sub"></div>
+    </div>
+    <div class="proj-nav">
+      <button class="proj-nav-btn" onclick="projPrevChart()" title="Previous chart">‹</button>
+      <span id="proj-chart-counter" style="font-size:12px;color:#9ca3af;min-width:50px;text-align:center"></span>
+      <button class="proj-nav-btn" onclick="projNextChart()" title="Next chart">›</button>
+      <button class="proj-nav-btn" onclick="projToggleGroups()" title="Group view" id="proj-groups-btn" style="width:auto;padding:0 12px;font-size:12px">Groups</button>
+      <button class="proj-nav-btn" style="background:#dc2626;width:auto;padding:0 14px;font-size:12px;font-weight:600" onclick="exitProjection()">✕ Exit</button>
+    </div>
   </div>
-  <div class="stats-row" id="proj-stats"></div>
-  <div class="chart-grid" id="proj-charts"></div>
+  <div class="proj-body">
+    <div class="proj-stats-row" id="proj-stats"></div>
+    <div class="proj-section" id="proj-main-section">
+      <div class="proj-section-title" id="proj-chart-label">Overview</div>
+      <div id="proj-charts"></div>
+    </div>
+    <div class="proj-section" id="proj-groups-section" style="display:none">
+      <div class="proj-section-title">Group results</div>
+      <div class="proj-group-grid" id="proj-groups-body"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -499,12 +562,17 @@ async function launchApp() {
 }
 
 // ── DATA LOADING ─────────────────────────────────────────────────────────────
+let allReflections=[], allSelfAssessments=[], allAssessmentAssignments=[];
+
 async function loadAll() {
-  const [sR,simR,aR,subR] = await Promise.all([
+  const [sR,simR,aR,subR,reflR,saR,aaR] = await Promise.all([
     dbGet('students?is_archived=eq.false&select=*&order=created_at.asc'),
-    dbGet('simulations?select=*&order=name.asc'),
+    dbGet('simulations?select=*&order=sort_order.asc,name.asc'),
     dbGet('assignments?select=*'),
-    dbGet('submissions?select=*')
+    dbGet('submissions?select=*'),
+    dbGet('reflections?select=*'),
+    dbGet('self_assessments?select=*'),
+    dbGet('assessment_assignments?select=*')
   ]);
   allStudents = sR.ok?sR.data:[];
   const rawSims = (simR.ok?simR.data:[]).map(s=>({
@@ -529,6 +597,9 @@ async function loadAll() {
   // dummy line to replace:
   allAssignments = aR.ok?aR.data:[];
   allSubmissions = subR.ok?subR.data:[];
+  allReflections = reflR.ok?reflR.data:[];
+  allSelfAssessments = saR.ok?saR.data:[];
+  allAssessmentAssignments = aaR.ok?aaR.data:[];
   activeSim = allSims.find(s=>s.is_active)||null;
 
   updateStatusBar();
@@ -590,6 +661,8 @@ function renderCurrentSection() {
   else if(currentSection==='assignments') renderAssignments();
   else if(currentSection==='results') renderResults();
   else if(currentSection==='simulations') renderSimulations();
+  else if(currentSection==='progress') renderProgress();
+  else if(currentSection==='assessment') renderAssessment();
   else if(currentSection==='settings') loadSettings();
 }
 
@@ -1412,21 +1485,222 @@ function buildHist(container,id,title,vals,color){
   },50);
 }
 
-function enterProjection(){
-  const proj=document.getElementById('projection-mode');
-  document.getElementById('proj-title').textContent=(activeSim?.name||'Results')+' — Live Results';
-  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
-  const dealField=(activeSim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
-  const deals=subs.filter(s=>s.form_data?.[dealField]==='Yes').length;
-  document.getElementById('proj-stats').innerHTML=[
-    {v:subs.length,l:'Submissions'},{v:deals,l:'Deals'},{v:subs.length?Math.round(deals/subs.length*100)+'%':'—',l:'Deal rate'}
-  ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
-  const pc=document.getElementById('proj-charts'); pc.innerHTML='';
-  if(activeSim&&subs.length) buildCharts(activeSim,subs,pc);
-  proj.classList.add('active');
+let projChartIndex=0;
+let projCharts=[];
+
+function buildProjCharts(sim,subs){
+  // Returns array of {label, render(container)} objects
+  const charts=[];
+  const fields=sim.fields||[];
+
+  // Chart 1: Deal / No deal (if applicable)
+  const dealField=fields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
+  if(dealField){
+    const dealVals=subs.map(s=>s.form_data?.[dealField.id]);
+    charts.push({
+      label:'Deal / No deal',
+      render:(c)=>{
+        const yes=dealVals.filter(v=>v==='Yes').length;
+        const no=dealVals.filter(v=>v==='No').length;
+        c.innerHTML='';
+        const canvas=document.createElement('canvas');
+        canvas.style.cssText='max-width:400px;max-height:300px;margin:0 auto;display:block';
+        c.appendChild(canvas);
+        setTimeout(()=>{
+          new Chart(canvas,{type:'doughnut',data:{
+            labels:['Deal ✓','No deal ✗'],
+            datasets:[{data:[yes,no],backgroundColor:['#4ade80','#f87171'],borderWidth:0}]
+          },options:{responsive:true,maintainAspectRatio:true,plugins:{
+            legend:{labels:{color:'#fff',font:{size:14}}},
+            tooltip:{callbacks:{label:(c)=>c.label+': '+c.parsed+' ('+Math.round(c.parsed/(yes+no)*100)+'%)'}}
+          }}});
+        },50);
+      }
+    });
+  }
+
+  // Charts for other radio fields
+  fields.filter(f=>f.type==='radio'&&f.id!==dealField?.id).forEach(f=>{
+    const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
+    if(!vals.length)return;
+    const counts={};
+    vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
+    charts.push({
+      label:f.label||f.id,
+      render:(c)=>{
+        c.innerHTML='';
+        const canvas=document.createElement('canvas');
+        canvas.style.cssText='max-width:500px;max-height:300px;margin:0 auto;display:block';
+        c.appendChild(canvas);
+        const labels=Object.keys(counts);
+        setTimeout(()=>{
+          new Chart(canvas,{type:'bar',data:{
+            labels,
+            datasets:[{data:labels.map(l=>counts[l]),backgroundColor:'#bf5700',borderRadius:6}]
+          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{
+            x:{ticks:{color:'#ccc',font:{size:13}}},
+            y:{ticks:{color:'#9ca3af',stepSize:1}}
+          }}});
+        },50);
+      }
+    });
+  });
+
+  // Charts for number fields
+  fields.filter(f=>f.type==='number').forEach(f=>{
+    const vals=subs.map(s=>parseFloat(s.form_data?.[f.id])).filter(v=>!isNaN(v));
+    if(!vals.length)return;
+    charts.push({
+      label:f.label||f.id,
+      render:(c)=>{
+        c.innerHTML='';
+        const canvas=document.createElement('canvas');
+        canvas.style.cssText='max-width:600px;max-height:280px;margin:0 auto;display:block';
+        c.appendChild(canvas);
+        const min=Math.min(...vals),max=Math.max(...vals);
+        const bins=5;
+        const step=(max-min)/bins||1;
+        const buckets=Array(bins).fill(0);
+        const labels=Array.from({length:bins},(_,i)=>Math.round(min+i*step)+'-'+Math.round(min+(i+1)*step));
+        vals.forEach(v=>{const i=Math.min(Math.floor((v-min)/step),bins-1);buckets[i]++;});
+        setTimeout(()=>{
+          new Chart(canvas,{type:'bar',data:{
+            labels,datasets:[{data:buckets,backgroundColor:'rgba(191,87,0,0.7)',borderColor:'#bf5700',borderWidth:2,borderRadius:6}]
+          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{
+            x:{ticks:{color:'#ccc',font:{size:12}}},
+            y:{ticks:{color:'#9ca3af',stepSize:1}}
+          }}});
+        },50);
+      }
+    });
+  });
+
+  return charts;
 }
 
-function exitProjection(){document.getElementById('projection-mode').classList.remove('active'); renderResults();}
+function renderProjChart(){
+  if(!projCharts.length){
+    document.getElementById('proj-charts').innerHTML='<div style="color:#9ca3af;text-align:center;padding:2rem">No chart data yet.</div>';
+    document.getElementById('proj-chart-label').textContent='';
+    document.getElementById('proj-chart-counter').textContent='';
+    return;
+  }
+  projChartIndex=Math.max(0,Math.min(projChartIndex,projCharts.length-1));
+  const chart=projCharts[projChartIndex];
+  document.getElementById('proj-chart-label').textContent=chart.label;
+  document.getElementById('proj-chart-counter').textContent=(projChartIndex+1)+' / '+projCharts.length;
+  const container=document.getElementById('proj-charts');
+  Object.values(activeCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+  activeCharts={};
+  chart.render(container);
+}
+
+function projNextChart(){projChartIndex++;renderProjChart();}
+function projPrevChart(){projChartIndex--;renderProjChart();}
+
+function projToggleGroups(){
+  const gs=document.getElementById('proj-groups-section');
+  const ms=document.getElementById('proj-main-section');
+  const btn=document.getElementById('proj-groups-btn');
+  const showing=gs.style.display!=='none';
+  gs.style.display=showing?'none':'block';
+  ms.style.display=showing?'block':'none';
+  btn.style.background=showing?'#333':'#bf5700';
+}
+
+function buildProjGroups(sim,subs){
+  const groups={};
+  const released=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
+  released.forEach(a=>{
+    if(!groups[a.group_number])groups[a.group_number]=[];
+    const stu=allStudents.find(s=>s.id===a.student_id);
+    const sub=subs.find(s=>s.student_id===a.student_id);
+    const dealField=(sim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+    const deal=sub?sub.form_data?.[dealField]:null;
+    const disputed=sub?.form_data?._disputed;
+    const confirmed=sub?.form_data?._confirmed;
+    groups[a.group_number].push({name:stu?.name||'Unknown',role:a.role,deal,sub,disputed,confirmed});
+  });
+
+  return Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([gn,members])=>{
+    const groupDeal=members.length>1&&members.every(m=>m.deal==='Yes')?'yes':
+                    members.some(m=>m.deal==='No')||members.some(m=>!m.sub)?'no':'pending';
+    const borderColor=groupDeal==='yes'?'#4ade80':groupDeal==='no'?'#f87171':'#555';
+    return`<div class="proj-group-card" style="border-color:${borderColor}">
+      <div class="proj-group-num">Group ${gn} ${groupDeal==='yes'?'<span style="color:#4ade80">✓ Deal</span>':groupDeal==='no'?'<span style="color:#f87171">✗ No deal</span>':'<span style="color:#9ca3af">Pending</span>'}</div>
+      ${members.map(m=>`<div class="proj-member">
+        <div>
+          <div class="proj-member-name">${m.name}</div>
+          <div class="proj-member-role">${m.role}</div>
+        </div>
+        <div style="text-align:right">
+          ${m.sub?`<div class="proj-member-deal ${m.deal==='Yes'?'proj-deal-yes':m.deal==='No'?'proj-deal-no':''}">${m.deal||'Submitted'}</div>`:
+            '<div style="color:#555;font-size:12px">No submission</div>'}
+          ${m.disputed?'<div class="proj-disputed">DISPUTED</div>':''}
+          ${m.confirmed?'<div style="font-size:10px;color:#4ade80;font-weight:600">CONFIRMED</div>':''}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function enterProjection(){
+  if(!activeSim){alert('No active simulation.');return;}
+  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id)||[];
+  const dealField=(activeSim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+  const deals=subs.filter(s=>s.form_data?.[dealField]==='Yes').length;
+  const notSub=allStudents.filter(s=>!subs.find(x=>x.student_id===s.id)).length;
+
+  document.getElementById('proj-title').textContent=activeSim.name;
+  document.getElementById('proj-sub').textContent=`${subs.length} submissions · ${deals} deals · ${notSub} not yet submitted`;
+
+  document.getElementById('proj-stats').innerHTML=[
+    {v:subs.length,l:'Submitted'},
+    {v:deals,l:'Deals'},
+    {v:subs.length?Math.round(deals/subs.length*100)+'%':'—',l:'Deal rate'},
+    {v:notSub,l:'Pending'},
+  ].map(s=>`<div class="proj-stat"><div class="proj-stat-val">${s.v}</div><div class="proj-stat-lbl">${s.l}</div></div>`).join('');
+
+  // Build charts
+  projCharts=buildProjCharts(activeSim,subs);
+  projChartIndex=0;
+  renderProjChart();
+
+  // Build groups
+  const groupsHtml=buildProjGroups(activeSim,subs);
+  document.getElementById('proj-groups-body').innerHTML=groupsHtml||'<div style="color:#9ca3af">No assignments released yet.</div>';
+
+  // Reset view to charts
+  document.getElementById('proj-main-section').style.display='block';
+  document.getElementById('proj-groups-section').style.display='none';
+  document.getElementById('proj-groups-btn').style.background='#333';
+
+  document.getElementById('projection-mode').classList.add('active');
+
+  // Auto-refresh every 30s
+  window._projRefresh=setInterval(async()=>{
+    await loadAll();
+    const newSubs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
+    const newDeals=newSubs.filter(s=>s.form_data?.[dealField]==='Yes').length;
+    const newNotSub=allStudents.filter(s=>!newSubs.find(x=>x.student_id===s.id)).length;
+    document.getElementById('proj-sub').textContent=`${newSubs.length} submissions · ${newDeals} deals · ${newNotSub} not yet submitted`;
+    document.getElementById('proj-stats').innerHTML=[
+      {v:newSubs.length,l:'Submitted'},
+      {v:newDeals,l:'Deals'},
+      {v:newSubs.length?Math.round(newDeals/newSubs.length*100)+'%':'—',l:'Deal rate'},
+      {v:newNotSub,l:'Pending'},
+    ].map(s=>`<div class="proj-stat"><div class="proj-stat-val">${s.v}</div><div class="proj-stat-lbl">${s.l}</div></div>`).join('');
+    projCharts=buildProjCharts(activeSim,newSubs);
+    renderProjChart();
+    document.getElementById('proj-groups-body').innerHTML=buildProjGroups(activeSim,newSubs)||'<div style="color:#9ca3af">No assignments released yet.</div>';
+  },30000);
+}
+
+function exitProjection(){
+  clearInterval(window._projRefresh);
+  document.getElementById('projection-mode').classList.remove('active');
+  renderResults();
+}
 
 function exportCSV(){
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
@@ -1645,6 +1919,390 @@ async function submitRenameSim(simId){
   const r=await dbPatch('simulations?id=eq.'+simId,{name,description:desc,reflection_question:refl});
   if(r.ok){closeModal();await loadAll();showSection('simulations');}
   else{alert('Could not save. Status: '+r.status);}
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PROGRESS
+// ══════════════════════════════════════════════════════════════════════════════
+function renderProgress(){
+  const el=document.getElementById('progress-body'); if(!el)return;
+  if(!allStudents.length){
+    el.innerHTML='<div class="card"><div class="empty-state"><div class="empty-state-icon">📈</div><div class="empty-state-title">No students yet</div></div></div>';
+    return;
+  }
+
+  // Summary cards
+  const totalSubs=allSubmissions.length;
+  const totalRefl=allReflections.length;
+  const dealField_fn=(sim)=>(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+
+  let html=`<div class="stats-row" style="margin-bottom:1rem">
+    <div class="stat-card"><div class="stat-val">${totalSubs}</div><div class="stat-lbl">Total submissions</div></div>
+    <div class="stat-card"><div class="stat-val">${totalRefl}</div><div class="stat-lbl">Reflections written</div></div>
+    <div class="stat-card"><div class="stat-val">${allStudents.length}</div><div class="stat-lbl">Students</div></div>
+  </div>`;
+
+  // Student list with progress bars
+  html+=`<div class="card" style="padding:0">
+    <div style="padding:1rem 1.25rem;font-size:13px;font-weight:700;border-bottom:1px solid #f3f4f6">
+      Student progress — click any student to see their full record
+    </div>`;
+
+  allStudents.forEach(stu=>{
+    const stuSubs=allSubmissions.filter(s=>s.student_id===stu.id);
+    const stuRefl=allReflections.filter(r=>r.student_id===stu.id);
+    const stuAsgs=allAssignments.filter(a=>a.student_id===stu.id&&a.released);
+    const dealCount=stuSubs.filter(s=>{
+      const sim=allSims.find(x=>x.id===s.simulation_id);
+      const df=dealField_fn(sim);
+      return s.form_data?.[df]==='Yes';
+    }).length;
+    const dealRate=stuSubs.length?Math.round(dealCount/stuSubs.length*100):0;
+    const pct=Math.round(stuSubs.length/Math.max(allSims.length,1)*100);
+
+    html+=`<div class="clickable" onclick="openStudentProgress('${stu.id}')" style="padding:1rem 1.25rem;border-bottom:1px solid #f9fafb;display:flex;align-items:center;gap:1rem">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${stu.name}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:4px;background:#f3f4f6;border-radius:2px;max-width:160px">
+            <div style="height:100%;background:#bf5700;border-radius:2px;width:${pct}%"></div>
+          </div>
+          <span style="font-size:11px;color:#9ca3af">${stuSubs.length}/${allSims.length} sims</span>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:13px;font-weight:600">${dealRate}%</div>
+        <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Deal rate</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:13px;font-weight:600">${stuRefl.length}</div>
+        <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Reflections</div>
+      </div>
+      <span style="color:#d1d5db;font-size:16px">›</span>
+    </div>`;
+  });
+
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function openStudentProgress(sid){
+  const stu=allStudents.find(s=>s.id===sid); if(!stu)return;
+  const stuSubs=allSubmissions.filter(s=>s.student_id===sid);
+  const stuRefl=allReflections.filter(r=>r.student_id===sid);
+  const stuAsgs=allAssignments.filter(a=>a.student_id===sid&&a.released);
+
+  // Build outcome data per simulation
+  const outcomeRows=allSims.map(sim=>{
+    const sub=stuSubs.find(s=>s.simulation_id===sim.id);
+    const asg=stuAsgs.find(a=>a.simulation_id===sim.id);
+    const refl=stuRefl.find(r=>r.simulation_id===sim.id);
+    if(!sub&&!asg)return null;
+    const dealField=(sim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+    const deal=sub?sub.form_data?.[dealField]:'—';
+    return{sim,sub,asg,refl,deal};
+  }).filter(Boolean);
+
+  // Reflection journal HTML
+  const reflHtml=outcomeRows.filter(r=>r.refl).map(r=>`
+    <div style="padding:14px 0;border-bottom:1px solid #f3f4f6">
+      <div style="font-size:12px;font-weight:700;color:#bf5700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${r.sim.name}</div>
+      ${r.refl.mistake?`<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Most important mistake</div><div style="font-size:13px;color:#374151;line-height:1.5">${r.refl.mistake}</div></div>`:''}
+      ${r.refl.do_differently?`<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Would do differently</div><div style="font-size:13px;color:#374151;line-height:1.5">${r.refl.do_differently}</div></div>`:''}
+      ${r.refl.custom_response?`<div><div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Custom response</div><div style="font-size:13px;color:#374151;line-height:1.5">${r.refl.custom_response}</div></div>`:''}
+    </div>`).join('');
+
+  // Outcomes table
+  const outcomesHtml=outcomeRows.map(r=>{
+    const dealBadge=r.deal==='Yes'?'<span class="badge badge-green">✓ Deal</span>':r.deal==='No'?'<span class="badge badge-red">No deal</span>':'<span class="badge badge-gray">—</span>';
+    return`<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #f9fafb;font-size:13px;gap:12px">
+      <div style="flex:1;font-weight:500">${r.sim.name}</div>
+      <div style="color:#9ca3af;font-size:12px">${r.asg?.role||'—'}</div>
+      ${dealBadge}
+      ${r.refl?'<span style="font-size:11px;color:#16a34a">✎ Reflected</span>':'<span style="font-size:11px;color:#d1d5db">No reflection</span>'}
+    </div>`;
+  }).join('');
+
+  showModal(`<div class="modal-header">
+    <div class="modal-title">${stu.name} — Progress Record</div>
+  </div>
+  <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+    <div style="display:flex;gap:12px;margin-bottom:20px">
+      <div class="stat-card" style="flex:1"><div class="stat-val">${stuSubs.length}</div><div class="stat-lbl">Simulations</div></div>
+      <div class="stat-card" style="flex:1"><div class="stat-val">${stuRefl.length}</div><div class="stat-lbl">Reflections</div></div>
+      <div class="stat-card" style="flex:1"><div class="stat-val">${stuSubs.length?Math.round(stuSubs.filter(s=>{const sim=allSims.find(x=>x.id===s.simulation_id);const df=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';return s.form_data?.[df]==='Yes';}).length/stuSubs.length*100):0}%</div><div class="stat-lbl">Deal rate</div></div>
+    </div>
+    ${outcomeRows.length?`<div style="font-size:13px;font-weight:700;margin-bottom:8px">Simulation outcomes</div>${outcomesHtml}<div style="height:1px;background:#f3f4f6;margin:16px 0"></div>`:''}
+    ${reflHtml?`<div style="font-size:13px;font-weight:700;margin-bottom:8px">Reflection journal</div>${reflHtml}`:'<div style="color:#9ca3af;font-size:13px;font-style:italic">No reflections submitted yet.</div>'}
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal()">Close</button>
+    <button class="btn btn-primary" onclick="exportStudentProgress('${sid}')">Export to CSV</button>
+  </div>`);
+}
+
+function exportStudentProgress(sid){
+  const stu=allStudents.find(s=>s.id===sid); if(!stu)return;
+  const stuSubs=allSubmissions.filter(s=>s.student_id===sid);
+  const stuRefl=allReflections.filter(r=>r.student_id===sid);
+  const stuAsgs=allAssignments.filter(a=>a.student_id===sid&&a.released);
+  let csv='Simulation,Role,Deal,Outcome,Mistake,Would do differently,Custom response\n';
+  allSims.forEach(sim=>{
+    const sub=stuSubs.find(s=>s.simulation_id===sim.id);
+    const asg=stuAsgs.find(a=>a.simulation_id===sim.id);
+    const refl=stuRefl.find(r=>r.simulation_id===sim.id);
+    if(!sub&&!asg)return;
+    const dealField=(sim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
+    const deal=sub?sub.form_data?.[dealField]||'—':'—';
+    const escCsv=(s)=>'"'+(s||'').replace(/"/g,'""')+'"';
+    csv+=`${escCsv(sim.name)},${escCsv(asg?.role||'')},${escCsv(deal)},${escCsv('')},${escCsv(refl?.mistake||'')},${escCsv(refl?.do_differently||'')},${escCsv(refl?.custom_response||'')}\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=stu.name.replace(/\s+/g,'_')+'_progress.csv';
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ASSESSMENT
+// ══════════════════════════════════════════════════════════════════════════════
+const ASSESSMENT_QUESTIONS=[
+  {n:1,text:"If the other party's position seems very important to him or her, I may sacrifice my own position.",cols:['A','','','','']},
+  {n:2,text:"I address problems and concerns directly without blame or judgment.",cols:['','B','','','']},
+  {n:3,text:"I try to win by convincing the other party of the logic and benefits of my position.",cols:['','','C','','']},
+  {n:4,text:"I tell the other person my ideas for and ask for his or hers in return.",cols:['','B','','','']},
+  {n:5,text:"I try to find a compromise solution.",cols:['','','','D','']},
+  {n:6,text:"I try to postpone discussions until I have had some time to think.",cols:['','','','','E']},
+  {n:7,text:"I see achievement as more important than relational issues.",cols:['','','C','','']},
+  {n:8,text:"I use body language that might be perceived as condescending or arrogant.",cols:['','','C','','']},
+  {n:9,text:"Confronting someone about a problem is very uncomfortable for me.",cols:['A','','','','']},
+  {n:10,text:"I give up some points in exchange for others.",cols:['','','','D','']},
+  {n:11,text:"I propose a middle ground.",cols:['','','','D','']},
+  {n:12,text:"I am likely to take a comment back or try to soften it if I realize that it hurt someone's feelings.",cols:['A','','','','']},
+  {n:13,text:"I think it is all right to ask for what I want or to explain how I feel.",cols:['','B','','','']},
+  {n:14,text:"I find conflict stressful and will avoid it any way I can.",cols:['','','','','E']},
+  {n:15,text:"I have been described as impatient, controlling, insensitive or emotionally detached.",cols:['','','C','','']},
+  {n:16,text:"If asked to do something I don't agree with or don't want to do, I'll do it but deliberately won't do it as well as I could have.",cols:['','','','','E']},
+  {n:17,text:"I let my body language communicate my feelings rather than telling people directly how I feel.",cols:['A','','','','']},
+  {n:18,text:"I remain calm and confident when faced with aggression or criticism.",cols:['','B','','','']},
+  {n:19,text:"I may overextend myself trying to meet everyone's needs.",cols:['A','','','','']},
+  {n:20,text:"I try to find fair combination of gains and losses for both of us.",cols:['','B','','','']},
+  {n:21,text:"I look for and acknowledge common ground.",cols:['','B','','','']},
+  {n:22,text:"I have a hard time being clear about what I want and need for fear of appearing demanding or selfish.",cols:['A','','','','']},
+  {n:23,text:"I can overlook valuable ideas in favor of action.",cols:['','','C','','']},
+  {n:24,text:"I may not be open to hear other points of view.",cols:['','','C','','']},
+  {n:25,text:"I avoid taking positions that would create controversy.",cols:['A','','','','']},
+];
+const STYLE_ITEMS={A:[1,9,12,17,19,22,25],B:[2,4,13,18,20,21],C:[3,7,8,15,23,24],D:[5,10,11],E:[6,14,16]};
+const STYLE_NAMES={A:'Accommodating',B:'Collaborating',C:'Competing',D:'Compromising',E:'Avoiding'};
+const STYLE_COLORS={A:'#2563eb',B:'#16a34a',C:'#dc2626',D:'#d97706',E:'#9333ea'};
+
+function renderAssessment(){
+  const el=document.getElementById('assessment-body'); if(!el)return;
+  const preAssigned=allAssessmentAssignments.find(a=>a.type==='pre');
+  const postAssigned=allAssessmentAssignments.find(a=>a.type==='post');
+  const preCount=allSelfAssessments.filter(a=>a.type==='pre').length;
+  const postCount=allSelfAssessments.filter(a=>a.type==='post').length;
+
+  let html=`<div class="stats-row" style="margin-bottom:1rem">
+    <div class="stat-card"><div class="stat-val">${preCount}</div><div class="stat-lbl">Pre submissions</div></div>
+    <div class="stat-card"><div class="stat-val">${postCount}</div><div class="stat-lbl">Post submissions</div></div>
+    <div class="stat-card"><div class="stat-val">${allStudents.length}</div><div class="stat-lbl">Students</div></div>
+  </div>`;
+
+  // Assignment controls
+  html+=`<div class="card">
+    <div class="card-title">Assessment control</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+      <div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Pre-Assessment</div>
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:12px">${preCount} of ${allStudents.length} submitted</div>
+        ${preAssigned&&preAssigned.is_open
+          ?`<button class="btn btn-danger btn-sm" onclick="closeAssessment('pre')">Close pre-assessment</button>`
+          :`<button class="btn btn-primary btn-sm" onclick="openAssessment('pre')">Open pre-assessment</button>`}
+      </div>
+      <div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Post-Assessment</div>
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:12px">${postCount} of ${allStudents.length} submitted</div>
+        ${postAssigned&&postAssigned.is_open
+          ?`<button class="btn btn-danger btn-sm" onclick="closeAssessment('post')">Close post-assessment</button>`
+          :`<button class="btn btn-primary btn-sm" onclick="openAssessment('post')">Open post-assessment</button>`}
+      </div>
+    </div>
+  </div>`;
+
+  // Private key (instructor only)
+  if(allStudents.length){
+    html+=`<div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <div class="card-title">🔑 Private key — anonymous numbers</div>
+        <span style="font-size:11px;color:#9ca3af">Not visible in any export</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem">
+        ${allStudents.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f9fafb;border-radius:6px;font-size:12px">
+          <span style="font-weight:700;color:#bf5700;min-width:28px">#${String(s.anon_number||'?').padStart(2,'0')}</span>
+          <span>${s.name}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Results tabs
+  if(preCount||postCount){
+    html+=`<div class="card" style="padding:0">
+      <div style="padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f3f4f6">
+        <div class="card-title" style="margin-bottom:0">Results</div>
+        <div style="display:flex;gap:8px">
+          ${preCount?`<button class="btn btn-outline btn-sm" onclick="showAssessmentResults('pre')">View Pre (${preCount})</button>`:''}
+          ${postCount?`<button class="btn btn-outline btn-sm" onclick="showAssessmentResults('post')">View Post (${postCount})</button>`:''}
+          ${preCount&&postCount?`<button class="btn btn-primary btn-sm" onclick="showAssessmentResults('both')">Compare Pre vs Post</button>`:''}
+          <button class="btn btn-outline btn-sm" onclick="exportAssessmentCSV()">↓ Export CSV</button>
+        </div>
+      </div>
+      <div id="assessment-results-body" style="padding:1.25rem"></div>
+    </div>`;
+  }
+
+  el.innerHTML=html;
+}
+
+async function openAssessment(type){
+  // Upsert assessment assignment
+  const existing=allAssessmentAssignments.find(a=>a.type===type);
+  let res;
+  if(existing){
+    res=await dbPatch('assessment_assignments?id=eq.'+existing.id,{is_open:true});
+  } else {
+    res=await api('assessment_assignments',{method:'POST',body:JSON.stringify({type,is_open:true}),prefer:'return=minimal'});
+  }
+  if(res.ok){await loadAll();showSection('assessment');}
+  else{alert('Could not open assessment. Status: '+res.status);}
+}
+
+async function closeAssessment(type){
+  const existing=allAssessmentAssignments.find(a=>a.type===type);
+  if(!existing)return;
+  const res=await dbPatch('assessment_assignments?id=eq.'+existing.id,{is_open:false});
+  if(res.ok){await loadAll();showSection('assessment');}
+}
+
+function calcColTotals(responses){
+  const totals={A:0,B:0,C:0,D:0,E:0};
+  Object.entries(STYLE_ITEMS).forEach(([col,items])=>{
+    items.forEach(n=>{
+      const v=parseInt(responses['q'+n+'_'+col]||0)||0;
+      totals[col]+=v;
+    });
+  });
+  return totals;
+}
+
+function showAssessmentResults(view){
+  const container=document.getElementById('assessment-results-body');
+  if(!container)return;
+
+  const getData=(type)=>allSelfAssessments.filter(a=>a.type===type).map(a=>({
+    ...a,
+    totals: typeof a.col_totals==='string'?JSON.parse(a.col_totals):(a.col_totals||{A:0,B:0,C:0,D:0,E:0})
+  }));
+
+  if(view==='both'){
+    const preData=getData('pre');
+    const postData=getData('post');
+    // Class average comparison
+    const avg=(data,col)=>data.length?Math.round(data.reduce((s,a)=>s+(a.totals[col]||0),0)/data.length*10)/10:0;
+    container.innerHTML=`
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">Class average — Pre vs Post</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:#f9fafb">
+            <th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e5e7eb">Style</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:1px solid #e5e7eb">Pre avg</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:1px solid #e5e7eb">Post avg</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:1px solid #e5e7eb">Change</th>
+          </tr></thead>
+          <tbody>
+            ${['A','B','C','D','E'].map(col=>{
+              const pre=avg(preData,col);
+              const post=avg(postData,col);
+              const diff=post-pre;
+              const diffStr=diff>0?'+'+diff.toFixed(1):diff.toFixed(1);
+              const diffColor=diff>0?'#16a34a':diff<0?'#dc2626':'#9ca3af';
+              return`<tr>
+                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">
+                  <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${STYLE_COLORS[col]};margin-right:6px"></span>
+                  <strong>${col}</strong> — ${STYLE_NAMES[col]}
+                </td>
+                <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6">${pre}</td>
+                <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6">${post}</td>
+                <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f3f4f6;font-weight:700;color:${diffColor}">${diffStr}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    return;
+  }
+
+  const data=getData(view);
+  if(!data.length){container.innerHTML='<div style="color:#9ca3af;font-size:13px">No submissions yet.</div>';return;}
+
+  // Heat map: rows = anon numbers, cols = A-E style totals
+  container.innerHTML=`
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px">${view==='pre'?'Pre':'Post'}-Assessment results (anonymous)</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#f9fafb">
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb">ID</th>
+          ${['A','B','C','D','E'].map(col=>`<th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb">
+            <span style="color:${STYLE_COLORS[col]};font-weight:700">${col}</span><br>
+            <span style="font-size:10px;font-weight:400;color:#9ca3af">${STYLE_NAMES[col]}</span>
+          </th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${data.sort((a,b)=>(a.anon_number||99)-(b.anon_number||99)).map(row=>{
+            const totals=row.totals;
+            const maxPossible={A:35,B:30,C:30,D:15,E:15};
+            return`<tr>
+              <td style="padding:7px 10px;border-bottom:1px solid #f3f4f6;font-weight:700;color:#bf5700">#${String(row.anon_number||'?').padStart(2,'0')}</td>
+              ${['A','B','C','D','E'].map(col=>{
+                const v=totals[col]||0;
+                const max=maxPossible[col];
+                const intensity=Math.round((v/max)*100);
+                const bg=col==='A'?`rgba(37,99,235,${intensity/100*0.6})`:
+                          col==='B'?`rgba(22,163,74,${intensity/100*0.6})`:
+                          col==='C'?`rgba(220,38,38,${intensity/100*0.6})`:
+                          col==='D'?`rgba(217,119,6,${intensity/100*0.6})`:
+                          `rgba(147,51,234,${intensity/100*0.6})`;
+                return`<td style="padding:7px 10px;text-align:center;border-bottom:1px solid #f3f4f6;background:${bg};font-weight:600">${v}</td>`;
+              }).join('')}
+            </tr>`;
+          }).join('')}
+          <tr style="background:#f9fafb;font-weight:700">
+            <td style="padding:7px 10px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Class avg</td>
+            ${['A','B','C','D','E'].map(col=>{
+              const avg=data.length?Math.round(data.reduce((s,r)=>s+(r.totals[col]||0),0)/data.length*10)/10:0;
+              return`<td style="padding:7px 10px;text-align:center;color:${STYLE_COLORS[col]}">${avg}</td>`;
+            }).join('')}
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function exportAssessmentCSV(){
+  let csv='Anonymous ID,Type,A (Accommodating),B (Collaborating),C (Competing),D (Compromising),E (Avoiding)\n';
+  allSelfAssessments.sort((a,b)=>(a.anon_number||99)-(b.anon_number||99)).forEach(row=>{
+    const totals=typeof row.col_totals==='string'?JSON.parse(row.col_totals):(row.col_totals||{});
+    csv+=`#${String(row.anon_number||'?').padStart(2,'0')},${row.type},${totals.A||0},${totals.B||0},${totals.C||0},${totals.D||0},${totals.E||0}\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='assessment_results.csv';
+  a.click();
 }
 
 function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}

@@ -174,7 +174,7 @@ main{flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 16px 40px}
 </head>
 <body>
 <nav>
-  <div class="nav-logo">Cotton <span>Strategies</span></div>
+  <a href="/" style="text-decoration:none"><div class="nav-logo">Cotton <span>Strategies</span></div></a>
   <div class="nav-right">
     <span class="nav-name" id="nav-name"></span>
     <button class="nav-logout" onclick="logout()">Log out</button>
@@ -188,6 +188,11 @@ const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
 
 let student=null,activeSim=null,assignment=null,submission=null,partnerSub=null,allSims=[],reflection=null;
 let formValues={},editMode=false,draftKey='',notesSaveTimer=null;
+let allAssessmentAssignments=[],myAssessments=[];
+
+const STYLE_ITEMS={A:[1,9,12,17,19,22,25],B:[2,4,13,18,20,21],C:[3,7,8,15,23,24],D:[5,10,11],E:[6,14,16]};
+const STYLE_NAMES={A:'Accommodating',B:'Collaborating',C:'Competing',D:'Compromising',E:'Avoiding'};
+const STYLE_COLORS={A:'#2563eb',B:'#16a34a',C:'#dc2626',D:'#d97706',E:'#9333ea'};
 
 async function sb(path,opts={}){
   const prefer=opts.prefer||'return=representation';
@@ -218,12 +223,14 @@ async function init(){
 }
 
 async function load(){
-  const [simR,asgR,subR,allSimR,reflR]=await Promise.all([
+  const [simR,asgR,subR,allSimR,reflR,aaR,saR]=await Promise.all([
     sb('simulations?is_active=eq.true&select=*&limit=1'),
     sb('assignments?student_id=eq.'+student.id+'&released=eq.true&select=*&order=created_at.desc'),
     sb('submissions?student_id=eq.'+student.id+'&select=*&order=submitted_at.desc'),
-    sb('simulations?select=id,name,sort_order,description,is_active&order=sort_order.asc'),
-    sb('reflections?student_id=eq.'+student.id+'&select=*')
+    sb('simulations?select=id,name,sort_order,description,is_active,reflection_question&order=sort_order.asc'),
+    sb('reflections?student_id=eq.'+student.id+'&select=*'),
+    sb('assessment_assignments?is_open=eq.true&select=*'),
+    sb('self_assessments?student_id=eq.'+student.id+'&select=*')
   ]);
 
   activeSim = simR.ok&&simR.data?.length ? {
@@ -234,6 +241,8 @@ async function load(){
   } : null;
 
   allSims = allSimR.ok ? allSimR.data : [];
+  allAssessmentAssignments = aaR.ok ? aaR.data : [];
+  myAssessments = saR.ok ? saR.data : [];
 
   const currentAsg = asgR.ok&&asgR.data?.length ? asgR.data.find(a=>activeSim&&a.simulation_id===activeSim.id)||null : null;
   assignment = currentAsg;
@@ -257,10 +266,10 @@ async function load(){
   }
 
   draftKey = activeSim ? 'draft_'+student.id+'_'+activeSim.id : '';
-  render(assignments,submissions,reflections);
+  render(assignments,submissions,reflections,allAssessmentAssignments,myAssessments);
 }
 
-function render(assignments,submissions,reflections){
+function render(assignments,submissions,reflections,assessmentAssignments,myAssess){
   const main=document.getElementById('main');
   let html='';
 
@@ -417,6 +426,49 @@ function render(assignments,submissions,reflections){
       </div>`;
     });
     html+=`</div></div>`;
+  }
+
+  // ── ASSESSMENT ──────────────────────────────────────────────────────────
+  if(assessmentAssignments&&assessmentAssignments.length){
+    assessmentAssignments.forEach(aa=>{
+      const myAssess=myAssess&&myAssess.find(a=>a.type===aa.type);
+      if(myAssess){
+        // Already submitted — show result
+        const totals=typeof myAssess.col_totals==='string'?JSON.parse(myAssess.col_totals):(myAssess.col_totals||{});
+        html+=`<div class="card">
+          <div class="card-header">
+            <div class="card-title">${aa.type==='pre'?'Pre':'Post'}-Assessment — Submitted</div>
+            <span class="pill pill-green">✓ Done</span>
+          </div>
+          <div class="card-body">
+            <div class="banner banner-blue" style="margin-bottom:14px">Your anonymous ID: <strong>#${String(student.anon_number||'?').padStart(2,'0')}</strong></div>
+            <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Your negotiation style profile:</div>
+            ${['A','B','C','D','E'].map(col=>{
+              const v=totals[col]||0;
+              const maxP={A:35,B:30,C:30,D:15,E:15}[col];
+              const pct=Math.round(v/maxP*100);
+              return`<div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span style="font-weight:600">${col} — ${STYLE_NAMES[col]}</span>
+                  <span style="color:var(--text-3)">${v}/${maxP}</span>
+                </div>
+                <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+                  <div style="height:100%;background:${STYLE_COLORS[col]};border-radius:4px;width:${pct}%;transition:width .5s"></div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      } else {
+        // Show assessment form
+        html+=renderAssessmentForm(aa.type);
+      }
+    });
+  }
+
+  // ── PROGRESS ─────────────────────────────────────────────────────────────
+  if(submissions.length>1){
+    html+=renderMyProgress(submissions,assignments,reflections);
   }
 
   main.innerHTML=html;
@@ -633,6 +685,159 @@ async function doDispute(){
   const note=document.getElementById('dispute-note')?.value||'';
   await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:{...submission.form_data,_disputed:true,_dispute_note:note},updated_at:new Date().toISOString()}),prefer:'return=minimal'});
   await load();
+}
+
+
+// ── ASSESSMENT FORM ──────────────────────────────────────────────────────────
+const ASSESSMENT_QUESTIONS=[
+  "If the other party's position seems very important to him or her, I may sacrifice my own position.",
+  "I address problems and concerns directly without blame or judgment.",
+  "I try to win by convincing the other party of the logic and benefits of my position.",
+  "I tell the other person my ideas for and ask for his or hers in return.",
+  "I try to find a compromise solution.",
+  "I try to postpone discussions until I have had some time to think.",
+  "I see achievement as more important than relational issues.",
+  "I use body language that might be perceived as condescending or arrogant.",
+  "Confronting someone about a problem is very uncomfortable for me.",
+  "I give up some points in exchange for others.",
+  "I propose a middle ground.",
+  "I am likely to take a comment back or try to soften it if I realize that it hurt someone's feelings.",
+  "I think it is all right to ask for what I want or to explain how I feel.",
+  "I find conflict stressful and will avoid it any way I can.",
+  "I have been described as impatient, controlling, insensitive or emotionally detached.",
+  "If asked to do something I don't agree with or don't want to do, I'll do it but deliberately won't do it as well as I could have.",
+  "I let my body language communicate my feelings rather than telling people directly how I feel.",
+  "I remain calm and confident when faced with aggression or criticism.",
+  "I may overextend myself trying to meet everyone's needs.",
+  "I try to find fair combination of gains and losses for both of us.",
+  "I look for and acknowledge common ground.",
+  "I have a hard time being clear about what I want and need for fear of appearing demanding or selfish.",
+  "I can overlook valuable ideas in favor of action.",
+  "I may not be open to hear other points of view.",
+  "I avoid taking positions that would create controversy."
+];
+const ASSESS_COLS=['A','B','C','D','E'];
+
+function renderAssessmentForm(type){
+  const rows=ASSESSMENT_QUESTIONS.map((q,i)=>{
+    const n=i+1;
+    const cols=ASSESS_COLS.map(col=>{
+      const scores=[0,1,2,3,4,5];
+      return`<td style="text-align:center;padding:6px 4px">
+        <select id="aq_${n}_${col}" style="width:44px;padding:3px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center">
+          <option value="">-</option>
+          ${scores.map(s=>`<option value="${s}">${s}</option>`).join('')}
+        </select>
+      </td>`;
+    }).join('');
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 10px;font-size:13px;color:var(--text);line-height:1.5;min-width:200px">${n}. ${q}</td>
+      ${cols}
+    </tr>`;
+  }).join('');
+
+  return`<div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">${type==='pre'?'Pre':'Post'}-Assessment — Negotiation Self-Inventory</div>
+        <div class="card-sub">Score yourself on each statement: 0 = never, 1 = rarely, 2 = sometimes, 3 = occasionally, 4 = frequently, 5 = always</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="banner banner-blue" style="margin-bottom:16px">Your anonymous ID: <strong>#${String(student?.anon_number||'?').padStart(2,'0')}</strong> — you'll use this to find your results in class.</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:var(--bg)">
+              <th style="padding:10px;text-align:left;font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Statement</th>
+              ${ASSESS_COLS.map(c=>`<th style="padding:10px 4px;text-align:center;font-size:12px;font-weight:700;color:var(--accent)">${c}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <button class="submit-btn" style="margin-top:16px" onclick="submitAssessment('${type}')">Submit ${type==='pre'?'pre':'post'}-assessment</button>
+    </div>
+  </div>`;
+}
+
+async function submitAssessment(type){
+  // Collect all responses
+  const responses={};
+  let missing=0;
+  for(let n=1;n<=25;n++){
+    for(const col of ASSESS_COLS){
+      const el=document.getElementById('aq_'+n+'_'+col);
+      const v=el?el.value:'';
+      if(v===''||v===null)missing++;
+      else responses['q'+n+'_'+col]=parseInt(v);
+    }
+  }
+  if(missing>0){
+    if(!confirm(`${missing} field(s) are blank. Submit anyway?`))return;
+  }
+  // Calculate column totals
+  const colTotals={A:0,B:0,C:0,D:0,E:0};
+  Object.entries(STYLE_ITEMS).forEach(([col,items])=>{
+    items.forEach(n=>{
+      colTotals[col]+=(responses['q'+n+'_'+col]||0);
+    });
+  });
+  const btn=document.querySelector('.submit-btn');
+  if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  const r=await sb('self_assessments',{method:'POST',body:JSON.stringify({
+    student_id:student.id,
+    anon_number:student.anon_number,
+    type,
+    responses,
+    col_totals:colTotals
+  }),prefer:'return=minimal'});
+  if(r.ok){await load();}
+  else{if(btn){btn.disabled=false;btn.textContent='Submit assessment';}alert('Could not submit. Please try again.');}
+}
+
+// ── MY PROGRESS ──────────────────────────────────────────────────────────────
+function renderMyProgress(submissions,assignments,reflections){
+  if(submissions.length<2)return'';
+  const completedSims=submissions.map(sub=>{
+    const sim=allSims.find(s=>s.id===sub.simulation_id);
+    const asg=assignments.find(a=>a.simulation_id===sub.simulation_id);
+    const refl=reflections.find(r=>r.simulation_id===sub.simulation_id);
+    if(!sim)return null;
+    const dealField=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
+    const deal=sub.form_data?.[dealField];
+    return{sim,asg,sub,refl,deal};
+  }).filter(Boolean);
+
+  const dealCount=completedSims.filter(s=>s.deal==='Yes').length;
+  const reflCount=reflections.length;
+
+  return`<div class="card">
+    <div class="card-header"><div class="card-title">📈 My progress</div></div>
+    <div class="card-body">
+      <div style="display:flex;gap:12px;margin-bottom:16px">
+        <div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
+          <div style="font-size:22px;font-weight:800;color:var(--accent)">${completedSims.length}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Completed</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
+          <div style="font-size:22px;font-weight:800;color:var(--green)">${dealCount}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Deals</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
+          <div style="font-size:22px;font-weight:800;color:var(--blue)">${reflCount}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Reflections</div>
+        </div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Simulation outcomes</div>
+      ${completedSims.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg)">
+        <div style="width:8px;height:8px;border-radius:50%;background:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--border)'};flex-shrink:0"></div>
+        <div style="flex:1;font-size:13px">${s.sim.name}</div>
+        <div style="font-size:12px;color:var(--text-3)">${s.asg?.role||''}</div>
+        ${s.refl?'<span style="font-size:10px;color:var(--green)">✎ Reflected</span>':''}
+      </div>`).join('')}
+    </div>
+  </div>`;
 }
 
 init();
