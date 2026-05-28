@@ -546,11 +546,13 @@ function renderReviewCard(pendingReviews,pAsgs){
         <button class="btn-dispute" onclick="showDisputeForm()">⚠ Disagree</button>
       </div>
       <div class="dispute-form" id="dispute-form">
-        <div class="field" style="margin-top:10px">
-          <label class="field-label">What's different? <span style="font-weight:400;text-transform:none">(optional note for your instructor)</span></label>
-          <textarea id="dispute-note" placeholder="e.g. We agreed on $3,200, not $3,100" style="min-height:60px"></textarea>
+        <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:12px">Submit your version of what happened:</div>
+        <div id="dispute-form-fields">${renderForm(activeSim.fields,submission?submission.form_data:{})}</div>
+        <div class="field" style="margin-top:4px">
+          <label class="field-label">Note for your instructor <span style="font-weight:400;text-transform:none;font-size:11px">(optional)</span></label>
+          <textarea id="dispute-note" placeholder="Briefly describe what you disagree with" style="min-height:50px;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical"></textarea>
         </div>
-        <button class="submit-btn" style="background:var(--red)" onclick="doDispute()">Flag disagreement</button>
+        <button class="submit-btn" style="background:var(--red);margin-top:4px" onclick="doDispute()">Submit my version</button>
       </div>`}
   </div>`;
 }
@@ -724,13 +726,51 @@ async function doConfirm(){
   await load();
 }
 
-function showDisputeForm(){document.getElementById('dispute-form')?.classList.add('show');}
+function showDisputeForm(){
+  const form=document.getElementById('dispute-form');
+  if(!form)return;
+  form.classList.add('show');
+  // Pre-populate with student's own submitted answers so they can correct specific fields
+  const fieldsDiv=document.getElementById('dispute-form-fields');
+  if(fieldsDiv&&activeSim&&submission){
+    // Copy current form_data into a working object, stripping internal flags
+    const vals={};
+    Object.entries(submission.form_data||{}).forEach(([k,v])=>{
+      if(!k.startsWith('_'))vals[k]=v;
+    });
+    fieldsDiv.innerHTML=renderForm(activeSim.fields,vals);
+    restoreRadios();
+  }
+}
 
 async function doDispute(){
-  if(!submission)return;
+  if(!submission||!activeSim)return;
+  // Collect the corrected answers from the dispute form
+  const disputeValues={};
+  const fields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_'));
+  fields.forEach(f=>{
+    if(f.type==='radio'){
+      // Radio buttons in dispute form have same name= attribute
+      const checked=document.querySelector('#dispute-form-fields input[name="'+f.id+'"]:checked');
+      if(checked)disputeValues[f.id]=checked.value;
+      else disputeValues[f.id]=submission.form_data?.[f.id]||'';
+    } else {
+      const el=document.getElementById('ff_'+f.id);
+      disputeValues[f.id]=el?el.value:(submission.form_data?.[f.id]||'');
+    }
+  });
   const note=document.getElementById('dispute-note')?.value||'';
-  await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:{...submission.form_data,_disputed:true,_dispute_note:note},updated_at:new Date().toISOString()}),prefer:'return=minimal'});
-  await load();
+  const newFormData={
+    ...disputeValues,
+    _disputed:true,
+    _dispute_note:note,
+    _original_answers:{...submission.form_data}  // preserve original for instructor comparison
+  };
+  const btn=document.querySelector('#dispute-form .submit-btn');
+  if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  const r=await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:newFormData,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
+  if(r.ok){await load();}
+  else{if(btn){btn.disabled=false;btn.textContent='Submit my version';}alert('Could not submit. Please try again.');}
 }
 
 
