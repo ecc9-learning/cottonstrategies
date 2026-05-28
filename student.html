@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cotton Strategies — My Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -29,11 +31,11 @@
   --shadow:0 2px 12px rgba(0,0,0,.06);
   --shadow-lg:0 8px 32px rgba(0,0,0,.1);
 }
-body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+body{background:var(--bg);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 
 /* NAV */
 nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.nav-logo{font-size:14px;font-weight:700;letter-spacing:-.01em}.nav-logo span{color:var(--accent)}
+.nav-logo{font-family:'Playfair Display',serif;font-size:15px;font-weight:500;letter-spacing:.01em}.nav-logo span{color:var(--accent);font-style:italic}
 .nav-right{display:flex;align-items:center;gap:12px}
 .nav-name{font-size:13px;color:var(--text-3)}
 .nav-logout{font-size:12px;color:var(--text-3);cursor:pointer;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;transition:all .15s}.nav-logout:hover{background:var(--bg);color:var(--text)}
@@ -42,9 +44,9 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20
 main{flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 16px 40px}
 
 /* CARDS */
-.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);margin-bottom:16px;overflow:hidden;transition:box-shadow .2s}
 .card-header{padding:16px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.card-title{font-size:15px;font-weight:700;color:var(--text)}
+.card-title{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.01em}
 .card-sub{font-size:13px;color:var(--text-3);margin-top:2px;line-height:1.5}
 .card-body{padding:16px 20px 20px}
 .card-divider{height:1px;background:var(--border);margin:0 20px}
@@ -63,7 +65,7 @@ main{flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 16px 40px}
 .tl-item:not(:last-child) .tl-line{position:absolute;left:10px;top:22px;width:1px;height:100%;background:var(--border)}
 .tl-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:1}
 .tl-dot-done{background:var(--green-light);color:var(--green);border:2px solid var(--green)}
-.tl-dot-active{background:var(--accent);color:#fff;border:2px solid var(--accent)}
+.tl-dot-active{background:var(--accent);color:#fff;border:2px solid var(--accent);box-shadow:0 0 0 3px rgba(191,87,0,.15)}
 .tl-dot-future{background:var(--surface);color:var(--text-3);border:2px solid var(--border)}
 .tl-content{flex:1;padding-bottom:20px}
 .tl-name{font-size:13px;font-weight:600;color:var(--text)}
@@ -73,8 +75,8 @@ main{flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 16px 40px}
 .tl-preview{font-size:12px;color:var(--text-3);margin-top:4px;line-height:1.5;font-style:italic}
 
 /* ASSIGNMENT CARD */
-.assignment-block{background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:16px}
-.assignment-role{font-size:22px;font-weight:800;color:var(--accent);line-height:1.2}
+.assignment-block{background:linear-gradient(135deg,#fdf3eb 0%,#fef8f3 100%);border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:20px 20px;margin-bottom:16px}
+.assignment-role{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--accent);line-height:1.2}
 .assignment-sim{font-size:13px;color:var(--text-2);margin-top:2px;font-weight:500}
 .assignment-partner{font-size:13px;color:var(--text-3);margin-top:6px}
 
@@ -431,10 +433,10 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
   // ── ASSESSMENT ──────────────────────────────────────────────────────────
   if(assessmentAssignments&&assessmentAssignments.length){
     assessmentAssignments.forEach(aa=>{
-      const myAssess=myAssess&&myAssess.find(a=>a.type===aa.type);
-      if(myAssess){
+      const thisAssess=myAssess&&myAssess.find(a=>a.type===aa.type);
+      if(thisAssess){
         // Already submitted — show result
-        const totals=typeof myAssess.col_totals==='string'?JSON.parse(myAssess.col_totals):(myAssess.col_totals||{});
+        const totals=typeof thisAssess.col_totals==='string'?JSON.parse(thisAssess.col_totals):(thisAssess.col_totals||{});
         html+=`<div class="card">
           <div class="card-header">
             <div class="card-title">${aa.type==='pre'?'Pre':'Post'}-Assessment — Submitted</div>
