@@ -355,7 +355,8 @@ textarea{resize:vertical;min-height:70px}
         <div class="section-title">
           Results
           <div class="btn-row">
-            <button class="btn btn-outline btn-sm" onclick="enterProjection()">📊 Projection mode</button>
+            <button class="btn btn-primary btn-sm" onclick="enterDebriefMode()">🎓 Debrief view</button>
+            <button class="btn btn-outline btn-sm" onclick="enterProjection()">📡 Live results</button>
             <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
           </div>
         </div>
@@ -453,6 +454,23 @@ textarea{resize:vertical;min-height:70px}
       <div class="proj-group-grid" id="proj-groups-body"></div>
     </div>
   </div>
+</div>
+
+<!-- DEBRIEF MODE OVERLAY -->
+<div id="debrief-overlay" style="display:none;position:fixed;inset:0;background:#0f0f0f;z-index:999;overflow:auto;font-family:'DM Sans',-apple-system,sans-serif;color:#fff">
+  <div style="background:#171717;border-bottom:1px solid #333;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10">
+    <div>
+      <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700" id="db-title">Debrief</div>
+      <div style="font-size:12px;color:#9ca3af;margin-top:2px" id="db-sub"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="dbShowView('overview')" id="db-btn-overview" style="background:#bf5700;border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Overview</button>
+      <button onclick="dbShowView('groups')" id="db-btn-groups" style="background:#333;border:none;color:#ccc;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Groups</button>
+      <button onclick="dbShowView('class')" id="db-btn-class" style="background:#333;border:none;color:#ccc;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Class charts</button>
+      <button onclick="exitDebriefMode()" style="background:#dc2626;border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">✕ Exit</button>
+    </div>
+  </div>
+  <div id="db-body" style="padding:24px 28px;max-width:1100px;margin:0 auto"></div>
 </div>
 
 <script>
@@ -1227,7 +1245,7 @@ function manageSim(id){
 function renderQEditor(sim){
   return (sim.fields||[]).map((f,i)=>`
     <div class="q-row" id="qr-${sim.id}-${f.id}">
-      <div class="q-body"><div class="q-label">${f.label||''}</div><div class="q-meta">${f.type||''}${f.options?' · '+f.options.join(', '):''}${f.required?' · required':' · optional'}</div></div>
+      <div class="q-body"><div class="q-label">${f.label||''} ${f.private?'<span style="font-size:10px;color:#9ca3af;font-weight:500">🔒 private</span>':''}</div><div class="q-meta">${f.type||''}${f.options?' · '+f.options.join(', '):''}${f.required?' · required':' · optional'}</div></div>
       <div class="q-actions">
         <button class="icon-btn" onclick="editQ('${sim.id}','${f.id}')" title="Edit">✏️</button>
         <button class="icon-btn" onclick="deleteQ('${sim.id}','${f.id}')" style="color:#dc2626" title="Delete">🗑</button>
@@ -1258,6 +1276,7 @@ function editQ(sid,fid){
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-top:.75rem">
     <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="eqr-${fid}" ${f.required?'checked':''} style="width:auto"> Required</label>
+    <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;margin-top:4px" title="Hidden from class/projection view — only visible to you and the student"><input type="checkbox" id="eqp-${fid}" ${f.private?'checked':''} style="width:auto"> 🔒 Private (hidden from class view)</label>
     <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="saveQ('${sid}','${fid}')">Save</button>
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('eq-${sid}-${fid}').remove()">Cancel</button>
   </div>`;
@@ -1271,6 +1290,7 @@ function saveQ(sid,fid){
   f.label=document.getElementById('eql-'+fid).value.trim()||f.label;
   f.type=document.getElementById('eqt-'+fid).value;
   f.required=document.getElementById('eqr-'+fid).checked;
+  f.private=document.getElementById('eqp-'+fid)?.checked||false;
   if(f.type==='radio'){f.options=document.getElementById('eqo-'+fid).value.split(',').map(x=>x.trim()).filter(Boolean);}
   else{delete f.options;}
   document.getElementById('eq-'+sid+'-'+fid)?.remove();
@@ -1469,11 +1489,16 @@ function renderResults(){
 
   // Full table
   if(subs.length){
-    const simFields=(activeSim.fields||[]).filter(f=>f&&f.id&&!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+    const simFields=(activeSim.fields||[]).filter(f=>f&&f.id&&!['_confirmed','_disputed','_dispute_note'].includes(f.id)&&!f.id.startsWith('_'));
+    const publicFields=simFields.filter(f=>!f.private);
+    const privateFields=simFields.filter(f=>f.private);
     const tcard=document.createElement('div'); tcard.className='card'; tcard.style.padding='0';
-    tcard.innerHTML=`<div style="padding:1rem 1.25rem;font-size:13px;font-weight:600;border-bottom:1px solid #f3f4f6">All submissions (${subs.length}) <span style="font-size:11px;color:#9ca3af;font-weight:400">— click a row for full detail</span></div>
+    tcard.innerHTML=`<div style="padding:1rem 1.25rem;font-size:13px;font-weight:600;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between">
+        <span>All submissions (${subs.length}) <span style="font-size:11px;color:#9ca3af;font-weight:400">— click a row for full detail</span></span>
+        ${privateFields.length?`<span style="font-size:11px;color:#9ca3af">🔒 ${privateFields.length} private field${privateFields.length>1?'s':''} visible to instructor only</span>`:''}
+      </div>
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>Group</th><th>Student</th>${simFields.map(f=>`<th style="min-width:100px">${(f.label||'').substring(0,20)}</th>`).join('')}<th>Status</th></tr></thead>
+        <thead><tr><th>Group</th><th>Student</th>${publicFields.map(f=>`<th style="min-width:100px">${(f.label||'').substring(0,20)}</th>`).join('')}${privateFields.map(f=>`<th style="min-width:90px;color:#9ca3af;font-size:11px">🔒 ${(f.label||'').substring(0,16)}</th>`).join('')}<th>Status</th></tr></thead>
         <tbody>${subs.slice().sort((a,b)=>{
           const ga=allAssignments.find(x=>x.student_id===a.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
           const gb=allAssignments.find(x=>x.student_id===b.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
@@ -1484,12 +1509,16 @@ function renderResults(){
           const groupNum=asg?.group_number||'—';
           const fd=row.form_data||{};
           const status=fd._disputed?'<span class="badge badge-red">Disputed</span>':fd._confirmed?'<span class="badge badge-green">Confirmed</span>':'<span class="badge badge-gray">Submitted</span>';
-          const cells=simFields.map(f=>{
+          const cells=[...publicFields,...privateFields].map(f=>{
             const v=fd[f.id]||'—';
-            if(f.id==='f4'){const cls=v==='Yes'?'badge-green':v==='No'?'badge-red':'badge-blue';return`<td><span class="badge ${cls}">${v}</span></td>`;}
-            if(f.type==='textarea'){return`<td style="white-space:pre-wrap;word-break:break-word;min-width:180px;max-width:300px;font-size:12px;color:#555">${v}</td>`;}
-            if(String(v).length>30){return`<td title="${v}" style="cursor:help">${String(v).substring(0,30)+'…'}</td>`;}
-            return`<td>${v}</td>`;
+            const style=f.private?'color:#9ca3af;font-size:12px;':'';
+            if(f.id==='f4'||(!f.private&&f.type==='radio'&&(f.options||[]).includes('Yes'))){
+              const cls=v==='Yes'?'badge-green':v==='No'?'badge-red':'badge-gray';
+              return`<td><span class="badge ${cls}">${v}</span></td>`;
+            }
+            if(f.type==='textarea'){return`<td style="white-space:pre-wrap;word-break:break-word;min-width:180px;max-width:300px;font-size:12px;color:#555;${style}">${v}</td>`;}
+            if(String(v).length>30){return`<td title="${v}" style="cursor:help;${style}">${String(v).substring(0,30)+'…'}</td>`;}
+            return`<td style="${style}">${v}</td>`;
           }).join('');
           return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')"><td style="font-weight:700;color:#bf5700;white-space:nowrap">Grp ${groupNum}</td><td><strong>${st?.name||'Unknown'}</strong></td>${cells}<td>${status}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSubmission('${row.id}')">Edit</button></td></tr>`;
         }).join('')}</tbody>
@@ -1606,6 +1635,328 @@ function buildHist(container,id,title,vals,color){
   setTimeout(()=>{const ctx=document.getElementById(id);if(!ctx)return;
     activeCharts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:bins,backgroundColor:color+'99',borderColor:color,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false,maxRotation:30,font:{size:10}}},y:{ticks:{stepSize:1}}}}});
   },50);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DEBRIEF MODE
+// ══════════════════════════════════════════════════════════════════════════════
+let _dbView='overview';
+let _dbCharts={};
+
+function enterDebriefMode(){
+  if(!activeSim){alert('No active simulation.');return;}
+  document.getElementById('debrief-overlay').style.display='block';
+  document.getElementById('db-title').textContent=activeSim.name+' — Debrief';
+  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
+  document.getElementById('db-sub').textContent=subs.length+' submissions · '+allStudents.length+' students';
+  dbShowView('overview');
+}
+
+function exitDebriefMode(){
+  document.getElementById('debrief-overlay').style.display='none';
+  Object.values(_dbCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+  _dbCharts={};
+}
+
+function dbShowView(view){
+  _dbView=view;
+  // Update button states
+  ['overview','groups','class'].forEach(v=>{
+    const btn=document.getElementById('db-btn-'+v);
+    if(btn)btn.style.background=v===view?'#bf5700':'#333';
+    if(btn)btn.style.color=v===view?'#fff':'#ccc';
+  });
+  Object.values(_dbCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+  _dbCharts={};
+  const body=document.getElementById('db-body');
+  body.innerHTML='';
+  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
+  const publicFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
+  const dealField=publicFields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
+
+  if(view==='overview') dbRenderOverview(body,subs,publicFields,dealField);
+  else if(view==='groups') dbRenderGroups(body,subs,publicFields,dealField);
+  else if(view==='class') dbRenderClassCharts(body,subs,publicFields,dealField);
+}
+
+function dbRenderOverview(body,subs,fields,dealField){
+  const deals=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='Yes').length:0;
+  const noDeals=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='No').length:0;
+  const dealRate=subs.length?Math.round(deals/subs.length*100):0;
+
+  // ── Key stats ──
+  body.innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
+    ${[
+      {v:subs.length+'/'+allStudents.length,l:'Submitted'},
+      {v:deals,l:'Deals reached'},
+      {v:noDeals,l:'No deal'},
+      {v:dealRate+'%',l:'Deal rate'},
+    ].map(s=>`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:16px;text-align:center">
+      <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:${s.l==='Deals reached'?'#4ade80':s.l==='No deal'?'#f87171':'#fff'}">${s.v}</div>
+      <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-top:4px">${s.l}</div>
+    </div>`).join('')}
+  </div>`;
+
+  // ── Deal/No deal doughnut ──
+  if(dealField&&subs.length){
+    const chartDiv=document.createElement('div');
+    chartDiv.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px';
+    body.appendChild(chartDiv);
+
+    // Doughnut
+    const d1=document.createElement('div');
+    d1.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
+    d1.innerHTML='<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:16px">Deal outcome</div><canvas id="db-deal-chart" style="max-height:220px"></canvas>';
+    chartDiv.appendChild(d1);
+    setTimeout(()=>{
+      const ctx=document.getElementById('db-deal-chart');
+      if(ctx)_dbCharts['deal']=new Chart(ctx,{type:'doughnut',data:{
+        labels:['Deal ✓','No deal ✗'],
+        datasets:[{data:[deals,noDeals],backgroundColor:['#4ade80','#f87171'],borderWidth:0,hoverOffset:4}]
+      },options:{plugins:{legend:{labels:{color:'#ccc',font:{size:13}}}},cutout:'65%'}});
+    },50);
+
+    // First numeric field chart
+    const numField=fields.find(f=>f.type==='number');
+    if(numField){
+      const d2=document.createElement('div');
+      d2.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
+      d2.innerHTML=`<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:16px">${numField.label}</div><canvas id="db-num-chart" style="max-height:220px"></canvas>`;
+      chartDiv.appendChild(d2);
+      const vals=subs.map(s=>parseFloat(s.form_data?.[numField.id])).filter(v=>!isNaN(v));
+      if(vals.length){
+        const min=Math.min(...vals),max=Math.max(...vals);
+        const bins=Math.min(6,vals.length);
+        const step=bins>1?(max-min)/bins:1;
+        const buckets=Array(bins).fill(0);
+        const labels=Array.from({length:bins},(_,i)=>step?Math.round(min+i*step)+'':String(min));
+        vals.forEach(v=>{const i=Math.min(Math.floor((v-min)/(step||1)),bins-1);buckets[i]++;});
+        setTimeout(()=>{
+          const ctx=document.getElementById('db-num-chart');
+          if(ctx)_dbCharts['num']=new Chart(ctx,{type:'bar',data:{
+            labels,datasets:[{data:buckets,backgroundColor:'#bf5700',borderRadius:4,borderSkipped:false}]
+          },options:{plugins:{legend:{display:false}},scales:{
+            x:{ticks:{color:'#9ca3af'},grid:{color:'#222'}},
+            y:{ticks:{color:'#9ca3af',stepSize:1},grid:{color:'#222'}}
+          }}});
+        },50);
+      }
+    }
+  }
+
+  // ── Radio field breakdowns ──
+  const radioFields=fields.filter(f=>f.type==='radio'&&f.id!==dealField?.id);
+  if(radioFields.length){
+    const rGrid=document.createElement('div');
+    rGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px';
+    body.appendChild(rGrid);
+    radioFields.forEach((f,i)=>{
+      const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
+      if(!vals.length)return;
+      const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
+      const div=document.createElement('div');
+      div.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:16px';
+      div.innerHTML=`<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:12px">${f.label}</div><canvas id="db-radio-${i}" style="max-height:160px"></canvas>`;
+      rGrid.appendChild(div);
+      setTimeout(()=>{
+        const ctx=document.getElementById('db-radio-'+i);
+        if(ctx)_dbCharts['r'+i]=new Chart(ctx,{type:'bar',data:{
+          labels:Object.keys(counts),
+          datasets:[{data:Object.values(counts),backgroundColor:'rgba(191,87,0,0.8)',borderRadius:4,borderSkipped:false}]
+        },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{
+          x:{ticks:{color:'#9ca3af',stepSize:1},grid:{color:'#222'}},
+          y:{ticks:{color:'#ccc'}}
+        }}});
+      },60+i*20);
+    });
+  }
+}
+
+function dbRenderGroups(body,subs,fields,dealField){
+  const released=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
+  const groups={};
+  released.forEach(a=>{
+    if(!groups[a.group_number])groups[a.group_number]=[];
+    const stu=allStudents.find(s=>s.id===a.student_id);
+    const sub=subs.find(s=>s.student_id===a.student_id);
+    groups[a.group_number].push({stu,asg:a,sub});
+  });
+
+  const displayFields=fields.filter(f=>f.type!=='textarea');
+  const headerRow='<tr style="background:#222"><th style="padding:8px 12px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border:1px solid #333">Student / Role</th>'+
+    displayFields.map(f=>`<th style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border:1px solid #333;max-width:120px">${(f.label||'').substring(0,18)}</th>`).join('')+
+    '<th style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border:1px solid #333">Status</th></tr>';
+
+  const html=Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([gn,members])=>{
+    // Determine group outcome
+    const submitted=members.filter(m=>m.sub).length;
+    const deals=dealField?members.filter(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes').length:0;
+    const outcome=submitted===0?'pending':deals>0?'deal':'nodeal';
+    const outcomeColor=outcome==='deal'?'#4ade80':outcome==='nodeal'?'#f87171':'#9ca3af';
+    const outcomeLabel=outcome==='deal'?'✓ Deal':outcome==='nodeal'?'✗ No deal':'Pending';
+
+    const rows=members.map(m=>{
+      const fd=m.sub?.form_data||{};
+      const cells=displayFields.map(f=>{
+        const v=fd[f.id]||'—';
+        if(f.type==='radio'&&(f.options||[]).includes('Yes')){
+          const c=v==='Yes'?'#4ade80':v==='No'?'#f87171':'#9ca3af';
+          return`<td style="text-align:center;padding:8px 10px;border:1px solid #2a2a2a;font-weight:700;color:${c}">${v}</td>`;
+        }
+        return`<td style="text-align:center;padding:8px 10px;border:1px solid #2a2a2a;font-size:13px;color:#d1d5db">${v}</td>`;
+      }).join('');
+      const statusBadge=m.sub?.form_data?._confirmed?'<span style="color:#4ade80;font-size:11px">✓✓ Confirmed</span>':
+        m.sub?.form_data?._disputed?'<span style="color:#f87171;font-size:11px">⚠ Disputed</span>':
+        m.sub?'<span style="color:#9ca3af;font-size:11px">Submitted</span>':
+        '<span style="color:#555;font-size:11px">Pending</span>';
+      return`<tr style="border-bottom:1px solid #222">
+        <td style="padding:10px 12px;border:1px solid #2a2a2a">
+          <div style="font-weight:700;font-size:13px">${m.stu?.name||'Unknown'}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:1px">${m.asg.role}</div>
+        </td>
+        ${cells}
+        <td style="text-align:center;padding:8px 10px;border:1px solid #2a2a2a">${statusBadge}</td>
+      </tr>`;
+    }).join('');
+
+    return`<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#fff">Group ${gn}</div>
+        <span style="font-size:13px;font-weight:700;color:${outcomeColor}">${outcomeLabel}</span>
+        <span style="font-size:12px;color:#555">${submitted}/${members.length} submitted</span>
+      </div>
+      <div style="overflow-x:auto;border-radius:8px;border:1px solid #333">
+        <table style="width:100%;border-collapse:collapse">${headerRow}${rows}</table>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML=html||'<div style="color:#555;text-align:center;padding:3rem">No groups assigned yet.</div>';
+}
+
+function dbRenderClassCharts(body,subs,fields,dealField){
+  if(!subs.length){body.innerHTML='<div style="color:#555;text-align:center;padding:3rem">No submissions yet.</div>';return;}
+
+  // ── First offer vs final price scatter (if both numeric fields exist) ──
+  const priceField=fields.find(f=>f.type==='number'&&(f.label||'').toLowerCase().includes('final'));
+  const firstOfferField=fields.find(f=>f.type==='number'&&(f.label||'').toLowerCase().includes('first'));
+
+  let chartCount=0;
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px';
+  body.appendChild(grid);
+
+  // Chart: Deal distribution by group
+  if(dealField){
+    const released=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
+    const groupNums=[...new Set(released.map(a=>a.group_number))].sort((a,b)=>a-b);
+    const groupDeals=groupNums.map(gn=>{
+      const members=released.filter(a=>a.group_number===gn);
+      const groupSubs=members.map(m=>subs.find(s=>s.student_id===m.student_id)).filter(Boolean);
+      return groupSubs.some(s=>s.form_data?.[dealField.id]==='Yes')?1:groupSubs.length?0:null;
+    }).filter(v=>v!==null);
+    const dealCount=groupDeals.filter(v=>v===1).length;
+    const noDealCount=groupDeals.filter(v=>v===0).length;
+
+    const d=document.createElement('div');
+    d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
+    d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:4px">Deals by group</div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">${dealCount} of ${groupNums.length} groups reached a deal</div>
+      <canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
+    grid.appendChild(d);
+    const cid='db-cls-'+(chartCount++);
+    setTimeout(()=>{
+      const ctx=document.getElementById(cid);
+      if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'doughnut',data:{
+        labels:['Deals ('+dealCount+')','No deal ('+noDealCount+')'],
+        datasets:[{data:[dealCount,noDealCount],backgroundColor:['#4ade80','#f87171'],borderWidth:0}]
+      },options:{plugins:{legend:{labels:{color:'#ccc'}}},cutout:'60%'}});
+    },50);
+  }
+
+  // Chart: Final price distribution (if field exists)
+  if(priceField){
+    const vals=subs.map(s=>parseFloat(s.form_data?.[priceField.id])).filter(v=>!isNaN(v)&&v>0);
+    if(vals.length>1){
+      const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+      const d=document.createElement('div');
+      d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
+      d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:4px">${priceField.label}</div>
+        <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">Class average: <strong style="color:#bf5700">${avg.toLocaleString()}</strong></div>
+        <canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
+      grid.appendChild(d);
+      const cid='db-cls-'+(chartCount++);
+      const asgns=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
+      const labels=subs.map(s=>{
+        const asg=asgns.find(a=>a.student_id===s.student_id);
+        const stu=allStudents.find(x=>x.id===s.student_id);
+        return(stu?.name||'?').split(' ')[0]+(asg?' ('+asg.role.split(' ')[0]+')':'');
+      });
+      const colors=subs.map(s=>{
+        const asg=asgns.find(a=>a.student_id===s.student_id);
+        return asg?.role.toLowerCase().includes('buyer')?'rgba(96,165,250,.8)':'rgba(191,87,0,.8)';
+      });
+      setTimeout(()=>{
+        const ctx=document.getElementById(cid);
+        if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'bar',data:{
+          labels,datasets:[{data:vals,backgroundColor:colors,borderRadius:4,borderSkipped:false}]
+        },options:{plugins:{
+          legend:{display:false},
+          annotation:{annotations:{avg:{type:'line',yMin:avg,yMax:avg,borderColor:'#fff',borderWidth:1,borderDash:[4,4],label:{display:true,content:'Avg: '+avg,color:'#fff',font:{size:10}}}}}
+        },scales:{
+          x:{ticks:{color:'#9ca3af',font:{size:10}},grid:{color:'#222'}},
+          y:{ticks:{color:'#9ca3af'},grid:{color:'#222'}}
+        }}});
+      },60);
+    }
+  }
+
+  // Chart: First offer vs final price scatter
+  if(priceField&&firstOfferField){
+    const pairs=subs.map(s=>{
+      const fo=parseFloat(s.form_data?.[firstOfferField.id]);
+      const fp=parseFloat(s.form_data?.[priceField.id]);
+      return(!isNaN(fo)&&!isNaN(fp))?{x:fo,y:fp}:null;
+    }).filter(Boolean);
+    if(pairs.length>1){
+      const d=document.createElement('div');
+      d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
+      d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:4px">First offer vs. final price</div>
+        <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">Anchoring effect — does your first offer predict the outcome?</div>
+        <canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
+      grid.appendChild(d);
+      const cid='db-cls-'+(chartCount++);
+      setTimeout(()=>{
+        const ctx=document.getElementById(cid);
+        if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'scatter',data:{
+          datasets:[{data:pairs,backgroundColor:'rgba(191,87,0,.7)',pointRadius:6,pointHoverRadius:8}]
+        },options:{plugins:{legend:{display:false}},scales:{
+          x:{title:{display:true,text:'First offer',color:'#9ca3af'},ticks:{color:'#9ca3af'},grid:{color:'#222'}},
+          y:{title:{display:true,text:'Final price',color:'#9ca3af'},ticks:{color:'#9ca3af'},grid:{color:'#222'}}
+        }}});
+      },70);
+    }
+  }
+
+  // Charts for remaining radio fields
+  const radioFields=fields.filter(f=>f.type==='radio'&&f.id!==dealField?.id);
+  radioFields.forEach((f,i)=>{
+    const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
+    if(!vals.length)return;
+    const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
+    const d=document.createElement('div');
+    d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
+    d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:14px">${f.label}</div><canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
+    grid.appendChild(d);
+    const cid='db-cls-'+(chartCount++);
+    setTimeout(()=>{
+      const ctx=document.getElementById(cid);
+      if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'doughnut',data:{
+        labels:Object.keys(counts).map(k=>k+' ('+counts[k]+')'),
+        datasets:[{data:Object.values(counts),backgroundColor:['#bf5700','rgba(191,87,0,.4)','#555','#777'],borderWidth:0}]
+      },options:{plugins:{legend:{labels:{color:'#ccc',font:{size:12}}}},cutout:'50%'}});
+    },80+i*20);
+  });
 }
 
 let projChartIndex=0;
