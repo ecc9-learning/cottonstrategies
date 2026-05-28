@@ -206,7 +206,7 @@ textarea{resize:vertical;min-height:70px}
   <!-- STATUS BAR -->
   <div class="status-bar">
     <div class="status-left">
-      <div class="status-logo">Cotton Strategies</div>
+      <div class="status-logo">Cotton Strategies</div></a>
       <div class="status-divider"></div>
       <div class="status-sim"><span>Active:</span><span id="sb-sim-name">None</span></div>
       <div class="status-pills" id="sb-pills"></div>
@@ -737,6 +737,7 @@ function renderAssignments() {
 
   html+=`<div class="card"><div class="card-title">Actions <div class="btn-row">
     <button class="btn btn-primary btn-sm" onclick="generatePairings()">🎲 Generate random pairings</button>
+    <button class="btn btn-outline btn-sm" onclick="openManualPairing()">✎ Manual / adjust pairings</button>
     ${pendingPairings.length?`<button class="btn btn-success btn-sm" onclick="releasePairings()">✓ Release to students (${pendingPairings.length})</button>`:''}
     ${pendingPairings.length?`<button class="btn btn-outline btn-sm" onclick="printPairings()">🖨 Print pairings</button>`:''}
     ${isReleased?`<button class="btn btn-success btn-sm" onclick="qaOpenForm()">Open results form</button><button class="btn btn-danger btn-sm" onclick="qaCloseForm()">Close results form</button>`:''}
@@ -745,6 +746,14 @@ function renderAssignments() {
   if(pendingPairings.length){
     const groups={};
     pendingPairings.forEach(a=>{if(!groups[a.gn])groups[a.gn]=[];groups[a.gn].push(a);});
+    // Check for incomplete groups
+    const sz2=activeSim.group_size||2;
+    const incompleteGroups=Object.entries(groups).filter(([gn,m])=>m.length<sz2);
+    if(incompleteGroups.length){
+      html+=`<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:.75rem">
+        ⚠ ${incompleteGroups.length} incomplete group${incompleteGroups.length>1?'s':''} (fewer than ${sz2} members). You can still release — use <strong>✎ Manual / adjust pairings</strong> to fix before releasing.
+      </div>`;
+    }
     html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem">`;
     Object.entries(groups).forEach(([gn,members])=>{
       html+=`<div class="group-card"><div class="group-header"><span class="group-num">Group ${gn}</span></div>`;
@@ -786,12 +795,111 @@ function generatePairings(){
   const sz=activeSim.group_size||2;
   pendingPairings=[];
   let gn=1;
+  // Place everyone into groups — remainder students go into existing groups as observers/extras
   for(let i=0;i<shuffled.length;i+=sz){
-    const chunk=shuffled.slice(i,i+sz);
+    const chunk=shuffled.slice(i,Math.min(i+sz,shuffled.length));
     chunk.forEach((s,j)=>pendingPairings.push({sid:s.id,name:s.name,gn,role:roles[j%roles.length]}));
     gn++;
   }
+  // If last group has fewer members than sz, flag it but still allow release
+  const lastGn=gn-1;
+  const lastGroup=pendingPairings.filter(p=>p.gn===lastGn);
+  if(lastGroup.length<sz&&lastGroup.length>0){
+    // Mark incomplete groups — instructor can still release
+    console.log(`Note: Group ${lastGn} has ${lastGroup.length} of ${sz} expected members.`);
+  }
   renderAssignments();
+}
+
+function openManualPairing(){
+  if(!activeSim)return;
+  // Build a drag-and-drop manual pairing interface
+  const unassigned=allStudents.filter(s=>!pendingPairings.find(p=>p.sid===s.id));
+  const assigned=pendingPairings.length?pendingPairings:[];
+  const roles=activeSim.roles||[];
+  const maxGn=assigned.length?Math.max(...assigned.map(p=>p.gn)):0;
+
+  const studentOpts=allStudents.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const groupRows=[];
+  // Build existing groups
+  const groups={};
+  assigned.forEach(p=>{if(!groups[p.gn])groups[p.gn]=[];groups[p.gn].push(p);});
+  // Show existing groups
+  const groupHtml=Object.entries(groups).map(([gn,members])=>`
+    <div class="mp-group" data-gn="${gn}" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Group ${gn}</div>
+      ${members.map(m=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="flex:1;font-size:13px;font-weight:500">${m.name}</span>
+          <select onchange="updatePairingRole('${m.sid}',this.value)" style="font-size:12px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#fff">
+            ${roles.map(r=>`<option value="${r}" ${r===m.role?'selected':''}>${r}</option>`).join('')}
+          </select>
+          <button onclick="removePairing('${m.sid}')" style="color:#dc2626;background:none;border:none;cursor:pointer;font-size:16px;padding:0 4px">×</button>
+        </div>`).join('')}
+      <button onclick="addToPairingGroup(${gn})" style="font-size:11px;color:#2563eb;background:none;border:none;cursor:pointer;padding:4px 0;text-decoration:underline">+ Add student to this group</button>
+    </div>`).join('');
+
+  showModal(`<div class="modal-header"><div class="modal-title">Manual Pairings — ${activeSim.name}</div></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="generatePairingsInModal()">↺ Auto-generate random</button>
+        <button class="btn btn-outline btn-sm" onclick="addNewGroup()">+ Add new group</button>
+      </div>
+      <div id="mp-groups">${groupHtml||'<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px">No groups yet — click Auto-generate or Add new group.</div>'}</div>
+      ${unassigned.length?`<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:10px 12px;font-size:13px;color:#92400e;margin-top:8px">
+        <strong>Not yet assigned (${unassigned.length}):</strong> ${unassigned.map(s=>s.name).join(', ')}
+      </div>`:''}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal();renderAssignments()">Done — review pairings</button>
+    </div>`);
+}
+
+function generatePairingsInModal(){
+  generatePairings();
+  closeModal();
+  setTimeout(()=>openManualPairing(),100);
+}
+
+function updatePairingRole(sid,role){
+  const p=pendingPairings.find(x=>x.sid===sid);
+  if(p){p.role=role;}
+}
+
+function removePairing(sid){
+  pendingPairings=pendingPairings.filter(p=>p.sid!==sid);
+  openManualPairing();
+}
+
+function addToPairingGroup(gn){
+  const roles=activeSim?.roles||[];
+  const assigned=pendingPairings.map(p=>p.sid);
+  const available=allStudents.filter(s=>!assigned.includes(s.id));
+  if(!available.length){alert('All students are already assigned.');return;}
+  const nameList=available.map(s=>s.name).join(', '); const name=prompt('Enter exact student name. Available: '+nameList);
+  if(!name)return;
+  const s=available.find(x=>x.name.toLowerCase()===name.trim().toLowerCase());
+  if(!s){alert('Student not found. Please enter the exact name.');return;}
+  const groupMembers=pendingPairings.filter(p=>p.gn===gn);
+  const role=roles[groupMembers.length%roles.length];
+  pendingPairings.push({sid:s.id,name:s.name,gn,role});
+  openManualPairing();
+}
+
+function addNewGroup(){
+  const roles=activeSim?.roles||[];
+  const assigned=pendingPairings.map(p=>p.sid);
+  const available=allStudents.filter(s=>!assigned.includes(s.id));
+  if(!available.length){alert('All students are already assigned to groups.');return;}
+  const maxGn=pendingPairings.length?Math.max(...pendingPairings.map(p=>p.gn)):0;
+  const newGn=maxGn+1;
+  const nameList2=available.map(s=>s.name).join(', '); const name=prompt('Enter student name to add. Available: '+nameList2);
+  if(!name)return;
+  const s=available.find(x=>x.name.toLowerCase()===name.trim().toLowerCase());
+  if(!s){alert('Student not found.');return;}
+  pendingPairings.push({sid:s.id,name:s.name,gn:newGn,role:roles[0]});
+  openManualPairing();
 }
 
 function updateRole(sid,role){const p=pendingPairings.find(x=>x.sid===sid);if(p)p.role=role;}
@@ -1402,10 +1510,13 @@ async function doAddStudent(){
   const email=document.getElementById('add-email').value.trim().toLowerCase();
   if(!name||!email){alert('Enter name and email.');return;}
   const pin=String(Math.floor(1000+Math.random()*9000));
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin+'cottonstrategies_salt_2025'));
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin));
   const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   const capName=name.replace(/\b\w/g,c=>c.toUpperCase());
-  const res=await dbPost('students',{name:capName,email,pin_hash:hash});
+  // Assign anon number
+  const existing=allStudents.filter(s=>s.anon_number).map(s=>s.anon_number);
+  let anonNum=1; while(existing.includes(anonNum))anonNum++;
+  const res=await dbPost('students',{name:capName,email,pin_hash:hash,anon_number:anonNum,is_archived:false});
   if(res.ok){
     document.getElementById('add-result').innerHTML=`<div class="alert alert-success">Added! Temporary PIN: <strong>${pin}</strong> — share with ${capName}.</div>`;
     document.getElementById('add-btn').style.display='none';
