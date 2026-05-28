@@ -9,174 +9,188 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f8f7f5;
+  --bg:#f7f5f2;
   --surface:#ffffff;
-  --border:#e8e3dc;
-  --text:#1a1a1a;
-  --text-2:#4a4540;
-  --text-3:#6b6560;
+  --border:#ece8e1;
+  --text:#1c1917;
+  --text-2:#44403c;
+  --text-3:#78716c;
   --accent:#bf5700;
-  --accent-light:#fdf3eb;
-  --accent-border:#f0d9c0;
+  --accent-hover:#a84a00;
+  --accent-light:#fef3e8;
+  --accent-border:#f5dfc0;
   --blue:#2563eb;
   --blue-light:#eff6ff;
-  --green:#16a34a;
+  --green:#15803d;
   --green-light:#f0fdf4;
   --red:#dc2626;
   --red-light:#fef2f2;
-  --yellow:#d97706;
+  --yellow:#b45309;
   --yellow-light:#fffbeb;
-  --radius:12px;
-  --radius-sm:8px;
-  --shadow:0 2px 12px rgba(0,0,0,.06);
-  --shadow-lg:0 8px 32px rgba(0,0,0,.1);
+  --radius:14px;
+  --radius-sm:10px;
+  --shadow:0 1px 3px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.06);
 }
-body{background:var(--bg);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);min-height:100vh;display:flex;flex-direction:column;font-size:15px;line-height:1.5}
 
-/* NAV */
-nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.nav-logo{font-family:'Playfair Display',serif;font-size:15px;font-weight:500;letter-spacing:.01em}.nav-logo span{color:var(--accent);font-style:italic}
+/* ── NAV ── */
+nav{background:rgba(255,255,255,.92);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.nav-logo{font-family:'Playfair Display',serif;font-size:16px;font-weight:500;letter-spacing:.01em;color:var(--text);text-decoration:none}
+.nav-logo em{color:var(--accent);font-style:italic}
 .nav-right{display:flex;align-items:center;gap:12px}
-.nav-name{font-size:13px;color:var(--text-3)}
-.nav-logout{font-size:12px;color:var(--text-3);cursor:pointer;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;transition:all .15s}.nav-logout:hover{background:var(--bg);color:var(--text)}
+.nav-name{font-size:13px;color:var(--text-3);font-weight:400}
+.nav-logout{font-size:12px;color:var(--text-3);cursor:pointer;background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;transition:all .15s;font-family:inherit;font-weight:500;letter-spacing:.01em}
+.nav-logout:hover{background:var(--bg);color:var(--text);border-color:var(--text-3)}
 
-/* LAYOUT */
-main{flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 16px 40px}
+/* ── LAYOUT ── */
+main{flex:1;max-width:660px;width:100%;margin:0 auto;padding:28px 20px 60px}
 
-/* CARDS */
-.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);margin-bottom:16px;overflow:hidden;transition:box-shadow .2s}
-.card-header{padding:16px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.card-title{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.01em}
-.card-sub{font-size:13px;color:var(--text-3);margin-top:2px;line-height:1.5}
-.card-body{padding:16px 20px 20px}
-.card-divider{height:1px;background:var(--border);margin:0 20px}
+/* ── CARDS ── */
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.card-header{padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.card-title{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.card-sub{font-size:13px;color:var(--text-3);margin-top:3px;line-height:1.5}
+.card-body{padding:20px 24px 24px}
+.card-divider{height:1px;background:var(--border)}
 
-/* STATUS PILLS */
-.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.02em}
+/* ── PILLS ── */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.03em}
 .pill-green{background:var(--green-light);color:var(--green)}
 .pill-blue{background:var(--blue-light);color:var(--blue)}
 .pill-orange{background:var(--accent-light);color:var(--accent)}
 .pill-yellow{background:var(--yellow-light);color:var(--yellow)}
 .pill-gray{background:var(--bg);color:var(--text-3);border:1px solid var(--border)}
 
-/* TIMELINE */
-.timeline{padding:20px;display:flex;flex-direction:column;gap:0}
-.tl-item{display:flex;gap:14px;position:relative}
-.tl-item:not(:last-child) .tl-line{position:absolute;left:10px;top:22px;width:1px;height:100%;background:var(--border)}
-.tl-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:1}
-.tl-dot-done{background:var(--green-light);color:var(--green);border:2px solid var(--green)}
-.tl-dot-active{background:var(--accent);color:#fff;border:2px solid var(--accent);box-shadow:0 0 0 3px rgba(191,87,0,.15)}
-.tl-dot-future{background:var(--surface);color:var(--text-3);border:2px solid var(--border)}
-.tl-content{flex:1;padding-bottom:20px}
-.tl-name{font-size:13px;font-weight:600;color:var(--text)}
-.tl-name.future{color:var(--text-3)}
-.tl-meta{font-size:12px;color:var(--text-3);margin-top:2px}
-.tl-outcome{font-size:12px;color:var(--green);margin-top:3px;font-weight:500}
-.tl-preview{font-size:12px;color:var(--text-3);margin-top:4px;line-height:1.5;font-style:italic}
+/* ── ASSIGNMENT BLOCK ── */
+.assignment-block{background:linear-gradient(135deg,var(--accent-light) 0%,#fffaf5 100%);border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:20px 22px;margin-bottom:18px}
+.assignment-role{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--accent);line-height:1.1;margin-bottom:4px}
+.assignment-sim{font-size:13px;color:var(--text-2);font-weight:500;margin-bottom:8px}
+.assignment-partner{font-size:13px;color:var(--text-3);padding-top:8px;border-top:1px solid var(--accent-border);margin-top:8px}
 
-/* ASSIGNMENT CARD */
-.assignment-block{background:linear-gradient(135deg,#fdf3eb 0%,#fef8f3 100%);border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:20px 20px;margin-bottom:16px}
-.assignment-role{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--accent);line-height:1.2}
-.assignment-sim{font-size:13px;color:var(--text-2);margin-top:2px;font-weight:500}
-.assignment-partner{font-size:13px;color:var(--text-3);margin-top:6px}
-
-/* BUTTONS */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;font-size:13px;font-weight:600;border:none;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;text-decoration:none}
-.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#a84a00}
-.btn-outline{background:var(--surface);color:var(--text);border:1px solid var(--border)}.btn-outline:hover{background:var(--bg)}
-.btn-block{width:100%}
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;font-size:13px;font-weight:600;border:none;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.01em}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(191,87,0,.25)}
+.btn-outline{background:var(--surface);color:var(--text);border:1px solid var(--border)}.btn-outline:hover{background:var(--bg);border-color:var(--text-3)}
+.btn-block{width:100%;justify-content:center}
 .btn-sm{padding:7px 14px;font-size:12px}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
 
-/* FORM */
-.field{margin-bottom:16px}
-.field-label{display:block;font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+/* ── FORM ── */
+.field{margin-bottom:18px}
+.field-label{display:block;font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
 .field-req{color:var(--accent)}
-.field input,.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border .15s;font-family:inherit}
-.field input:focus,.field textarea:focus{border-color:var(--accent)}
-.field textarea{resize:vertical;min-height:80px;line-height:1.5}
-.radio-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-.radio-option{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;transition:all .15s;background:var(--surface)}
+.field input,.field textarea,.field select{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border .15s,box-shadow .15s;font-family:inherit}
+.field input:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(191,87,0,.1)}
+.field textarea{resize:vertical;min-height:80px;line-height:1.6}
+.radio-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.radio-option{display:flex;align-items:center;gap:7px;padding:9px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;transition:all .15s;background:var(--surface);user-select:none}
 .radio-option:hover{border-color:var(--accent);background:var(--accent-light)}
 .radio-option.selected{border-color:var(--accent);background:var(--accent-light);color:var(--accent);font-weight:600}
 .radio-option input{display:none}
 
-/* PROGRESS BAR */
-.progress-wrap{height:4px;background:var(--border);border-radius:2px;margin-bottom:20px;overflow:hidden}
+/* ── PROGRESS BAR ── */
+.progress-wrap{height:3px;background:var(--border);border-radius:2px;margin-bottom:22px;overflow:hidden}
 .progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
 
-/* NOTES */
-.notes-wrap{margin-top:12px}
-.notes-label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.notes-area{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:#fffdf9;outline:none;resize:vertical;min-height:100px;line-height:1.6;font-family:inherit}
-.notes-area:focus{border-color:var(--accent)}
-.notes-saved{font-size:11px;color:var(--text-3);margin-top:4px;opacity:0;transition:opacity .3s}
+/* ── NOTES ── */
+.notes-wrap{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.notes-label{font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.notes-area{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:#fefcf8;outline:none;resize:vertical;min-height:100px;line-height:1.7;font-family:inherit;transition:border .15s}
+.notes-area:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(191,87,0,.08)}
+.notes-saved{font-size:11px;color:var(--text-3);margin-top:5px;opacity:0;transition:opacity .3s}
 .notes-saved.show{opacity:1}
 
-/* READONLY RESULTS */
-.readonly-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--bg);align-items:flex-start}
+/* ── READONLY RESULTS ── */
+.readonly-row{display:flex;gap:16px;padding:11px 0;border-bottom:1px solid var(--bg);align-items:flex-start}
 .readonly-row:last-child{border-bottom:none}
-.readonly-label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;min-width:120px;flex-shrink:0;padding-top:1px}
-.readonly-value{font-size:13px;color:var(--text);line-height:1.5;flex:1}
+.readonly-label{font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;min-width:130px;flex-shrink:0;padding-top:2px}
+.readonly-value{font-size:14px;color:var(--text);line-height:1.5;flex:1}
 
-/* PARTNER REVIEW */
-.review-card{background:var(--yellow-light);border:1px solid #fde68a;border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:16px}
-.review-title{font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:4px}
-.review-sub{font-size:12px;color:#92400e;margin-bottom:12px;line-height:1.5}
-.review-answers{background:var(--surface);border-radius:6px;padding:12px;margin-bottom:12px;border:1px solid #fde68a}
-.review-item{padding:6px 0;border-bottom:1px solid #fef9c3;font-size:13px}
+/* ── PARTNER REVIEW ── */
+.review-card{background:var(--yellow-light);border:1.5px solid #fde68a;border-radius:var(--radius-sm);padding:18px 20px;margin-bottom:16px}
+.review-title{font-size:14px;font-weight:700;color:var(--yellow);margin-bottom:4px}
+.review-sub{font-size:13px;color:#92400e;margin-bottom:14px;line-height:1.6}
+.review-answers{background:var(--surface);border-radius:8px;padding:14px;margin-bottom:14px;border:1px solid #fde68a}
+.review-item{padding:7px 0;border-bottom:1px solid #fef9c3;font-size:13px;line-height:1.5}
 .review-item:last-child{border-bottom:none}
-.review-item-lbl{font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.review-item-lbl{font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
 .review-actions{display:flex;gap:8px}
-.btn-confirm{flex:1;padding:10px;font-size:13px;font-weight:600;border:none;border-radius:var(--radius-sm);background:var(--green);color:#fff;cursor:pointer}.btn-confirm:hover{background:#15803d}
-.btn-dispute{flex:1;padding:10px;font-size:13px;font-weight:600;border:1px solid var(--red);border-radius:var(--radius-sm);background:var(--surface);color:var(--red);cursor:pointer}.btn-dispute:hover{background:var(--red-light)}
+.btn-confirm{flex:1;padding:11px;font-size:13px;font-weight:600;border:none;border-radius:var(--radius-sm);background:var(--green);color:#fff;cursor:pointer;font-family:inherit;transition:all .15s}.btn-confirm:hover{background:#166534}
+.btn-dispute{flex:1;padding:11px;font-size:13px;font-weight:600;border:1.5px solid var(--red);border-radius:var(--radius-sm);background:var(--surface);color:var(--red);cursor:pointer;font-family:inherit;transition:all .15s}.btn-dispute:hover{background:var(--red-light)}
 .dispute-form{margin-top:12px;display:none}
 .dispute-form.show{display:block}
 
-/* BANNERS */
-.banner{border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+/* ── BANNERS ── */
+.banner{border-radius:var(--radius-sm);padding:11px 16px;font-size:13px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;line-height:1.5}
 .banner-green{background:var(--green-light);color:var(--green);border:1px solid #bbf7d0}
 .banner-red{background:var(--red-light);color:var(--red);border:1px solid #fecaca}
 .banner-blue{background:var(--blue-light);color:var(--blue);border:1px solid #bfdbfe}
 .banner-orange{background:var(--accent-light);color:var(--accent);border:1px solid var(--accent-border)}
 
-/* HISTORY */
-.history-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bg);font-size:13px}
+/* ── TIMELINE ── */
+.timeline{padding:20px 24px;display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:14px;position:relative}
+.tl-item:not(:last-child) .tl-line{position:absolute;left:9px;top:22px;width:1px;height:100%;background:var(--border)}
+.tl-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;z-index:1}
+.tl-dot-done{background:var(--green-light);color:var(--green);border:2px solid var(--green)}
+.tl-dot-active{background:var(--accent);color:#fff;border:2px solid var(--accent);box-shadow:0 0 0 3px rgba(191,87,0,.15)}
+.tl-dot-future{background:var(--surface);color:var(--text-3);border:2px solid var(--border)}
+.tl-content{flex:1;padding-bottom:20px}
+.tl-name{font-size:13px;font-weight:600;color:var(--text)}
+.tl-name.future{color:var(--text-3);font-weight:400}
+.tl-meta{font-size:12px;color:var(--text-3);margin-top:2px}
+.tl-outcome{font-size:12px;color:var(--green);margin-top:3px;font-weight:600}
+.tl-preview{font-size:12px;color:var(--text-3);margin-top:5px;line-height:1.6;font-style:italic;padding-left:10px;border-left:2px solid var(--accent-border)}
+
+/* ── HISTORY ── */
+.history-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--bg);font-size:13px;gap:12px}
 .history-row:last-child{border-bottom:none}
 
-/* REFLECTION */
-.reflection-card{background:var(--blue-light);border:1px solid #bfdbfe;border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:16px}
-.reflection-title{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:4px}
-.reflection-sub{font-size:12px;color:#1e40af;margin-bottom:14px;line-height:1.5}
+/* ── REFLECTION ── */
+.reflection-card{background:var(--blue-light);border:1.5px solid #bfdbfe;border-radius:var(--radius-sm);padding:18px 20px;margin-bottom:16px}
+.reflection-title{font-size:14px;font-weight:700;color:var(--blue);margin-bottom:4px}
+.reflection-sub{font-size:13px;color:#1e40af;margin-bottom:16px;line-height:1.6}
 
-/* STATES */
-.state{text-align:center;padding:36px 20px}
-.state-icon{font-size:36px;margin-bottom:12px}
-.state-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px}
-.state-sub{font-size:13px;color:var(--text-3);line-height:1.6;max-width:320px;margin:0 auto}
+/* ── STATES ── */
+.state{text-align:center;padding:40px 20px}
+.state-icon{font-size:40px;margin-bottom:14px}
+.state-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px}
+.state-sub{font-size:14px;color:var(--text-3);line-height:1.7;max-width:300px;margin:0 auto}
 .spinner{width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* SUBMIT BTN */
-.submit-btn{width:100%;padding:13px;font-size:14px;font-weight:700;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;cursor:pointer;transition:all .15s;margin-top:8px}
-.submit-btn:hover{background:#a84a00}
-.submit-btn:disabled{background:#d1cfc9;cursor:not-allowed}
+/* ── SUBMIT BUTTON ── */
+.submit-btn{width:100%;padding:14px;font-size:14px;font-weight:700;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;cursor:pointer;transition:all .15s;margin-top:10px;font-family:inherit;letter-spacing:.01em}
+.submit-btn:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 16px rgba(191,87,0,.3)}
+.submit-btn:disabled{background:#d6cfc8;cursor:not-allowed;transform:none;box-shadow:none}
 
-/* DRAFT NOTICE */
-.draft-notice{background:var(--yellow-light);border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+/* ── DRAFT NOTICE ── */
+.draft-notice{background:var(--yellow-light);border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:16px;display:flex;align-items:center;gap:8px}
 
-@media(max-width:480px){
-  main{padding:12px 12px 32px}
-  .card-header{padding:14px 16px 0}
-  .card-body{padding:14px 16px 18px}
-  .assignment-role{font-size:20px}
-  .readonly-label{min-width:90px;font-size:10px}
+/* ── ASSESSMENT STYLE BAR ── */
+.style-bar{margin-bottom:12px}
+.style-bar-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:5px}
+.style-bar-label{font-weight:600;color:var(--text)}
+.style-bar-val{color:var(--text-3)}
+.style-bar-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.style-bar-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:540px){
+  main{padding:16px 14px 48px}
+  .card-header{padding:16px 18px 0}
+  .card-body{padding:16px 18px 20px}
+  .assignment-role{font-size:24px}
+  .timeline{padding:16px 18px}
+  .readonly-label{min-width:100px;font-size:10px}
+  nav{padding:0 16px}
 }
 </style>
 </head>
 <body>
 <nav>
-  <a href="/" style="text-decoration:none"><div class="nav-logo">Cotton <span>Strategies</span></div></a>
+  <a href="/" class="nav-logo">Cotton <em>Strategies</em></a>
   <div class="nav-right">
     <span class="nav-name" id="nav-name"></span>
     <button class="nav-logout" onclick="logout()">Log out</button>
@@ -275,80 +289,107 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
   const main=document.getElementById('main');
   let html='';
 
-  // ── CURRENT SIMULATION ──────────────────────────────────────────────────
+  // ── 1. OPEN ASSESSMENT (highest priority — show at top) ─────────────────
+  if(assessmentAssignments&&assessmentAssignments.length){
+    assessmentAssignments.forEach(aa=>{
+      const thisAssess=myAssess&&myAssess.find(a=>a.type===aa.type);
+      if(thisAssess){
+        // Submitted — show compact completed badge, not full form
+        const totals=typeof thisAssess.col_totals==='string'?JSON.parse(thisAssess.col_totals):(thisAssess.col_totals||{});
+        html+=`<div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">${aa.type==='pre'?'Pre':'Post'}-Assessment</div>
+              <div class="card-sub">Completed · Your anonymous ID: <strong>#${String(student.anon_number||'?').padStart(2,'0')}</strong></div>
+            </div>
+            <span class="pill pill-green">✓ Done</span>
+          </div>
+          <div class="card-body">
+            <div style="font-size:12px;color:var(--text-3);margin-bottom:14px">Your negotiation style profile:</div>
+            ${['A','B','C','D','E'].map(col=>{
+              const v=totals[col]||0;
+              const maxP={A:35,B:30,C:30,D:15,E:15}[col];
+              const pct=Math.round(v/maxP*100);
+              return`<div class="style-bar">
+                <div class="style-bar-header">
+                  <span class="style-bar-label">${col} — ${STYLE_NAMES[col]}</span>
+                  <span class="style-bar-val">${v}/${maxP}</span>
+                </div>
+                <div class="style-bar-track">
+                  <div class="style-bar-fill" style="width:${pct}%;background:${STYLE_COLORS[col]}"></div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      } else {
+        // Not yet submitted — show full form
+        html+=renderAssessmentForm(aa.type);
+      }
+    });
+  }
+
+  // ── 2. ACTIVE SIMULATION ─────────────────────────────────────────────────
   if(activeSim){
     html+=`<div class="card">
       <div class="card-header">
         <div>
           <div class="card-title">${activeSim.name}</div>
-          <div class="card-sub">Active simulation</div>
+          <div class="card-sub">This week's simulation</div>
         </div>
-        <span class="pill pill-orange">● Live</span>
+        <span class="pill pill-orange">● Live now</span>
       </div>
       <div class="card-body">`;
 
     if(!assignment){
-      html+=`<div class="state" style="padding:24px 0">
+      html+=`<div class="state" style="padding:20px 0">
         <div class="state-icon">⏳</div>
         <div class="state-title">Assignment coming soon</div>
-        <div class="state-sub">You're registered and your instructor will release pairings before class. Check back shortly.</div>
+        <div class="state-sub">Your instructor will release pairings before class. Check back shortly — this page refreshes automatically.</div>
       </div>`;
+      setTimeout(load,30000);
     } else {
-      // Assignment shown
       html+=`<div class="assignment-block">
         <div class="assignment-role">${assignment.role}</div>
         <div class="assignment-sim">${activeSim.name} · Group ${assignment.group_number}</div>
         <div class="assignment-partner" id="partner-line">Loading partner…</div>
       </div>`;
 
-      // Role brief download
       const roleName=assignment.role.replace(/[^a-zA-Z0-9]/g,'-');
       const briefUrl=SUPA_URL+'/storage/v1/object/public/role-briefs/'+activeSim.id+'/'+roleName+'.pdf';
-      html+=`<button class="btn btn-primary btn-block" id="dl-btn" onclick="downloadBrief('${briefUrl}')">↓ &nbsp;Download role brief (PDF)</button>`;
+      html+=`<button class="btn btn-primary btn-block" onclick="downloadBrief('${briefUrl}')">↓ &nbsp;Download role brief</button>`;
 
-      // Notes scratchpad
       html+=`<div class="notes-wrap">
-        <div class="notes-label">📝 My notes <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--text-3)">— private, only you can see these</span></div>
+        <div class="notes-label">📝 My notes <span style="font-weight:400;text-transform:none;font-size:11px">— private, only you can see these</span></div>
         <textarea class="notes-area" id="notes-area" placeholder="Take notes on your brief, strategy, key interests…" oninput="scheduleNotesSave()">${getNotes()}</textarea>
         <div class="notes-saved" id="notes-saved">Saved ✓</div>
       </div>`;
     }
     html+=`</div></div>`;
 
-    // ── RESULTS FORM ──────────────────────────────────────────────────────
+    // Results form / submitted state
     if(assignment){
       const fd=submission?.form_data||{};
       const confirmed=fd._confirmed,disputed=fd._disputed;
-
-      // Auto-refresh while waiting for partner
-      if(submission&&!partnerSub&&!confirmed&&!disputed){
-        setTimeout(load,20000);
-      }
+      if(submission&&!partnerSub&&!confirmed&&!disputed) setTimeout(load,20000);
 
       if(submission&&!editMode){
-        // Show partner review if ready
-        if(partnerSub&&!confirmed&&!disputed){
-          html+=renderReviewCard();
-        }
+        if(partnerSub&&!confirmed&&!disputed) html+=renderReviewCard();
         html+=`<div class="card">
           <div class="card-header">
-            <div class="card-title">Your submitted results</div>
+            <div class="card-title">Your results</div>
             <span class="pill pill-green">✓ Submitted</span>
           </div>
           <div class="card-body">
-            ${confirmed?'<div class="banner banner-green">✓ Results confirmed with your partner</div>':''}
+            ${confirmed?'<div class="banner banner-green">✓ Confirmed with your partner</div>':''}
             ${disputed?'<div class="banner banner-red">⚠ Disagreement flagged — your instructor will review</div>':''}
             ${renderReadonly(activeSim.fields,fd)}
-            ${canEdit()?`<button class="btn btn-outline btn-block" style="margin-top:12px" onclick="enterEdit()">✏️ Edit my results</button>`:''}
+            ${canEdit()?`<button class="btn btn-outline btn-block" style="margin-top:14px" onclick="enterEdit()">✏️ Edit my results</button>`:''}
           </div>
         </div>`;
-        // Show reflection prompt if submitted but not yet reflected
-        const hasReflection=reflections.find(r=>r.simulation_id===activeSim.id);
-        if(!hasReflection){
-          html+=renderReflectionForm();
-        } else {
-          html+=`<div class="card"><div class="card-body"><div class="banner banner-green">✓ Reflection submitted for this simulation</div></div></div>`;
-        }
+        const hasRefl=reflections.find(r=>r.simulation_id===activeSim.id);
+        if(!hasRefl) html+=renderReflectionForm();
+        else html+=`<div class="card"><div class="card-body"><div class="banner banner-green">✓ Reflection submitted for this simulation</div></div></div>`;
       } else if(activeSim.submission_open||editMode){
         const draft=localStorage.getItem(draftKey);
         if(draft&&!editMode){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}
@@ -356,7 +397,7 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
         html+=`<div class="card">
           <div class="card-header"><div class="card-title">${editMode?'Edit your results':'Submit your results'}</div></div>
           <div class="card-body">
-            ${draft&&!editMode?'<div class="draft-notice">💾 Your progress was saved — picking up where you left off.</div>':''}
+            ${draft&&!editMode?'<div class="draft-notice">💾 Picking up where you left off.</div>':''}
             <div class="progress-wrap"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
             <div id="form-fields">${renderForm(activeSim.fields,formValues)}</div>
             <button class="submit-btn" id="sub-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
@@ -368,19 +409,19 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
         html+=`<div class="card"><div class="card-body"><div class="state" style="padding:20px 0">
           <div class="state-icon">📝</div>
           <div class="state-title">Results form not yet open</div>
-          <div class="state-sub">Your instructor will open the form after the simulation ends. Come back then to submit your results.</div>
+          <div class="state-sub">Your instructor will open the form after the simulation. Come back then to submit your results.</div>
         </div></div></div>`;
       }
     }
   } else {
     html+=`<div class="card"><div class="card-body"><div class="state">
       <div class="state-icon">📚</div>
-      <div class="state-title">No active simulation right now</div>
+      <div class="state-title">No active simulation</div>
       <div class="state-sub">Your instructor will activate the next simulation before class. You'll see your assignment here when it's ready.</div>
     </div></div></div>`;
   }
 
-  // ── SEMESTER TIMELINE ───────────────────────────────────────────────────
+  // ── 3. SEMESTER TIMELINE ─────────────────────────────────────────────────
   if(allSims.length){
     const submittedIds=submissions.map(s=>s.simulation_id);
     const assignedIds=assignments.map(a=>a.simulation_id);
@@ -390,18 +431,18 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     allSims.forEach((s,i)=>{
       const isDone=submittedIds.includes(s.id)&&!s.is_active;
       const isActive=s.is_active;
-      const isAssigned=assignedIds.includes(s.id);
       const sub=submissions.find(x=>x.simulation_id===s.id);
+      const asg=assignments.find(a=>a.simulation_id===s.id);
       const dotClass=isDone?'tl-dot-done':isActive?'tl-dot-active':'tl-dot-future';
       const dotLabel=isDone?'✓':isActive?'●':(i+1);
-      const asg=assignments.find(a=>a.simulation_id===s.id);
+      const dealField=(s.fields||[]).find?.(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
       html+=`<div class="tl-item">
         <div class="tl-line"></div>
         <div class="tl-dot ${dotClass}">${dotLabel}</div>
         <div class="tl-content">
           <div class="tl-name ${!isDone&&!isActive?'future':''}">${s.name}</div>
-          ${isDone&&asg?`<div class="tl-meta">Your role: ${asg.role}</div>`:''}
-          ${isDone&&sub?`<div class="tl-outcome">${sub.form_data?.f4==='Yes'?'✓ Deal reached':'✗ No deal'}</div>`:''}
+          ${isDone&&asg?`<div class="tl-meta">Role: ${asg.role}</div>`:''}
+          ${isDone&&sub?`<div class="tl-outcome">${sub.form_data?.f4==='Yes'||sub.form_data?.[dealField]==='Yes'?'✓ Deal reached':'✗ No deal'}</div>`:''}
           ${isActive?`<div class="tl-meta" style="color:var(--accent);font-weight:600">In progress now</div>`:''}
           ${!isDone&&!isActive&&s.description?`<div class="tl-preview">${s.description}</div>`:''}
         </div>
@@ -410,69 +451,31 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     html+=`</div></div>`;
   }
 
-  // ── PAST RESULTS ────────────────────────────────────────────────────────
+  // ── 4. PAST RESULTS ──────────────────────────────────────────────────────
   const pastSubs=submissions.filter(s=>!activeSim||s.simulation_id!==activeSim.id);
   if(pastSubs.length){
     html+=`<div class="card">
-      <div class="card-header"><div class="card-title">Past simulation results</div></div>
+      <div class="card-header"><div class="card-title">Past results</div></div>
       <div class="card-body">`;
     pastSubs.forEach(sub=>{
       const sim=allSims.find(s=>s.id===sub.simulation_id);
       const asg=assignments.find(a=>a.simulation_id===sub.simulation_id);
+      const dealField=(sim?.fields||[]).find?.(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
       html+=`<div class="history-row">
         <div>
-          <div style="font-size:13px;font-weight:600">${sim?.name||sub.simulation_id}</div>
-          <div style="font-size:12px;color:var(--text-3)">${asg?'Role: '+asg.role:''}</div>
+          <div style="font-weight:600">${sim?.name||sub.simulation_id}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${asg?asg.role:''}</div>
         </div>
-        <span class="pill ${sub.form_data?.f4==='Yes'?'pill-green':'pill-gray'}">${sub.form_data?.f4==='Yes'?'✓ Deal':'No deal'}</span>
+        <span class="pill ${sub.form_data?.[dealField]==='Yes'?'pill-green':'pill-gray'}">${sub.form_data?.[dealField]==='Yes'?'✓ Deal':'No deal'}</span>
       </div>`;
     });
     html+=`</div></div>`;
   }
 
-  // ── ASSESSMENT ──────────────────────────────────────────────────────────
-  if(assessmentAssignments&&assessmentAssignments.length){
-    assessmentAssignments.forEach(aa=>{
-      const thisAssess=myAssess&&myAssess.find(a=>a.type===aa.type);
-      if(thisAssess){
-        // Already submitted — show result
-        const totals=typeof thisAssess.col_totals==='string'?JSON.parse(thisAssess.col_totals):(thisAssess.col_totals||{});
-        html+=`<div class="card">
-          <div class="card-header">
-            <div class="card-title">${aa.type==='pre'?'Pre':'Post'}-Assessment — Submitted</div>
-            <span class="pill pill-green">✓ Done</span>
-          </div>
-          <div class="card-body">
-            <div class="banner banner-blue" style="margin-bottom:14px">Your anonymous ID: <strong>#${String(student.anon_number||'?').padStart(2,'0')}</strong></div>
-            <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Your negotiation style profile:</div>
-            ${['A','B','C','D','E'].map(col=>{
-              const v=totals[col]||0;
-              const maxP={A:35,B:30,C:30,D:15,E:15}[col];
-              const pct=Math.round(v/maxP*100);
-              return`<div style="margin-bottom:10px">
-                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-                  <span style="font-weight:600">${col} — ${STYLE_NAMES[col]}</span>
-                  <span style="color:var(--text-3)">${v}/${maxP}</span>
-                </div>
-                <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
-                  <div style="height:100%;background:${STYLE_COLORS[col]};border-radius:4px;width:${pct}%;transition:width .5s"></div>
-                </div>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>`;
-      } else {
-        // Show assessment form
-        html+=renderAssessmentForm(aa.type);
-      }
-    });
-  }
-
-  // ── PROGRESS ─────────────────────────────────────────────────────────────
+  // ── 5. MY PROGRESS ───────────────────────────────────────────────────────
   if(submissions.length>1){
     html+=renderMyProgress(submissions,assignments,reflections);
   }
-
   main.innerHTML=html;
 
   // Load partner name async
