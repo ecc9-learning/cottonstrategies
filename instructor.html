@@ -102,6 +102,10 @@ tr.clickable:hover td{background:#fafafa;cursor:pointer}
 
 /* SIM LIST */
 .sim-list-item{display:flex;align-items:center;padding:1rem;border-bottom:1px solid #f3f4f6;gap:1rem}
+.sim-list-item.dragging{opacity:.4;background:#f0f9ff}
+.sim-list-item.drag-over{border-top:2px solid #2563eb}
+.drag-handle{cursor:grab;color:#d1d5db;font-size:18px;padding:0 4px;user-select:none;flex-shrink:0}
+.drag-handle:hover{color:#9ca3af}
 .sim-list-item:last-child{border-bottom:none}
 .sim-list-item.is-active{background:#f0f9ff}
 .sim-info{flex:1}
@@ -324,7 +328,10 @@ textarea{resize:vertical;min-height:70px}
 
       <!-- SIMULATIONS -->
       <div class="section" id="section-simulations">
-        <div class="section-title">All simulations</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div class="section-title" style="margin-bottom:0">All simulations</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddSimulation()">+ Add simulation</button>
+        </div>
         <div class="card" style="padding:0">
           <div id="sim-list-body"></div>
         </div>
@@ -419,7 +426,7 @@ async function hashPw(pw) {
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let instructor = null;
-let allStudents = [], allSims = [], allAssignments = [], allSubmissions = [];
+let allStudents = [], allSims = [], allAssignments = [], allSubmissions = [], simOrder = [];
 let activeSim = null;
 let pendingPairings = [];
 let activeCharts = {};
@@ -498,12 +505,26 @@ async function loadAll() {
     dbGet('submissions?select=*')
   ]);
   allStudents = sR.ok?sR.data:[];
-  allSims = (simR.ok?simR.data:[]).map(s=>({
+  const rawSims = (simR.ok?simR.data:[]).map(s=>({
     ...s,
     fields: typeof s.fields === 'string' ? JSON.parse(s.fields) : (s.fields||[]),
     roles: typeof s.roles === 'string' ? JSON.parse(s.roles) : (s.roles||[]),
     role_docs: typeof s.role_docs === 'string' ? JSON.parse(s.role_docs) : (s.role_docs||{})
   }));
+  // Apply saved order if exists
+  try { simOrder = JSON.parse(localStorage.getItem('sim_order')||'[]'); } catch(e){ simOrder=[]; }
+  if(simOrder.length){
+    allSims = [...rawSims].sort((a,b)=>{
+      const ai=simOrder.indexOf(a.id), bi=simOrder.indexOf(b.id);
+      if(ai===-1&&bi===-1) return a.name.localeCompare(b.name);
+      if(ai===-1) return 1;
+      if(bi===-1) return -1;
+      return ai-bi;
+    });
+  } else {
+    allSims = rawSims;
+  }
+  // dummy line to replace:
   allAssignments = aR.ok?aR.data:[];
   allSubmissions = subR.ok?subR.data:[];
   activeSim = allSims.find(s=>s.is_active)||null;
@@ -778,13 +799,84 @@ async function qaCloseForm(){
 }
 
 // ── SIMULATIONS ───────────────────────────────────────────────────────────────
+function openAddSimulation(){
+  showModal(`<div class="modal-header"><div class="modal-title">Add New Simulation</div></div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label">Simulation ID <span style="color:#dc2626">*</span> <span style="font-size:11px;color:#9ca3af">(lowercase, no spaces — e.g. "bluebuggy")</span></label>
+        <input type="text" id="ns-id" placeholder="e.g. tendley" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>
+      <div class="field">
+        <label class="field-label">Simulation Name <span style="color:#dc2626">*</span></label>
+        <input type="text" id="ns-name" placeholder="e.g. Tendley Contract" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>
+      <div class="field">
+        <label class="field-label">Type <span style="color:#dc2626">*</span></label>
+        <select id="ns-type" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+          <option value="dyad">Dyad (2 people)</option>
+          <option value="2v2">2v2 (4 people)</option>
+          <option value="3-party">3-party</option>
+          <option value="4-party">4-party</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Roles <span style="color:#dc2626">*</span> <span style="font-size:11px;color:#9ca3af">(comma-separated)</span></label>
+        <input type="text" id="ns-roles" placeholder="e.g. Consultant, Schools" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>
+      <div style="font-size:12px;color:#9ca3af;margin-top:.5rem">After creating, use Manage to add form questions.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitNewSimulation()">Create simulation</button>
+    </div>`);
+}
+
+async function submitNewSimulation(){
+  const id=document.getElementById('ns-id')?.value.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  const name=document.getElementById('ns-name')?.value.trim();
+  const type=document.getElementById('ns-type')?.value;
+  const rolesRaw=document.getElementById('ns-roles')?.value.trim();
+  if(!id||!name||!rolesRaw){alert('Please fill in all required fields.');return;}
+  if(allSims.find(s=>s.id===id)){alert('A simulation with that ID already exists.');return;}
+  const roles=rolesRaw.split(',').map(r=>r.trim()).filter(Boolean);
+  const groupSize=roles.length;
+  const defaultFields=[
+    {id:'f1',label:'Your name (First Last)',type:'text',required:true},
+    {id:'f2',label:'Your role',type:'radio',options:roles,required:true},
+    {id:'f3',label:'Partner name',type:'text',required:true},
+    {id:'f4',label:'Did you reach a deal?',type:'radio',options:['Yes','No'],required:true},
+    {id:'f5',label:'Outcome / key terms (optional)',type:'textarea',required:false}
+  ];
+  const payload={
+    id, name, type,
+    roles: JSON.stringify(roles),
+    group_size: groupSize,
+    is_active: false,
+    submission_open: false,
+    announcement: '',
+    fields: JSON.stringify(defaultFields)
+  };
+  const res=await api('simulations',{method:'POST',body:JSON.stringify(payload),prefer:'return=minimal'});
+  if(res.ok){
+    closeModal();
+    await loadAll();
+    showSection('simulations');
+    alert(`"${name}" created! Click Manage to customize the form questions.`);
+  } else {
+    alert('Could not create simulation. Status: '+res.status);
+  }
+}
+
 function renderSimulations(){
   const el=document.getElementById('sim-list-body'); el.innerHTML='';
-  allSims.forEach(s=>{
+  allSims.forEach((s,i)=>{
     const div=document.createElement('div');
     div.className='sim-list-item'+(s.is_active?' is-active':'');
+    div.draggable=true;
+    div.dataset.id=s.id;
     div.innerHTML=`
-      <div class="sim-info">
+      <div class="drag-handle" title="Drag to reorder">⠿</div>
+      <div class="sim-info" style="flex:1">
         <div class="sim-name">${s.name} ${s.is_active?'<span class="badge badge-green">Active</span>':''} ${s.submission_open?'<span class="badge badge-blue">Form open</span>':''}</div>
         <div class="sim-meta">${s.type} · ${(s.roles||[]).join(', ')}</div>
       </div>
@@ -792,6 +884,26 @@ function renderSimulations(){
         ${!s.is_active?`<button class="btn btn-primary btn-sm" onclick="setActiveSim('${s.id}')">Set active</button>`:`<button class="btn btn-danger btn-sm" onclick="deactivateSim('${s.id}')">Deactivate</button>`}
         <button class="btn btn-outline btn-sm" onclick="manageSim('${s.id}')">Manage</button>
       </div>`;
+    // Drag events
+    div.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',s.id);div.classList.add('dragging');});
+    div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+    div.addEventListener('dragover',e=>{e.preventDefault();div.classList.add('drag-over');});
+    div.addEventListener('dragleave',()=>div.classList.remove('drag-over'));
+    div.addEventListener('drop',e=>{
+      e.preventDefault();
+      div.classList.remove('drag-over');
+      const fromId=e.dataTransfer.getData('text/plain');
+      const toId=s.id;
+      if(fromId===toId)return;
+      const fromIdx=allSims.findIndex(x=>x.id===fromId);
+      const toIdx=allSims.findIndex(x=>x.id===toId);
+      if(fromIdx===-1||toIdx===-1)return;
+      const moved=allSims.splice(fromIdx,1)[0];
+      allSims.splice(toIdx,0,moved);
+      simOrder=allSims.map(x=>x.id);
+      localStorage.setItem('sim_order',JSON.stringify(simOrder));
+      renderSimulations();
+    });
     el.appendChild(div);
   });
 }
@@ -916,6 +1028,89 @@ async function saveSimChanges(simId){
 }
 
 // ── RESULTS ───────────────────────────────────────────────────────────────────
+function openManualEntry(){
+  if(!activeSim){alert('No active simulation.');return;}
+  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  const studentOpts=allStudents.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const formHtml=fields.map(f=>{
+    if(f.type==='radio'){
+      return`<div class="field">
+        <label class="field-label">${f.label||f.id}${f.required?' <span style="color:#dc2626">*</span>':''}</label>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          ${(f.options||[]).map(o=>`<label style="display:flex;align-items:center;gap:.35rem;font-size:13px;cursor:pointer">
+            <input type="radio" name="mf_${f.id}" value="${o}"> ${o}
+          </label>`).join('')}
+        </div>
+      </div>`;
+    }
+    if(f.type==='number'){
+      return`<div class="field">
+        <label class="field-label">${f.label||f.id}${f.required?' <span style="color:#dc2626">*</span>':''}</label>
+        <input type="number" id="mf_${f.id}" placeholder="Enter number" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      </div>`;
+    }
+    if(f.type==='textarea'){
+      return`<div class="field">
+        <label class="field-label">${f.label||f.id}${f.required?' <span style="color:#dc2626">*</span>':''}</label>
+        <textarea id="mf_${f.id}" placeholder="Enter text" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:70px;resize:vertical"></textarea>
+      </div>`;
+    }
+    // text
+    return`<div class="field">
+      <label class="field-label">${f.label||f.id}${f.required?' <span style="color:#dc2626">*</span>':''}</label>
+      <input type="text" id="mf_${f.id}" placeholder="Enter value" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+    </div>`;
+  }).join('');
+
+  showModal(`<div class="modal-header"><div class="modal-title">Enter Results Manually</div></div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label">Student <span style="color:#dc2626">*</span></label>
+        <select id="me-student" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+          <option value="">— Select student —</option>
+          ${studentOpts}
+        </select>
+      </div>
+      ${formHtml}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitManualEntry('${activeSim.id}')">Save results</button>
+    </div>`);
+}
+
+async function submitManualEntry(simId){
+  const studentId=document.getElementById('me-student')?.value;
+  if(!studentId){alert('Please select a student.');return;}
+  const sim=allSims.find(s=>s.id===simId); if(!sim)return;
+  const fields=(sim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  const formData={};
+  let missingRequired=[];
+  fields.forEach(f=>{
+    let val='';
+    if(f.type==='radio'){
+      const checked=document.querySelector(`input[name="mf_${f.id}"]:checked`);
+      val=checked?checked.value:'';
+    } else {
+      val=document.getElementById('mf_'+f.id)?.value||'';
+    }
+    if(f.required&&!val){missingRequired.push(f.label||f.id);}
+    formData[f.id]=val;
+  });
+  if(missingRequired.length){alert('Please fill in: '+missingRequired.join(', '));return;}
+
+  const existing=allSubmissions.find(s=>s.student_id===studentId&&s.simulation_id===simId);
+  const now=new Date().toISOString();
+  let res;
+  if(existing){
+    res=await dbPatch('submissions?id=eq.'+existing.id,{form_data:formData,updated_at:now});
+  } else {
+    res=await api('submissions',{method:'POST',body:JSON.stringify({student_id:studentId,simulation_id:simId,form_data:formData,submitted_at:now,updated_at:now}),prefer:'return=minimal'});
+  }
+  if(res.ok){closeModal();await loadAll();showSection('results');alert('Results saved.');}
+  else{alert('Could not save results. Status: '+res.status);}
+}
+
 function renderResults(){
   const el=document.getElementById('results-body'); el.innerHTML='';
   if(!activeSim){el.innerHTML='<div class="card"><div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No active simulation</div></div></div>';return;}
@@ -945,6 +1140,7 @@ function renderResults(){
       ${activeSim.submission_open
         ?'<button class="btn btn-danger btn-sm" onclick="qaCloseForm()">Close form</button>'
         :'<button class="btn btn-success btn-sm" onclick="qaOpenForm()">Open form</button>'}
+      <button class="btn btn-outline btn-sm" onclick="openManualEntry()">✎ Enter results manually</button>
     </div>
   </div>`;
   el.appendChild(formBar);
