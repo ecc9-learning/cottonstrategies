@@ -1,76 +1,69 @@
 export async function onRequestPost(context) {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+  const { request, env } = context;
+
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    });
+  }
 
   try {
-    const body = await context.request.json();
-    const apiKey = context.env.GEMINI_API_KEY;
+    const body = await request.json();
+    const apiKey = env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key not configured' }), {
+      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
-    // Extract prompt from Anthropic-style message format
-    const prompt = body.messages?.[0]?.content || '';
+    // Use gemini-2.0-flash (current stable model)
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
     const geminiBody = {
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+      contents: [{
+        parts: [{ text: body.prompt }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 1500,
+      }
     };
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiBody),
-      }
-    );
+    const resp = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(geminiBody)
+    });
 
-    const data = await response.json();
+    const data = await resp.json();
 
-    // Log full response for debugging
-    if (!response.ok || !data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return new Response(JSON.stringify({ 
-        error: 'Gemini error', 
-        status: response.status,
-        detail: JSON.stringify(data)
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    if (!resp.ok) {
+      return new Response(JSON.stringify({ error: JSON.stringify(data.error || data) }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
-    const text = data.candidates[0].content.parts[0].text;
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Return in Anthropic-compatible format
-    return new Response(JSON.stringify({ 
-      content: [{ type: 'text', text }] 
+    // Return in Anthropic-compatible format so instructor.html doesn't need changes
+    return new Response(JSON.stringify({
+      content: [{ type: 'text', text }]
     }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message, stack: err.stack }), {
+    return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
   }
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    }
-  });
 }
