@@ -1451,8 +1451,8 @@ function renderResults(){
   aiCard.className='card'; aiCard.id='ai-debrief-card';
   aiCard.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">
     <div>
-      <div class="card-title" style="margin-bottom:2px">🤖 AI Debrief Brief</div>
-      <div style="font-size:12px;color:#9ca3af">Analyzes this class's actual submission data — regenerate anytime</div>
+      <div class="card-title" style="margin-bottom:2px">📊 Debrief Brief</div>
+      <div style="font-size:12px;color:#9ca3af">Auto-generated from this class's submission data — regenerate anytime</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="ai-gen-btn" onclick="generateAISummary()">✦ Generate debrief brief</button>
@@ -3043,95 +3043,163 @@ let _lastDebriefText='';
 async function generateAISummary(){
   if(!activeSim){alert('No active simulation.');return;}
   const btn=document.getElementById('ai-gen-btn');
-  const body=document.getElementById('ai-summary-body');
-  if(!btn||!body)return;
+  const bodyEl=document.getElementById('ai-summary-body');
+  if(!btn||!bodyEl)return;
 
-  btn.disabled=true; btn.textContent='Generating…';
-  body.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:16px 0;color:#9ca3af">
-    <div style="width:16px;height:16px;border:2px solid #e5e7eb;border-top-color:#bf5700;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0"></div>
-    Analyzing ${allSubmissions.filter(s=>s.simulation_id===activeSim.id).length} submissions…
-  </div>`;
+  btn.disabled=true; btn.textContent='Analyzing…';
 
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
   const publicFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
   const dealField=publicFields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
-  const deals=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='Yes').length:null;
+  const numFields=publicFields.filter(f=>f.type==='number');
+  const radioFields=publicFields.filter(f=>f.type==='radio'&&f.id!==dealField?.id);
   const reflections=allReflections.filter(r=>r.simulation_id===activeSim.id);
-
-  // Build a structured data summary for Claude
-  const groupData=[];
   const released=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
   const groups={};
   released.forEach(a=>{
     if(!groups[a.group_number])groups[a.group_number]=[];
-    const stu=allStudents.find(s=>s.id===a.student_id);
     const sub=subs.find(s=>s.student_id===a.student_id);
-    groups[a.group_number].push({name:stu?.name||'Student',role:a.role,answers:sub?.form_data||null});
+    groups[a.group_number].push({asg:a,sub});
   });
+  const groupCount=Object.keys(groups).length;
 
-  const groupSummaries=Object.entries(groups).map(([gn,members])=>{
-    const answers=members.map(m=>{
-      if(!m.answers)return`  ${m.role} (${m.name}): no submission`;
-      const ans=publicFields.map(f=>`${f.label}: ${m.answers[f.id]||'—'}`).join(', ');
-      return`  ${m.role} (${m.name}): ${ans}`;
-    }).join('\n');
-    return`Group ${gn}:\n${answers}`;
-  }).join('\n\n');
+  // ── DEALS ──────────────────────────────────────────────────────────────────
+  const dealCount=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='Yes').length:null;
+  const noDealCount=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='No').length:null;
+  const dealPct=dealCount!==null&&subs.length?Math.round(dealCount/subs.length*100):null;
 
-  const reflSummary=reflections.length?reflections.map(r=>{
-    const stu=allStudents.find(s=>s.id===r.student_id);
-    return`${stu?.name||'Student'}: mistake="${r.mistake||'—'}" | do differently="${r.do_differently||'—'}"`;
-  }).join('\n'):'No reflections submitted yet.';
+  // ── GROUP DEAL OUTCOMES ────────────────────────────────────────────────────
+  const groupDeals=Object.entries(groups).map(([gn,members])=>{
+    const dealSubs=members.filter(m=>m.sub&&m.sub.form_data?.[dealField?.id]==='Yes');
+    const noDealSubs=members.filter(m=>m.sub&&m.sub.form_data?.[dealField?.id]==='No');
+    const pending=members.filter(m=>!m.sub);
+    return{gn,deal:dealSubs.length>0,noDeal:noDealSubs.length>0&&dealSubs.length===0,pending:pending.length>0};
+  });
+  const groupDealCount=groupDeals.filter(g=>g.deal).length;
+  const groupNoDealCount=groupDeals.filter(g=>g.noDeal).length;
 
-  const prompt=`You are helping a law school negotiation professor prepare for a class debrief of the "${activeSim.name}" simulation.
+  // ── NUMERIC FIELD STATS ────────────────────────────────────────────────────
+  const numStats=numFields.map(f=>{
+    const vals=subs.map(s=>parseFloat(s.form_data?.[f.id])).filter(v=>!isNaN(v)&&v>0);
+    if(!vals.length)return null;
+    const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+    const min=Math.min(...vals); const max=Math.max(...vals);
+    return{label:f.label,avg,min,max,count:vals.length};
+  }).filter(Boolean);
 
-SIMULATION: ${activeSim.name}
-ROLES: ${(activeSim.roles||[]).join(' vs ')}
-CLASS SIZE: ${allStudents.length} students, ${Object.keys(groups).length} groups
-SUBMISSIONS: ${subs.length}/${allStudents.length}
-${dealField?`DEALS: ${deals} of ${Object.keys(groups).length} groups reached a deal (${Math.round(deals/Math.max(Object.keys(groups).length,1)*100)}%)`:''}
+  // ── RADIO FIELD STATS ──────────────────────────────────────────────────────
+  const radioStats=radioFields.map(f=>{
+    const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
+    if(!vals.length)return null;
+    const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
+    const top=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+    return{label:f.label,counts,top,total:vals.length};
+  }).filter(Boolean);
 
-GROUP-BY-GROUP RESULTS:
-${groupSummaries}
-
-STUDENT REFLECTIONS:
-${reflSummary}
-
-Write a structured debrief brief with these sections:
-1. **Quick stats** — 2-3 sentences on the numbers (deal rate, any standout patterns)
-2. **Key patterns worth highlighting** — 3-5 bullet points on what the data shows (anchoring, first-mover effects, creative terms, role asymmetries, etc.)
-3. **Interesting groups to discuss** — call out 2-3 specific groups by number worth spotlighting in class and why (without revealing private info)
-4. **Themes from reflections** — what students say they'd do differently, common mistakes
-5. **Suggested discussion questions** — 4-5 questions to drive class conversation
-
-Be specific to this class's actual data. Be concise and practical — this is a professor's prep doc, not an essay.`;
-
-  try{
-    const resp=await fetch('/ai',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1500,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await resp.json();
-    const text=data.content?.[0]?.text||'Could not generate summary.';
-    _lastDebriefText=text;
-
-    // Render as editable content
-    body.innerHTML=`<div style="border-top:1px solid #f3f4f6;padding-top:14px">
-      <div contenteditable="true" id="ai-editable"
-        style="font-size:13px;line-height:1.8;color:#374151;outline:none;min-height:80px;white-space:pre-wrap"
-        oninput="_lastDebriefText=this.innerText">${escHtml(text)}</div>
-      <div style="font-size:11px;color:#9ca3af;margin-top:8px">✎ Click to edit before printing or exporting</div>
-    </div>`;
-    document.getElementById('ai-export-btn').style.display='';
-    document.getElementById('ai-print-btn').style.display='';
-  } catch(e){
-    body.innerHTML=`<div style="color:#dc2626;font-size:13px;padding:12px 0">Error generating summary: ${e.message}</div>`;
+  // ── FIRST OFFER ANALYSIS ───────────────────────────────────────────────────
+  const firstOfferField=radioFields.find(f=>(f.label||'').toLowerCase().includes('first offer'));
+  let firstOfferSummary='';
+  if(firstOfferField){
+    const counts=radioStats.find(r=>r.label===firstOfferField.label)?.counts||{};
+    const lines=Object.entries(counts).map(([k,v])=>`${k}: ${v} (${Math.round(v/subs.length*100)}%)`).join(', ');
+    firstOfferSummary=lines;
   }
+
+  // ── REFLECTIONS ANALYSIS ───────────────────────────────────────────────────
+  const reflMistakes=reflections.map(r=>r.mistake).filter(Boolean);
+  const reflDiff=reflections.map(r=>r.do_differently).filter(Boolean);
+
+  // ── CONFIRMED / DISPUTED ──────────────────────────────────────────────────
+  const confirmed=subs.filter(s=>s.form_data?._confirmed).length;
+  const disputed=subs.filter(s=>s.form_data?._disputed).length;
+
+  // ── BUILD THE SUMMARY TEXT ────────────────────────────────────────────────
+  const lines=[];
+
+  lines.push('DEBRIEF BRIEF — '+activeSim.name.toUpperCase());
+  lines.push('Generated '+new Date().toLocaleDateString()+' · '+subs.length+' of '+allStudents.length+' students submitted');
+  lines.push('');
+
+  // Section 1: Quick stats
+  lines.push('── QUICK STATS ──────────────────────────────────────────');
+  if(dealField){
+    lines.push('• '+subs.length+' of '+allStudents.length+' students submitted ('+groupCount+' groups)');
+    lines.push('• '+groupDealCount+' of '+groupCount+' groups reached a deal ('+Math.round(groupDealCount/Math.max(groupCount,1)*100)+'% deal rate)');
+    if(groupNoDealCount>0)lines.push('• '+groupNoDealCount+' group'+(groupNoDealCount>1?'s':'')+' did not reach a deal');
+    if(confirmed>0)lines.push('• '+confirmed+' submission'+(confirmed>1?'s':'')+' confirmed by both parties');
+    if(disputed>0)lines.push('• ⚠ '+disputed+' disputed submission'+(disputed>1?'s':'')+' — review before debrief');
+  } else {
+    lines.push('• '+subs.length+' of '+allStudents.length+' students submitted');
+  }
+  lines.push('• '+reflections.length+' of '+allStudents.length+' students submitted reflections');
+  lines.push('');
+
+  // Section 2: Numeric field stats
+  if(numStats.length){
+    lines.push('── OUTCOME NUMBERS ──────────────────────────────────────');
+    numStats.forEach(s=>{
+      lines.push('• '+s.label+': avg '+s.avg.toLocaleString()+' | range '+s.min.toLocaleString()+' – '+s.max.toLocaleString()+' ('+s.count+' responses)');
+    });
+    lines.push('');
+  }
+
+  // Section 3: Radio field breakdowns
+  if(radioStats.length){
+    lines.push('── RESPONSE BREAKDOWNS ──────────────────────────────────');
+    radioStats.forEach(s=>{
+      const breakdown=Object.entries(s.counts).map(([k,v])=>k+': '+v+' ('+Math.round(v/s.total*100)+'%)').join(' · ');
+      lines.push('• '+s.label+': '+breakdown);
+    });
+    lines.push('');
+  }
+
+  // Section 4: Group outcomes
+  if(dealField&&groupCount>0){
+    lines.push('── GROUP OUTCOMES ────────────────────────────────────────');
+    groupDeals.forEach(g=>{
+      const outcome=g.pending?'⏳ pending':g.deal?'✓ Deal':'✗ No deal';
+      lines.push('• Group '+g.gn+': '+outcome);
+    });
+    lines.push('');
+  }
+
+  // Section 5: Reflections
+  if(reflMistakes.length){
+    lines.push('── STUDENT REFLECTIONS ('+reflections.length+') ─────────────────────');
+    lines.push('Mistakes students identified:');
+    reflMistakes.slice(0,6).forEach(m=>lines.push('  "'+m.substring(0,120)+(m.length>120?'…':'')+'"'));
+    if(reflDiff.length){
+      lines.push('');
+      lines.push('What they would do differently:');
+      reflDiff.slice(0,4).forEach(d=>lines.push('  "'+d.substring(0,120)+(d.length>120?'…':'')+'"'));
+    }
+    lines.push('');
+  }
+
+  // Section 6: Suggested discussion questions
+  lines.push('── SUGGESTED DISCUSSION QUESTIONS ───────────────────────');
+  if(dealField){
+    lines.push('1. For groups that reached a deal — what was the turning point?');
+    if(groupNoDealCount>0)lines.push('2. For groups that did not reach a deal — where did things break down?');
+    if(firstOfferSummary)lines.push('3. Who made the first offer and how did that shape the outcome? ('+firstOfferSummary+')');
+  }
+  lines.push((dealField?'4':'1')+'. What was the most effective tactic you used?');
+  lines.push((dealField?'5':'2')+'. What would you do differently if you negotiated this again?');
+  lines.push('');
+  lines.push('✎ Click anywhere above to edit before printing or exporting.');
+
+  const text=lines.join('\n');
+  _lastDebriefText=text;
+
+  bodyEl.innerHTML=`<div style="border-top:1px solid #f3f4f6;padding-top:14px">
+    <div contenteditable="true" id="ai-editable"
+      style="font-size:13px;line-height:1.8;color:#374151;outline:none;min-height:80px;white-space:pre-wrap;font-family:'DM Sans',sans-serif"
+      oninput="_lastDebriefText=this.innerText">${escHtml(text)}</div>
+    <div style="font-size:11px;color:#9ca3af;margin-top:8px">✎ Click to edit before printing or exporting</div>
+  </div>`;
+
+  document.getElementById('ai-export-btn').style.display='';
+  document.getElementById('ai-print-btn').style.display='';
   btn.disabled=false; btn.textContent='↺ Regenerate';
 }
 
