@@ -16,11 +16,11 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Convert Anthropic message format to Gemini format
+    // Extract prompt from Anthropic-style message format
     const prompt = body.messages?.[0]?.content || '';
 
     const geminiBody = {
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
     };
 
@@ -35,17 +35,30 @@ export async function onRequestPost(context) {
 
     const data = await response.json();
 
-    // Convert Gemini response back to Anthropic-style format
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not generate summary.';
-    const converted = { content: [{ type: 'text', text }] };
+    // Log full response for debugging
+    if (!response.ok || !data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return new Response(JSON.stringify({ 
+        error: 'Gemini error', 
+        status: response.status,
+        detail: JSON.stringify(data)
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
 
-    return new Response(JSON.stringify(converted), {
+    const text = data.candidates[0].content.parts[0].text;
+
+    // Return in Anthropic-compatible format
+    return new Response(JSON.stringify({ 
+      content: [{ type: 'text', text }] 
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: err.message, stack: err.stack }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
