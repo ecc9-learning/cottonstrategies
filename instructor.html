@@ -1181,6 +1181,7 @@ function renderSimulations(){
         ${!s.is_active?`<button class="btn btn-primary btn-sm" onclick="setActiveSim('${s.id}')">Set active</button>`:`<button class="btn btn-danger btn-sm" onclick="deactivateSim('${s.id}')">Deactivate</button>`}
         <button class="btn btn-outline btn-sm" onclick="manageSim('${s.id}')">Manage</button>
         <button class="btn btn-ghost btn-sm" onclick="renameSim('${s.id}')">Rename</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadInstructorNotes('${s.id}','${s.name}')" title="Download instructor notes PDF">📄 Notes</button>
       </div>`;
     // Drag events
     div.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',s.id);div.classList.add('dragging');});
@@ -1444,6 +1445,23 @@ function renderResults(){
     </div>
   </div>`;
   el.appendChild(formBar);
+
+  // ── AI Debrief Summary card ──────────────────────────────────────────────
+  const aiCard=document.createElement('div');
+  aiCard.className='card'; aiCard.id='ai-debrief-card';
+  aiCard.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">
+    <div>
+      <div class="card-title" style="margin-bottom:2px">🤖 AI Debrief Brief</div>
+      <div style="font-size:12px;color:#9ca3af">Analyzes this class's actual submission data — regenerate anytime</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" id="ai-gen-btn" onclick="generateAISummary()">✦ Generate debrief brief</button>
+      <button class="btn btn-outline btn-sm" id="ai-export-btn" style="display:none" onclick="exportDebriefWord()">↓ Word</button>
+      <button class="btn btn-outline btn-sm" id="ai-print-btn" style="display:none" onclick="printDebrief()">🖨 Print</button>
+    </div>
+  </div>
+  <div id="ai-summary-body"></div>`;
+  el.appendChild(aiCard);
 
   // Disputed — show side-by-side comparison of their version vs original
   if(disputed>0){
@@ -2956,6 +2974,215 @@ function openStudentProfile(sid){
     <button class="btn btn-outline" onclick="closeModal()">Close</button>
     <button class="btn btn-primary" onclick="exportStudentProgress('${sid}')">Export CSV</button>
   </div>`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INSTRUCTOR NOTES DOWNLOAD
+// ══════════════════════════════════════════════════════════════════════════════
+function downloadInstructorNotes(simId, simName){
+  const url=SUPA_URL+'/storage/v1/object/public/role-briefs/'+simId+'/InstructorNotes.pdf';
+  const a=document.createElement('a');
+  a.href=url; a.target='_blank';
+  a.download=simName.replace(/\s+/g,'_')+'_InstructorNotes.pdf';
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AI DEBRIEF SUMMARY
+// ══════════════════════════════════════════════════════════════════════════════
+let _lastDebriefText='';
+
+async function generateAISummary(){
+  if(!activeSim){alert('No active simulation.');return;}
+  const btn=document.getElementById('ai-gen-btn');
+  const body=document.getElementById('ai-summary-body');
+  if(!btn||!body)return;
+
+  btn.disabled=true; btn.textContent='Generating…';
+  body.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:16px 0;color:#9ca3af">
+    <div style="width:16px;height:16px;border:2px solid #e5e7eb;border-top-color:#bf5700;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0"></div>
+    Analyzing ${allSubmissions.filter(s=>s.simulation_id===activeSim.id).length} submissions…
+  </div>`;
+
+  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
+  const publicFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
+  const dealField=publicFields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
+  const deals=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='Yes').length:null;
+  const reflections=allReflections.filter(r=>r.simulation_id===activeSim.id);
+
+  // Build a structured data summary for Claude
+  const groupData=[];
+  const released=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
+  const groups={};
+  released.forEach(a=>{
+    if(!groups[a.group_number])groups[a.group_number]=[];
+    const stu=allStudents.find(s=>s.id===a.student_id);
+    const sub=subs.find(s=>s.student_id===a.student_id);
+    groups[a.group_number].push({name:stu?.name||'Student',role:a.role,answers:sub?.form_data||null});
+  });
+
+  const groupSummaries=Object.entries(groups).map(([gn,members])=>{
+    const answers=members.map(m=>{
+      if(!m.answers)return`  ${m.role} (${m.name}): no submission`;
+      const ans=publicFields.map(f=>`${f.label}: ${m.answers[f.id]||'—'}`).join(', ');
+      return`  ${m.role} (${m.name}): ${ans}`;
+    }).join('\n');
+    return`Group ${gn}:\n${answers}`;
+  }).join('\n\n');
+
+  const reflSummary=reflections.length?reflections.map(r=>{
+    const stu=allStudents.find(s=>s.id===r.student_id);
+    return`${stu?.name||'Student'}: mistake="${r.mistake||'—'}" | do differently="${r.do_differently||'—'}"`;
+  }).join('\n'):'No reflections submitted yet.';
+
+  const prompt=`You are helping a law school negotiation professor prepare for a class debrief of the "${activeSim.name}" simulation.
+
+SIMULATION: ${activeSim.name}
+ROLES: ${(activeSim.roles||[]).join(' vs ')}
+CLASS SIZE: ${allStudents.length} students, ${Object.keys(groups).length} groups
+SUBMISSIONS: ${subs.length}/${allStudents.length}
+${dealField?`DEALS: ${deals} of ${Object.keys(groups).length} groups reached a deal (${Math.round(deals/Math.max(Object.keys(groups).length,1)*100)}%)`:''}
+
+GROUP-BY-GROUP RESULTS:
+${groupSummaries}
+
+STUDENT REFLECTIONS:
+${reflSummary}
+
+Write a structured debrief brief with these sections:
+1. **Quick stats** — 2-3 sentences on the numbers (deal rate, any standout patterns)
+2. **Key patterns worth highlighting** — 3-5 bullet points on what the data shows (anchoring, first-mover effects, creative terms, role asymmetries, etc.)
+3. **Interesting groups to discuss** — call out 2-3 specific groups by number worth spotlighting in class and why (without revealing private info)
+4. **Themes from reflections** — what students say they'd do differently, common mistakes
+5. **Suggested discussion questions** — 4-5 questions to drive class conversation
+
+Be specific to this class's actual data. Be concise and practical — this is a professor's prep doc, not an essay.`;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1500,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const text=data.content?.[0]?.text||'Could not generate summary.';
+    _lastDebriefText=text;
+
+    // Render as editable content
+    body.innerHTML=`<div style="border-top:1px solid #f3f4f6;padding-top:14px">
+      <div contenteditable="true" id="ai-editable"
+        style="font-size:13px;line-height:1.8;color:#374151;outline:none;min-height:80px;white-space:pre-wrap"
+        oninput="_lastDebriefText=this.innerText">${escHtml(text)}</div>
+      <div style="font-size:11px;color:#9ca3af;margin-top:8px">✎ Click to edit before printing or exporting</div>
+    </div>`;
+    document.getElementById('ai-export-btn').style.display='';
+    document.getElementById('ai-print-btn').style.display='';
+  } catch(e){
+    body.innerHTML=`<div style="color:#dc2626;font-size:13px;padding:12px 0">Error generating summary: ${e.message}</div>`;
+  }
+  btn.disabled=false; btn.textContent='↺ Regenerate';
+}
+
+function escHtml(t){
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function printDebrief(){
+  const text=document.getElementById('ai-editable')?.innerText||_lastDebriefText;
+  if(!text){alert('Generate a debrief brief first.');return;}
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head>
+    <title>${activeSim?.name||'Debrief'} — Debrief Brief</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:13px;line-height:1.8;max-width:720px;margin:40px auto;color:#111}
+      h1{font-size:18px;border-bottom:2px solid #bf5700;padding-bottom:8px;margin-bottom:20px}
+      pre{white-space:pre-wrap;font-family:inherit}
+      @media print{body{margin:20px}}
+    </style>
+  </head><body>
+    <h1>${activeSim?.name||'Simulation'} — Debrief Brief</h1>
+    <pre>${escHtml(text)}</pre>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(),300);
+}
+
+async function exportDebriefWord(){
+  const text=document.getElementById('ai-editable')?.innerText||_lastDebriefText;
+  if(!text){alert('Generate a debrief brief first.');return;}
+
+  const btn=document.getElementById('ai-export-btn');
+  btn.disabled=true; btn.textContent='Building…';
+
+  // Use docx library loaded from CDN
+  if(!window.docx){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.2/docx.umd.min.js';
+    document.head.appendChild(s);
+    await new Promise(r=>s.onload=r);
+  }
+
+  const {Document,Packer,Paragraph,TextRun,HeadingLevel,AlignmentType}=window.docx;
+  const lines=text.split('\n');
+  const children=[
+    new Paragraph({
+      children:[new TextRun({text:(activeSim?.name||'Simulation')+' — Debrief Brief',bold:true,size:32,font:'Arial'})],
+      spacing:{after:200}
+    }),
+    new Paragraph({
+      children:[new TextRun({text:'Professor Eliot Cotton · '+new Date().toLocaleDateString(),size:20,color:'757575',font:'Arial'})],
+      spacing:{after:400}
+    }),
+  ];
+
+  lines.forEach(line=>{
+    const trimmed=line.trim();
+    if(!trimmed){
+      children.push(new Paragraph({spacing:{after:100}}));
+      return;
+    }
+    // Detect markdown bold headings **text**
+    const headingMatch=trimmed.match(/^\*\*(.+?)\*\*/);
+    if(headingMatch){
+      children.push(new Paragraph({
+        children:[new TextRun({text:headingMatch[1].replace(/\*\*/g,'').replace(/^\d+\.\s*/,''),bold:true,size:26,font:'Arial',color:'BF5700'})],
+        spacing:{before:240,after:100}
+      }));
+      // remainder of line after heading
+      const rest=trimmed.slice(headingMatch[0].length).trim();
+      if(rest) children.push(new Paragraph({children:[new TextRun({text:rest,size:22,font:'Arial'})],spacing:{after:80}}));
+    } else if(trimmed.startsWith('- ')||trimmed.startsWith('• ')){
+      children.push(new Paragraph({
+        bullet:{level:0},
+        children:[new TextRun({text:trimmed.slice(2),size:22,font:'Arial'})],
+        spacing:{after:60}
+      }));
+    } else {
+      children.push(new Paragraph({
+        children:[new TextRun({text:trimmed,size:22,font:'Arial'})],
+        spacing:{after:80}
+      }));
+    }
+  });
+
+  const doc=new Document({
+    sections:[{
+      properties:{page:{size:{width:12240,height:15840},margin:{top:1440,right:1440,bottom:1440,left:1440}}},
+      children
+    }]
+  });
+
+  const buffer=await Packer.toBlob(doc);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(buffer);
+  a.download=(activeSim?.name||'Debrief').replace(/\s+/g,'_')+'_DebriefBrief.docx';
+  a.click();
+  btn.disabled=false; btn.textContent='↓ Word';
 }
 
 function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}
