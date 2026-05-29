@@ -3232,11 +3232,15 @@ async function generateAISummary(){
     const data=await resp.json();
     if(data.content?.[0]?.text){
       renderSummary(data.content[0].text);
+    } else if(data.error){
+      // Show error detail for debugging, fall back to rule-based
+      console.error('AI error:', data.error, data.detail||'');
+      renderSummary(fallbackText+'\n\n[AI note: '+data.error+(data.detail?' — '+data.detail.substring(0,200):'')+']');
     } else {
       renderSummary(fallbackText);
     }
   } catch(e){
-    // AI unavailable — use rule-based summary
+    console.error('Fetch error:', e);
     renderSummary(fallbackText);
   }
 }
