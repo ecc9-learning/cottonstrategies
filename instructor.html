@@ -1451,8 +1451,8 @@ function renderResults(){
   aiCard.className='card'; aiCard.id='ai-debrief-card';
   aiCard.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">
     <div>
-      <div class="card-title" style="margin-bottom:2px">📊 Debrief Brief</div>
-      <div style="font-size:12px;color:#9ca3af">Auto-generated from this class's submission data — regenerate anytime</div>
+      <div class="card-title" style="margin-bottom:2px">🤖 AI Debrief Brief</div>
+      <div style="font-size:12px;color:#9ca3af">AI-generated from this class's actual submission data — regenerate anytime</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="ai-gen-btn" onclick="generateAISummary()">✦ Generate debrief brief</button>
@@ -3046,7 +3046,8 @@ async function generateAISummary(){
   const bodyEl=document.getElementById('ai-summary-body');
   if(!btn||!bodyEl)return;
 
-  btn.disabled=true; btn.textContent='Analyzing…';
+  btn.disabled=true; btn.textContent='Generating…';
+  bodyEl.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:16px 0;color:#9ca3af"><div style="width:16px;height:16px;border:2px solid #e5e7eb;border-top-color:#bf5700;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0"></div>Analyzing ${allSubmissions.filter(s=>s.simulation_id===activeSim.id).length} submissions with AI…</div>`;
 
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
   const publicFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
@@ -3114,6 +3115,20 @@ async function generateAISummary(){
   const disputed=subs.filter(s=>s.form_data?._disputed).length;
 
   // ── BUILD THE SUMMARY TEXT ────────────────────────────────────────────────
+  // ── Build AI prompt from structured data ─────────────────────────────────
+  const groupSummaryText=Object.entries(groups).map(([gn,members])=>{
+    return'Group '+gn+': '+members.map(m=>{
+      if(!m.sub)return m.asg.role+' (no submission)';
+      const ans=publicFields.map(f=>f.label+': '+(m.sub.form_data?.[f.id]||'—')).join(', ');
+      return m.asg.role+' — '+ans;
+    }).join(' | ');
+  }).join('\n');
+  const reflText=reflections.map(r=>{
+    const stu=allStudents.find(s=>s.id===r.student_id);
+    return(stu?.name||'Student')+': mistake="'+(r.mistake||'—')+'" | differently="'+(r.do_differently||'—')+'"';
+  }).join('\n')||'No reflections yet.';
+  const prompt=`You are helping a law school negotiation professor prepare a debrief brief for the "${activeSim.name}" simulation.\n\nSIMULATION: ${activeSim.name}\nROLES: ${(activeSim.roles||[]).join(' vs ')}\nSTUDENTS: ${allStudents.length} | GROUPS: ${groupCount} | SUBMISSIONS: ${subs.length}\n${dealField?'DEAL RATE: '+groupDealCount+'/'+groupCount+' groups':''}\n\nGROUP RESULTS:\n${groupSummaryText}\n\nREFLECTIONS:\n${reflText}\n\nWrite a concise debrief brief with: 1) Quick stats (2-3 sentences), 2) Key patterns worth highlighting (3-5 bullets), 3) Interesting groups to spotlight and why, 4) Themes from reflections, 5) 4-5 discussion questions. Be specific to this class's data. Keep it practical — this is a prep doc for a law professor.`;
+
   const lines=[];
 
   lines.push('DEBRIEF BRIEF — '+activeSim.name.toUpperCase());
@@ -3188,19 +3203,42 @@ async function generateAISummary(){
   lines.push('');
   lines.push('✎ Click anywhere above to edit before printing or exporting.');
 
-  const text=lines.join('\n');
-  _lastDebriefText=text;
+  const fallbackText=lines.join('\n');
 
-  bodyEl.innerHTML=`<div style="border-top:1px solid #f3f4f6;padding-top:14px">
-    <div contenteditable="true" id="ai-editable"
-      style="font-size:13px;line-height:1.8;color:#374151;outline:none;min-height:80px;white-space:pre-wrap;font-family:'DM Sans',sans-serif"
-      oninput="_lastDebriefText=this.innerText">${escHtml(text)}</div>
-    <div style="font-size:11px;color:#9ca3af;margin-top:8px">✎ Click to edit before printing or exporting</div>
-  </div>`;
+  // ── Try AI first, fall back to rule-based summary ──────────────────────
+  function renderSummary(text){
+    _lastDebriefText=text;
+    bodyEl.innerHTML=`<div style="border-top:1px solid #f3f4f6;padding-top:14px">
+      <div contenteditable="true" id="ai-editable"
+        style="font-size:13px;line-height:1.8;color:#374151;outline:none;min-height:80px;white-space:pre-wrap;font-family:'DM Sans',sans-serif"
+        oninput="_lastDebriefText=this.innerText">${escHtml(text)}</div>
+      <div style="font-size:11px;color:#9ca3af;margin-top:8px">✎ Click to edit before printing or exporting</div>
+    </div>`;
+    document.getElementById('ai-export-btn').style.display='';
+    document.getElementById('ai-print-btn').style.display='';
+    btn.disabled=false; btn.textContent='↺ Regenerate';
+  }
 
-  document.getElementById('ai-export-btn').style.display='';
-  document.getElementById('ai-print-btn').style.display='';
-  btn.disabled=false; btn.textContent='↺ Regenerate';
+  try{
+    const resp=await fetch('/ai',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'gemini-1.5-flash',
+        max_tokens:1500,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    if(data.content?.[0]?.text){
+      renderSummary(data.content[0].text);
+    } else {
+      renderSummary(fallbackText);
+    }
+  } catch(e){
+    // AI unavailable — use rule-based summary
+    renderSummary(fallbackText);
+  }
 }
 
 function escHtml(t){
