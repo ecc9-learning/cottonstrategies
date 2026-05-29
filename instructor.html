@@ -3187,7 +3187,7 @@ async function exportDebriefWord(){
 
 function showModal(html){
   const overlay=document.getElementById('modal-overlay');
-  const box=document.getElementById('modal-box');
+  const box=document.getElementById('modal-content');
   if(!overlay||!box){console.error('Modal elements not found');return;}
   box.innerHTML=html;
   overlay.classList.add('show');
