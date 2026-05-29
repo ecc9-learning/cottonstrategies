@@ -1,7 +1,6 @@
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  // Handle CORS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       headers: {
@@ -23,8 +22,8 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Use gemini-2.0-flash (current stable model)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // gemini-2.5-flash is the current free-tier model as of 2026
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const geminiBody = {
       contents: [{
@@ -53,7 +52,6 @@ export async function onRequestPost(context) {
 
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Return in Anthropic-compatible format so instructor.html doesn't need changes
     return new Response(JSON.stringify({
       content: [{ type: 'text', text }]
     }), {
