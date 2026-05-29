@@ -3223,11 +3223,7 @@ async function generateAISummary(){
     const resp=await fetch('/ai',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'gemini-2.0-flash',
-        max_tokens:1500,
-        messages:[{role:'user',content:prompt}]
-      })
+    body:JSON.stringify({prompt})
     });
     const data=await resp.json();
     if(data.content?.[0]?.text){
