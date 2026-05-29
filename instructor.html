@@ -3185,6 +3185,13 @@ async function exportDebriefWord(){
   btn.disabled=false; btn.textContent='↓ Word';
 }
 
+function showModal(html){
+  const overlay=document.getElementById('modal-overlay');
+  const box=document.getElementById('modal-box');
+  if(!overlay||!box){console.error('Modal elements not found');return;}
+  box.innerHTML=html;
+  overlay.classList.add('show');
+}
 function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}
 
 function fmtDate(iso){return new Date(iso).toLocaleDateString([],{month:'short',day:'numeric'});}
