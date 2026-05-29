@@ -357,8 +357,7 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
         <div class="assignment-partner" id="partner-line">Loading partner…</div>
       </div>`;
 
-      const roleName=assignment.role.replace(/[^a-zA-Z0-9]/g,'-');
-      const briefUrl=SUPA_URL+'/storage/v1/object/public/role-briefs/'+activeSim.id+'/'+roleName+'.pdf';
+      const briefUrl=SUPA_URL+'/storage/v1/object/public/role-briefs/'+activeSim.id+'/'+encodeURIComponent(assignment.role)+'.pdf';
       html+=`<button class="btn btn-primary btn-block" onclick="downloadBrief('${briefUrl}')">↓ &nbsp;Download role brief</button>`;
 
       html+=`<div class="notes-wrap">
@@ -396,25 +395,51 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
         else html+=`<div class="card"><div class="card-body"><div class="banner banner-green">✓ Reflection submitted for this simulation</div></div></div>`;
       } else if(activeSim.submission_open||editMode){
         const draft=localStorage.getItem(draftKey);
-        if(draft&&!editMode){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}
-        else if(editMode&&submission){formValues={...submission.form_data};}
-        html+=`<div class="card">
-          <div class="card-header"><div class="card-title">${editMode?'Edit your results':'Submit your results'}</div></div>
-          <div class="card-body">
-            ${draft&&!editMode?'<div class="draft-notice">💾 Picking up where you left off.</div>':''}
-            <div class="progress-wrap"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
-            <div id="form-fields">${renderForm(activeSim.fields,formValues)}</div>
-            <button class="submit-btn" id="sub-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
-            ${editMode?`<button class="btn btn-outline btn-block" style="margin-top:8px" onclick="cancelEdit()">Cancel</button>`:''}
-          </div>
-        </div>`;
-        setTimeout(startAutosave,100);
-      } else {
-        html+=`<div class="card"><div class="card-body"><div class="state" style="padding:20px 0">
-          <div class="state-icon">📝</div>
-          <div class="state-title">Results form not yet open</div>
-          <div class="state-sub">Your instructor will open the form after the simulation. Come back then to submit your results.</div>
-        </div></div></div>`;
+        if(draft&&!editMode){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}        else if(editMode&&submission){formValues={...submission.form_data};}
+
+        // ── OFFER FLOW: partner submitted first ────────────────────────────
+        const partnerOffer=(pSubs||[]).length>0&&!submission&&!editMode;
+        if(partnerOffer){
+          const ps=pSubs[0];
+          const pAsg=(pAsgs||[]).find(a=>a.student_id===ps.student_id);
+          const visibleFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
+          const answers=visibleFields.map(f=>{
+            const v=ps.form_data?.[f.id];
+            if(!v)return'';
+            return`<div class="review-item"><div class="review-item-lbl">${f.label}</div><div>${v}</div></div>`;
+          }).filter(Boolean).join('');
+          window._pendingPartnerSub=ps;
+          html+=`<div class="card" style="border-left:3px solid var(--green)">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📋 Proposed agreement on the table</div>
+                <div class="card-sub">${pAsg?.role||'Your partner'} has submitted their version. Review the terms below.</div>
+              </div>
+              <span class="pill pill-green">Pending your response</span>
+            </div>
+            <div class="card-body">
+              <div class="review-answers" style="margin-bottom:14px">${answers||'<div style="color:#9ca3af;font-size:13px">No answers recorded.</div>'}</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:10px">Do these terms match your understanding?</div>
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <button class="btn-confirm" style="flex:1" onclick="acceptPartnerTerms()">✓ Accept these terms</button>
+                <button class="btn-dispute" style="flex:1" onclick="counterPartnerTerms()">✎ Submit different terms</button>
+              </div>
+              <div style="font-size:11px;color:var(--text-3);text-align:center">Most negotiations end in agreement — only submit different terms if something is genuinely off.</div>
+            </div>
+          </div>`;
+        } else {
+          html+=`<div class="card">
+            <div class="card-header"><div class="card-title">${editMode?'Edit your results':'Submit your results'}</div></div>
+            <div class="card-body">
+              ${draft&&!editMode?'<div class="draft-notice">💾 Picking up where you left off.</div>':''}
+              <div class="progress-wrap"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+              <div id="form-fields">${renderForm(activeSim.fields,formValues)}</div>
+              <button class="submit-btn" id="sub-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
+              ${editMode?`<button class="btn btn-outline btn-block" style="margin-top:8px" onclick="cancelEdit()">Cancel</button>`:''}
+            </div>
+          </div>`;
+          setTimeout(startAutosave,100);
+        }
       }
     }
   } else {
@@ -757,6 +782,46 @@ function canEdit(){
 
 function enterEdit(){editMode=true;load();}
 function cancelEdit(){editMode=false;load();}
+
+async function acceptPartnerTerms(){
+  // Copy partner's form data as our own submission, flagged as confirmed
+  const ps=window._pendingPartnerSub;
+  if(!ps||!activeSim||!student)return;
+  if(!confirm('Accept these terms and submit? This will record the same answers as your partner.'))return;
+  const btn=document.querySelector('.btn-confirm');
+  if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  // Copy all non-private, non-internal fields from partner
+  const fd={};
+  (activeSim.fields||[]).filter(f=>!f.id.startsWith('_')).forEach(f=>{
+    fd[f.id]=ps.form_data?.[f.id]||'';
+  });
+  fd._confirmed=true; // auto-confirmed since we accepted
+  const now=new Date().toISOString();
+  const r=await sb('submissions',{method:'POST',body:JSON.stringify({
+    student_id:student.id,simulation_id:activeSim.id,
+    form_data:fd,submitted_at:now,updated_at:now
+  }),prefer:'return=minimal'});
+  if(r.ok){window._pendingPartnerSub=null;await load();}
+  else{if(btn){btn.disabled=false;btn.textContent='✓ Accept these terms';}alert('Could not submit. Please try again.');}
+}
+
+function counterPartnerTerms(){
+  // Pre-fill form with partner's answers so student can edit before submitting
+  const ps=window._pendingPartnerSub;
+  if(!ps||!activeSim)return;
+  // Copy partner answers into formValues
+  formValues={};
+  (activeSim.fields||[]).filter(f=>!f.id.startsWith('_')).forEach(f=>{
+    formValues[f.id]=ps.form_data?.[f.id]||'';
+  });
+  // Switch to edit mode by re-rendering with a flag
+  window._counterMode=true;
+  editMode=false; // not editing existing submission, creating new one
+  load(); // reload will show the form with these pre-filled values via formValues + draft
+  // After load, formValues will be picked up by renderForm via localStorage draft trick
+  localStorage.setItem(draftKey,JSON.stringify(formValues));
+  load();
+}
 
 async function doSubmit(){
   if(!activeSim)return;
