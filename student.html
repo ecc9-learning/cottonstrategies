@@ -647,7 +647,19 @@ function renderReviewCard(pendingReviews,pAsgs){
 
 function renderReflectionForm(){
   if(!activeSim)return'';
-  const customQ=activeSim.reflection_question||'What was your biggest takeaway from this simulation?';
+  // Parse reflection questions — JSON array or plain text
+  let reflQs=[];
+  const rawQ=activeSim.reflection_question||'';
+  try{const p=JSON.parse(rawQ);if(Array.isArray(p))reflQs=p.filter(Boolean);}catch(e){}
+  if(!reflQs.length&&rawQ)reflQs=[rawQ];
+  if(!reflQs.length)reflQs=['What was your biggest takeaway from this simulation?'];
+
+  const customFields=reflQs.map((q,i)=>`
+    <div class="field">
+      <label class="field-label">${q}</label>
+      <textarea id="ref-custom-${i}" placeholder="Your response…" style="min-height:70px"></textarea>
+    </div>`).join('');
+
   return`<div class="reflection-card">
     <div class="reflection-title">💭 Reflection</div>
     <div class="reflection-sub">Take 2 minutes to reflect. Your responses are private — only you and your instructor can see them.</div>
@@ -659,10 +671,7 @@ function renderReflectionForm(){
       <label class="field-label">What would you do differently?</label>
       <textarea id="ref-different" placeholder="Specific changes to your strategy or approach." style="min-height:70px"></textarea>
     </div>
-    <div class="field">
-      <label class="field-label">${customQ}</label>
-      <textarea id="ref-custom" placeholder="Your response…" style="min-height:70px"></textarea>
-    </div>
+    ${customFields}
     <button class="submit-btn" onclick="doReflect()">Submit reflection</button>
   </div>`;
 }
@@ -851,7 +860,15 @@ async function doReflect(){
   if(!activeSim||!student)return;
   const mistake=document.getElementById('ref-mistake')?.value||'';
   const different=document.getElementById('ref-different')?.value||'';
-  const custom=document.getElementById('ref-custom')?.value||'';
+  // Collect all custom question answers
+  const customAnswers=[];
+  let qi=0;
+  while(document.getElementById('ref-custom-'+qi)){
+    customAnswers.push(document.getElementById('ref-custom-'+qi)?.value||'');
+    qi++;
+  }
+  // Store as pipe-separated string so it fits the existing custom_response column
+  const custom=customAnswers.join(' ||| ');
   const btn=document.querySelector('.reflection-card .submit-btn');
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const r=await sb('reflections',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,mistake,do_differently:different,custom_response:custom}),prefer:'return=minimal'});

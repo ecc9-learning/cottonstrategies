@@ -2383,32 +2383,80 @@ async function submitEditSubmission(subId,simId){
   else{alert('Could not save. Status: '+r.status);}
 }
 
+function getReflQuestions(sim){
+  // Parse reflection_question — can be plain text or JSON array
+  const raw=sim.reflection_question||'';
+  try{
+    const parsed=JSON.parse(raw);
+    if(Array.isArray(parsed))return parsed.filter(Boolean);
+  }catch(e){}
+  return raw?[raw]:[];
+}
+
+function renderReflQList(){
+  const container=document.getElementById('rn-refl-list');
+  if(!container)return;
+  const qs=window._rnReflQs||[];
+  container.innerHTML=qs.map((q,i)=>`
+    <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
+      <textarea data-qi="${i}" style="flex:1;padding:8px 10px;border:1.5px solid #ece8e1;border-radius:8px;font-size:13px;min-height:52px;resize:vertical;font-family:inherit"
+        oninput="window._rnReflQs[${i}]=this.value">${q}</textarea>
+      <button onclick="removeReflQ(${i})" style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#dc2626;padding:6px 10px;font-size:13px;cursor:pointer;flex-shrink:0;margin-top:2px">✕</button>
+    </div>`).join('') +
+    `<button onclick="addReflQ()" style="font-size:12px;color:#bf5700;background:none;border:1px dashed #f0d9c0;border-radius:6px;padding:6px 14px;cursor:pointer;width:100%;margin-top:2px">+ Add reflection question</button>`;
+}
+
+function addReflQ(){
+  if(!window._rnReflQs)window._rnReflQs=[];
+  window._rnReflQs.push('');
+  renderReflQList();
+}
+
+function removeReflQ(i){
+  window._rnReflQs.splice(i,1);
+  renderReflQList();
+}
+
 function renameSim(simId){
   const sim=allSims.find(s=>s.id===simId); if(!sim)return;
-  showModal(`<div class="modal-header"><div class="modal-title">Rename Simulation</div></div>
-    <div class="modal-body">
-      <div class="field"><label class="field-label">Simulation name</label>
-        <input type="text" id="rn-name" value="${sim.name}" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+  window._rnReflQs=getReflQuestions(sim).slice(); // copy
+  showModal(`<div class="modal-header"><div class="modal-title">Edit Simulation Details</div></div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+      <div class="field">
+        <label class="field-label">Simulation name</label>
+        <input type="text" id="rn-name" value="${sim.name}" style="width:100%;padding:8px 10px;border:1.5px solid #ece8e1;border-radius:8px;font-size:13px;font-family:inherit">
       </div>
-      <div class="field"><label class="field-label">Preview description <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(shown to students before brief is released)</span></label>
-        <textarea id="rn-desc" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:90px;resize:vertical">${sim.description||''}</textarea>
+      <div class="field">
+        <label class="field-label">Sidebar subtitle <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(the gray text under the name in the sidebar)</span></label>
+        <input type="text" id="rn-type" value="${sim.type||''}" style="width:100%;padding:8px 10px;border:1.5px solid #ece8e1;border-radius:8px;font-size:13px;font-family:inherit">
       </div>
-      <div class="field"><label class="field-label">Reflection question <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(shown after student submits results)</span></label>
-        <textarea id="rn-refl" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:60px;resize:vertical">${sim.reflection_question||''}</textarea>
+      <div class="field">
+        <label class="field-label">Week description <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(shown to students in the semester timeline)</span></label>
+        <textarea id="rn-desc" style="width:100%;padding:8px 10px;border:1.5px solid #ece8e1;border-radius:8px;font-size:13px;min-height:80px;resize:vertical;font-family:inherit">${sim.description||''}</textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">Reflection questions <span style="font-weight:400;text-transform:none;font-size:11px;color:#9ca3af">(shown after student submits — add as many as you like)</span></label>
+        <div id="rn-refl-list"></div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitRenameSim('${simId}')">Save</button>
+      <button class="btn btn-primary" onclick="submitRenameSim('${simId}')">Save changes</button>
     </div>`);
+  // Render questions after modal is in DOM
+  setTimeout(()=>renderReflQList(),30);
 }
 
 async function submitRenameSim(simId){
   const name=document.getElementById('rn-name')?.value.trim();
+  const type=document.getElementById('rn-type')?.value.trim()||'';
   const desc=document.getElementById('rn-desc')?.value||'';
-  const refl=document.getElementById('rn-refl')?.value||'';
   if(!name){alert('Name is required.');return;}
-  const r=await dbPatch('simulations?id=eq.'+simId,{name,description:desc,reflection_question:refl});
+  // Collect reflection questions — filter blanks
+  const qs=(window._rnReflQs||[]).map(q=>q.trim()).filter(Boolean);
+  // Store as JSON array if multiple, plain text if single, empty string if none
+  const refl=qs.length>1?JSON.stringify(qs):qs[0]||'';
+  const r=await dbPatch('simulations?id=eq.'+simId,{name,type,description:desc,reflection_question:refl});
   if(r.ok){closeModal();await loadAll();showSection('simulations');}
   else{alert('Could not save. Status: '+r.status);}
 }
