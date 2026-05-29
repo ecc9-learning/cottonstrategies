@@ -3107,7 +3107,7 @@ Write a structured debrief brief with these sections:
 Be specific to this class's actual data. Be concise and practical — this is a professor's prep doc, not an essay.`;
 
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const resp=await fetch('/ai',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
