@@ -476,7 +476,6 @@ textarea{resize:vertical;min-height:70px}
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
-const GEMINI_KEY='AQ.Ab8RN6KwYq3shAUXhJXS-sCxq6cIKpYCkBSJkzDaP7KKyrIPKQ';
 
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
@@ -1447,13 +1446,13 @@ function renderResults(){
   </div>`;
   el.appendChild(formBar);
 
-  // ── AI Debrief Summary card ──────────────────────────────────────────────
+  // ── Debrief Summary card ──────────────────────────────────────────────
   const aiCard=document.createElement('div');
   aiCard.className='card'; aiCard.id='ai-debrief-card';
   aiCard.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">
     <div>
-      <div class="card-title" style="margin-bottom:2px">🤖 AI Debrief Brief</div>
-      <div style="font-size:12px;color:#9ca3af">AI-generated from this class's actual submission data — regenerate anytime</div>
+      <div class="card-title" style="margin-bottom:2px">📋 Debrief Brief</div>
+      <div style="font-size:12px;color:#9ca3af">Auto-generated from this class's actual submission data — regenerate anytime</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="ai-gen-btn" onclick="generateAISummary()">✦ Generate debrief brief</button>
@@ -3220,26 +3219,7 @@ async function generateAISummary(){
     btn.disabled=false; btn.textContent='↺ Regenerate';
   }
 
-  try{
-    const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+GEMINI_KEY,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
-    });
-    const data=await resp.json();
-    const aiText=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    if(aiText){
-      renderSummary(aiText);
-    } else if(data.error){
-      console.error('Gemini error:', data.error);
-      renderSummary(fallbackText+'\n\n[AI note: Gemini error — '+JSON.stringify(data.error)+']');
-    } else {
-      renderSummary(fallbackText);
-    }
-  } catch(e){
-    console.error('Fetch error:', e);
-    renderSummary(fallbackText);
-  }
+  renderSummary(fallbackText);
 }
 
 function escHtml(t){
