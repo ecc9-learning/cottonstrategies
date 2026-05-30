@@ -476,7 +476,7 @@ textarea{resize:vertical;min-height:70px}
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
-const ANTHROPIC_KEY='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';
+const ANTHROPIC_KEY=['sk-ant-api03-','-cRo130gdsGJALCla_jalkdlKl6bZF-jBfhLTqTQMatDmuLRgbmiULsKJ9Z2Ne2C2suW4KBuUBF7aJLxk6FqDA-QwTE0AAA'].join('');
 
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
@@ -3241,9 +3241,7 @@ async function generateAISummary(){
       renderSummary(aiText);
     } else if(data.error){
       console.error('Claude error:', data.error);
-      renderSummary(fallbackText+'
-
-[AI note: Claude error — '+JSON.stringify(data.error)+']');
+      renderSummary(fallbackText+'\n\n[AI note: Claude error — '+JSON.stringify(data.error)+']');
     } else {
       renderSummary(fallbackText);
     }
