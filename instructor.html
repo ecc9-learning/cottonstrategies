@@ -476,6 +476,7 @@ textarea{resize:vertical;min-height:70px}
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
+const ANTHROPIC_KEY='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';
 
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
@@ -1446,13 +1447,13 @@ function renderResults(){
   </div>`;
   el.appendChild(formBar);
 
-  // ── Debrief Summary card ──────────────────────────────────────────────
+  // ── AI Debrief Summary card ──────────────────────────────────────────────
   const aiCard=document.createElement('div');
   aiCard.className='card'; aiCard.id='ai-debrief-card';
   aiCard.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">
     <div>
-      <div class="card-title" style="margin-bottom:2px">📋 Debrief Brief</div>
-      <div style="font-size:12px;color:#9ca3af">Auto-generated from this class's actual submission data — regenerate anytime</div>
+      <div class="card-title" style="margin-bottom:2px">🤖 AI Debrief Brief</div>
+      <div style="font-size:12px;color:#9ca3af">AI-generated from this class's actual submission data — regenerate anytime</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="ai-gen-btn" onclick="generateAISummary()">✦ Generate debrief brief</button>
@@ -3219,7 +3220,37 @@ async function generateAISummary(){
     btn.disabled=false; btn.textContent='↺ Regenerate';
   }
 
-  renderSummary(fallbackText);
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':ANTHROPIC_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1500,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const aiText=data?.content?.[0]?.text||'';
+    if(aiText){
+      renderSummary(aiText);
+    } else if(data.error){
+      console.error('Claude error:', data.error);
+      renderSummary(fallbackText+'
+
+[AI note: Claude error — '+JSON.stringify(data.error)+']');
+    } else {
+      renderSummary(fallbackText);
+    }
+  } catch(e){
+    console.error('Fetch error:', e);
+    renderSummary(fallbackText);
+  }
 }
 
 function escHtml(t){
