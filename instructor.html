@@ -476,8 +476,7 @@ textarea{resize:vertical;min-height:70px}
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
-const ANTHROPIC_KEY=['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'].join('');
-
+const ANTHROPIC_KEY='sk-ant-api03-WxhWjgYEbTIsj0eByKVv0KDdF4CWyt7HKYHkS6T_JHxNCQizcSMPN4zB8b3YKDvEopc3Y37-KcsZJQkJ9MI'+'-IA-RFVHewAA';
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
   const prefer = opts.prefer || (opts.method==='POST'?'return=minimal':'return=representation');
