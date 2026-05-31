@@ -187,6 +187,13 @@ main{flex:1;max-width:660px;width:100%;margin:0 auto;padding:28px 20px 60px}
 .assess-modal-body{padding:24px 28px}
 .assess-modal-footer{padding:16px 28px 24px;display:flex;gap:10px;align-items:center;justify-content:flex-end;border-top:1px solid var(--border)}
 
+/* ── WAITING BANNER ── */
+.waiting-banner{background:#f8faff;border:1.5px solid #bfdbfe;border-radius:var(--radius-sm);padding:18px 20px;margin-bottom:16px;text-align:center}
+.waiting-banner .spinner{width:20px;height:20px;border-width:2px;margin:0 auto 10px}
+
+/* ── CONFIRMED BANNER ── */
+.confirmed-card{background:var(--green-light);border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:20px;margin-bottom:16px;text-align:center}
+
 /* ── RESPONSIVE ── */
 @media(max-width:540px){
   main{padding:16px 14px 48px}
@@ -196,6 +203,7 @@ main{flex:1;max-width:660px;width:100%;margin:0 auto;padding:28px 20px 60px}
   .timeline{padding:16px 18px}
   .readonly-label{min-width:100px;font-size:10px}
   nav{padding:0 16px}
+  .review-actions{flex-direction:column}
 }
 </style>
 </head>
@@ -213,13 +221,11 @@ main{flex:1;max-width:660px;width:100%;margin:0 auto;padding:28px 20px 60px}
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
 
-let student=null,activeSim=null,assignment=null,submission=null,partnerSub=null,allSims=[],reflection=null;
+let student=null,activeSim=null,assignment=null,submission=null,allSims=[];
 let formValues={},editMode=false,draftKey='',notesSaveTimer=null;
 let allAssessmentAssignments=[],myAssessments=[];
-
-const STYLE_ITEMS={A:[1,9,12,17,19,22,25],B:[2,4,13,18,20,21],C:[3,7,8,15,23,24],D:[5,10,11],E:[6,14,16]};
-const STYLE_NAMES={A:'Accommodating',B:'Collaborating',C:'Competing',D:'Compromising',E:'Avoiding'};
-const STYLE_COLORS={A:'#2563eb',B:'#16a34a',C:'#dc2626',D:'#d97706',E:'#9333ea'};
+// Separate values object for the dispute form — never mixed with main form
+let disputeValues={};
 
 async function sb(path,opts={}){
   const prefer=opts.prefer||'return=representation';
@@ -230,11 +236,6 @@ async function sb(path,opts={}){
   let data=null;
   try{const t=await r.text();data=t?JSON.parse(t):null;}catch(e){}
   return{ok:r.ok,status:r.status,data};
-}
-
-async function hashPin(pin){
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
 function logout(){localStorage.removeItem('neg_student_id');window.location.href='/register.html';}
@@ -273,46 +274,38 @@ async function load(){
   myAssessments = saR.ok ? saR.data : [];
   window._myNotes = notesR.ok ? notesR.data : [];
 
-  const currentAsg = asgR.ok&&asgR.data?.length ? asgR.data.find(a=>activeSim&&a.simulation_id===activeSim.id)||null : null;
-  assignment = currentAsg;
-
-  const currentSub = subR.ok&&subR.data?.length ? subR.data.find(s=>activeSim&&s.simulation_id===activeSim.id)||null : null;
-  submission = currentSub;
+  assignment = asgR.ok&&asgR.data?.length ? (asgR.data.find(a=>activeSim&&a.simulation_id===activeSim.id)||null) : null;
+  submission = subR.ok&&subR.data?.length ? (subR.data.find(s=>activeSim&&s.simulation_id===activeSim.id)||null) : null;
 
   const submissions = subR.ok ? subR.data : [];
   const assignments = asgR.ok ? asgR.data : [];
   const reflections = reflR.ok ? reflR.data : [];
 
-  // Load ALL partners' submissions (supports groups of 2, 3, or 4)
-  partnerSub = null;
-  let partnerSubs = [];  // All partners who have submitted
-  let partnerAssignments = []; // All partner assignments in this group
+  // Load partner assignments and submissions
+  let partnerSubs=[], partnerAssignments=[];
   if(assignment&&activeSim){
-    const partners=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id,role');
-    if(partners.ok&&partners.data?.length){
-      partnerAssignments=partners.data;
-      const ids=partners.data.map(a=>'"'+a.student_id+'"').join(',');
-      const ps=await sb('submissions?student_id=in.('+ids+')&simulation_id=eq.'+activeSim.id+'&select=*');
-      if(ps.ok&&ps.data?.length){
-        partnerSubs=ps.data;
-        partnerSub=ps.data[0]; // keep for backwards compat
-      }
+    const pAsgR=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id,role');
+    if(pAsgR.ok&&pAsgR.data?.length){
+      partnerAssignments=pAsgR.data;
+      const ids=pAsgR.data.map(a=>'"'+a.student_id+'"').join(',');
+      const pSubR=await sb('submissions?student_id=in.('+ids+')&simulation_id=eq.'+activeSim.id+'&select=*');
+      if(pSubR.ok&&pSubR.data?.length) partnerSubs=pSubR.data;
     }
   }
 
   draftKey = activeSim ? 'draft_'+student.id+'_'+activeSim.id : '';
-  render(assignments,submissions,reflections,allAssessmentAssignments,myAssessments,partnerSubs,partnerAssignments);
+  render(assignments,submissions,reflections,partnerSubs,partnerAssignments);
 }
 
-function render(assignments,submissions,reflections,assessmentAssignments,myAssess,pSubs,pAsgs){
+// ── MAIN RENDER ───────────────────────────────────────────────────────────────
+function render(assignments,submissions,reflections,pSubs,pAsgs){
   const main=document.getElementById('main');
   let html='';
 
-  // ── 1. OPEN ASSESSMENT (highest priority — link card at top if not done) ──
-  if(assessmentAssignments&&assessmentAssignments.length){
-    assessmentAssignments.forEach(aa=>{
-      const thisAssess=myAssess&&myAssess.find(a=>a.type===aa.type);
-      if(!thisAssess){
+  // ── 1. OPEN ASSESSMENT ──
+  if(allAssessmentAssignments&&allAssessmentAssignments.length){
+    allAssessmentAssignments.forEach(aa=>{
+      if(!(myAssessments&&myAssessments.find(a=>a.type===aa.type))){
         html+=`<div class="card" style="border-left:3px solid var(--accent)">
           <div class="card-header">
             <div>
@@ -322,16 +315,15 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
             <span class="pill pill-orange">Action needed</span>
           </div>
           <div class="card-body">
-            <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:16px">Score yourself on 25 statements about how you approach negotiation. Answer honestly — there are no right or wrong answers. Your instructor will discuss the results in class.</p>
+            <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:16px">Score yourself on 25 statements about how you approach negotiation. Answer honestly — there are no right or wrong answers.</p>
             <button class="btn btn-primary" onclick="openAssessmentPage('${aa.type}')">Open assessment →</button>
           </div>
         </div>`;
       }
-      // Completed state shown at bottom of page
     });
   }
 
-  // ── 2. ACTIVE SIMULATION ─────────────────────────────────────────────────
+  // ── 2. ACTIVE SIMULATION ──
   if(activeSim){
     html+=`<div class="card">
       <div class="card-header">
@@ -347,7 +339,7 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
       html+=`<div class="state" style="padding:20px 0">
         <div class="state-icon">⏳</div>
         <div class="state-title">Assignment coming soon</div>
-        <div class="state-sub">Your instructor will release pairings before class. Check back shortly — this page refreshes automatically.</div>
+        <div class="state-sub">Your instructor will release pairings before class. Check back shortly.</div>
       </div>`;
       setTimeout(load,30000);
     } else {
@@ -358,7 +350,15 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
       </div>`;
 
       const briefUrl=SUPA_URL+'/storage/v1/object/public/role-briefs/'+activeSim.id+'/'+encodeURIComponent(assignment.role)+'.pdf';
-      html+=`<button class="btn btn-primary btn-block" onclick="downloadBrief('${briefUrl}')">↓ &nbsp;Download role brief</button>`;
+      const briefOpened=!!assignment.brief_opened_at;
+      html+=`<button class="btn btn-primary btn-block" id="brief-btn" onclick="downloadBrief('${briefUrl}','${assignment.id}')">
+        ${briefOpened?'📖 View role brief again':'↓ &nbsp;Download role brief'}
+      </button>`;
+      if(briefOpened){
+        html+=`<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:6px">
+          First opened ${new Date(assignment.brief_opened_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+        </div>`;
+      }
 
       html+=`<div class="notes-wrap">
         <div class="notes-label">📝 My notes <span style="font-weight:400;text-transform:none;font-size:11px">— private, only you can see these</span></div>
@@ -368,92 +368,109 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     }
     html+=`</div></div>`;
 
-    // Results form / submitted state
+    // ── Results / form area ──
     if(assignment){
       const fd=submission?.form_data||{};
-      const confirmed=fd._confirmed,disputed=fd._disputed;
-      if(submission&&!(pSubs&&pSubs.length)&&!confirmed&&!disputed) setTimeout(load,20000);
+      const confirmed=fd._confirmed;
+      const disputed=fd._disputed;
 
       if(submission&&!editMode){
-        // Show review when any partner has submitted and not yet confirmed/disputed
-        const pendingReview=(pSubs||[]).filter(ps=>!confirmed&&!disputed&&ps.student_id!==student.id);
-        if(pendingReview.length) html+=renderReviewCard(pendingReview,pAsgs||[]);
+        // ── BOTH SUBMITTED — show review card if not yet confirmed/disputed ──
+        const pendingReview=(pSubs||[]).filter(ps=>!confirmed&&!disputed);
+        if(pendingReview.length){
+          html+=renderReviewCard(pendingReview,pAsgs||[]);
+        } else if(confirmed){
+          html+=`<div class="confirmed-card">
+            <div style="font-size:28px;margin-bottom:8px">🤝</div>
+            <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:4px">Agreement confirmed</div>
+            <div style="font-size:13px;color:#166534">You and your partner are in agreement.</div>
+          </div>`;
+        } else if(disputed){
+          html+=`<div class="banner banner-red" style="margin-bottom:16px">
+            <span>⚠</span>
+            <span>Disagreement flagged — your instructor will review both versions.</span>
+          </div>`;
+        }
+
+        // Your submitted results
         html+=`<div class="card">
           <div class="card-header">
             <div class="card-title">Your results</div>
             <span class="pill pill-green">✓ Submitted</span>
           </div>
           <div class="card-body">
-            ${confirmed?'<div class="banner banner-green">✓ Confirmed with your partner</div>':''}
-            ${disputed?'<div class="banner banner-red">⚠ Disagreement flagged — your instructor will review</div>':''}
             ${renderReadonly(activeSim.fields,fd)}
             ${canEdit()?`<button class="btn btn-outline btn-block" style="margin-top:14px" onclick="enterEdit()">✏️ Edit my results</button>`:''}
           </div>
         </div>`;
+
+        // Reflection
         const hasRefl=reflections.find(r=>r.simulation_id===activeSim.id);
         if(!hasRefl) html+=renderReflectionForm();
-        else html+=`<div class="card"><div class="card-body"><div class="banner banner-green">✓ Reflection submitted for this simulation</div></div></div>`;
-      } else if(activeSim.submission_open||editMode){
-        const draft=localStorage.getItem(draftKey);
-        if(draft&&!editMode){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}        else if(editMode&&submission){formValues={...submission.form_data};}
+        else html+=`<div class="card"><div class="card-body"><div class="banner banner-green" style="margin-bottom:0">✓ Reflection submitted</div></div></div>`;
 
-        // ── OFFER FLOW: partner submitted first ────────────────────────────
-        const partnerOffer=(pSubs||[]).length>0&&!submission&&!editMode;
-        if(partnerOffer){
-          const ps=pSubs[0];
-          const pAsg=(pAsgs||[]).find(a=>a.student_id===ps.student_id);
-          const visibleFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
-          const answers=visibleFields.map(f=>{
-            const v=ps.form_data?.[f.id];
-            if(!v)return'';
-            return`<div class="review-item"><div class="review-item-lbl">${f.label}</div><div>${v}</div></div>`;
-          }).filter(Boolean).join('');
-          window._pendingPartnerSub=ps;
-          html+=`<div class="card" style="border-left:3px solid var(--green)">
-            <div class="card-header">
-              <div>
-                <div class="card-title">📋 Proposed agreement on the table</div>
-                <div class="card-sub">${pAsg?.role||'Your partner'} has submitted their version. Review the terms below.</div>
-              </div>
-              <span class="pill pill-green">Pending your response</span>
-            </div>
-            <div class="card-body">
-              <div class="review-answers" style="margin-bottom:14px">${answers||'<div style="color:#9ca3af;font-size:13px">No answers recorded.</div>'}</div>
-              <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:10px">Do these terms match your understanding?</div>
-              <div style="display:flex;gap:8px;margin-bottom:10px">
-                <button class="btn-confirm" style="flex:1" onclick="acceptPartnerTerms()">✓ Accept these terms</button>
-                <button class="btn-dispute" style="flex:1" onclick="counterPartnerTerms()">✎ Submit different terms</button>
-              </div>
-              <div style="font-size:11px;color:var(--text-3);text-align:center">Most negotiations end in agreement — only submit different terms if something is genuinely off.</div>
-            </div>
-          </div>`;
-        } else {
-          html+=`<div class="card">
-            <div class="card-header"><div class="card-title">${editMode?'Edit your results':'Submit your results'}</div></div>
-            <div class="card-body">
-              ${draft&&!editMode?'<div class="draft-notice">💾 Picking up where you left off.</div>':''}
-              <div class="progress-wrap"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
-              <div id="form-fields">${renderForm(activeSim.fields,formValues)}</div>
-              <button class="submit-btn" id="sub-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
-              ${editMode?`<button class="btn btn-outline btn-block" style="margin-top:8px" onclick="cancelEdit()">Cancel</button>`:''}
-            </div>
-          </div>`;
-          setTimeout(startAutosave,100);
+      } else if(!submission&&(pSubs||[]).length>0&&!editMode){
+        // ── PARTNER SUBMITTED FIRST — show proposed agreement ──
+        html+=renderPartnerOfferCard(pSubs,pAsgs);
+
+      } else if(activeSim.submission_open||editMode){
+        // ── FORM: normal submit or edit mode ──
+        if(!editMode){
+          const draft=localStorage.getItem(draftKey);
+          if(draft){try{formValues=JSON.parse(draft);}catch(e){formValues={};}}
+        } else if(editMode&&submission){
+          formValues={...submission.form_data};
+          // Strip internal flags from editable form
+          delete formValues._confirmed; delete formValues._disputed;
+          delete formValues._dispute_note; delete formValues._original_answers;
         }
+        html+=`<div class="card">
+          <div class="card-header"><div class="card-title">${editMode?'Edit your results':'Submit your results'}</div></div>
+          <div class="card-body">
+            ${!editMode&&localStorage.getItem(draftKey)?'<div class="draft-notice">💾 Picking up where you left off.</div>':''}
+            <div class="progress-wrap"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+            <div id="form-fields">${renderForm(activeSim.fields,formValues,'ff')}</div>
+            <button class="submit-btn" id="sub-btn" onclick="doSubmit()">${editMode?'Update results':'Submit results'}</button>
+            ${editMode?`<button class="btn btn-outline btn-block" style="margin-top:8px" onclick="cancelEdit()">Cancel</button>`:''}
+          </div>
+        </div>`;
+        setTimeout(startAutosave,100);
+
+      } else if(submission&&!editMode){
+        // Submitted, form now closed — waiting for partner
+        if(!(pSubs||[]).length){
+          html+=`<div class="waiting-banner">
+            <div class="spinner"></div>
+            <div style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:4px">Waiting for your partner…</div>
+            <div style="font-size:12px;color:#1e40af">This page will update automatically when they submit.</div>
+          </div>`;
+        }
+      } else {
+        // Form not yet open, no submission
+        html+=`<div class="card"><div class="card-body">
+          <div style="text-align:center;padding:16px 0;color:var(--text-3);font-size:13px">
+            The results form isn't open yet. Your instructor will open it before or during class.
+          </div>
+        </div></div>`;
+      }
+
+      // Auto-poll: student submitted but partner hasn't yet
+      if(submission&&!(pSubs||[]).length&&!fd._confirmed&&!fd._disputed){
+        setTimeout(load,20000);
       }
     }
+
   } else {
     html+=`<div class="card"><div class="card-body"><div class="state">
       <div class="state-icon">📚</div>
       <div class="state-title">No active simulation</div>
-      <div class="state-sub">Your instructor will activate the next simulation before class. You'll see your assignment here when it's ready.</div>
+      <div class="state-sub">Your instructor will activate the next simulation before class.</div>
     </div></div></div>`;
   }
 
-  // ── 3. SEMESTER TIMELINE ─────────────────────────────────────────────────
+  // ── 3. SEMESTER TIMELINE ──
   if(allSims.length){
     const submittedIds=submissions.map(s=>s.simulation_id);
-    const assignedIds=assignments.map(a=>a.simulation_id);
     html+=`<div class="card">
       <div class="card-header"><div class="card-title">Semester timeline</div></div>
       <div class="timeline">`;
@@ -480,7 +497,7 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     html+=`</div></div>`;
   }
 
-  // ── 4. PAST RESULTS ──────────────────────────────────────────────────────
+  // ── 4. PAST RESULTS ──
   const pastSubs=submissions.filter(s=>!activeSim||s.simulation_id!==activeSim.id);
   if(pastSubs.length){
     html+=`<div class="card">
@@ -501,9 +518,9 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     html+=`</div></div>`;
   }
 
-  // ── 5. COMPLETED ASSESSMENTS (compact badge, bottom of page) ───────────
-  if(myAssess&&myAssess.length){
-    myAssess.forEach(a=>{
+  // ── 5. COMPLETED ASSESSMENTS ──
+  if(myAssessments&&myAssessments.length){
+    myAssessments.forEach(a=>{
       const totals=typeof a.col_totals==='string'?JSON.parse(a.col_totals):(a.col_totals||{});
       html+=`<div class="card">
         <div class="card-header">
@@ -514,22 +531,19 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
           <span class="pill pill-green">✓ Complete</span>
         </div>
         <div class="card-body">
-          <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Your column totals — your instructor will explain what each means in class:</div>
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Your column totals:</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            ${['A','B','C','D','E'].map(col=>{
-              const v=totals[col]||0;
-              return`<div style="text-align:center;padding:10px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--accent)">${v}</div>
-                <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px">${col}</div>
-              </div>`;
-            }).join('')}
+            ${['A','B','C','D','E'].map(col=>`<div style="text-align:center;padding:10px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+              <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--accent)">${totals[col]||0}</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px">${col}</div>
+            </div>`).join('')}
           </div>
         </div>
       </div>`;
     });
   }
 
-  // ── 6. MY NOTES (all simulations) ────────────────────────────────────────
+  // ── 6. MY NOTES ──
   const allNotes=window._myNotes||[];
   if(allNotes.filter(n=>n.content&&n.content.trim()).length){
     html+=`<div class="card">
@@ -546,7 +560,7 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     html+=`</div></div>`;
   }
 
-  // ── 7. MY FULL RESULTS (all past submissions) ──────────────────────────
+  // ── 7. MY FULL RESULTS ──
   if(submissions.length){
     const pastWithDetails=allSims.map(sim=>{
       const sub=submissions.find(s=>s.simulation_id===sim.id);
@@ -555,7 +569,6 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
       if(!sub)return null;
       return{sim,sub,asg,refl};
     }).filter(Boolean);
-
     if(pastWithDetails.length){
       html+=`<div class="card">
         <div class="card-header"><div class="card-title">📊 My full results</div></div>
@@ -590,24 +603,61 @@ function render(assignments,submissions,reflections,assessmentAssignments,myAsse
     }
   }
 
-  // ── 8. MY PROGRESS ───────────────────────────────────────────────────────
-  if(submissions.length>1){
-    html+=renderMyProgress(submissions,assignments,reflections);
-  }
-  main.innerHTML=html;
+  // ── 8. MY PROGRESS ──
+  if(submissions.length>1) html+=renderMyProgress(submissions,assignments,reflections);
 
-  // Load partner name async
-  if(assignment){
-    loadPartnerName();
-  }
+  main.innerHTML=html;
+  if(assignment) loadPartnerName();
   updateProgress();
-  restoreRadios();
+  restoreRadios('ff');
 }
 
+// ── PARTNER OFFER CARD (partner submitted first, student hasn't) ──────────────
+function renderPartnerOfferCard(pSubs,pAsgs){
+  const ps=pSubs[0];
+  const pAsg=(pAsgs||[]).find(a=>a.student_id===ps.student_id);
+  const visibleFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
+  const answers=visibleFields.map(f=>{
+    const v=ps.form_data?.[f.id];
+    if(!v)return'';
+    return`<div class="review-item"><div class="review-item-lbl">${f.label}</div><div>${v}</div></div>`;
+  }).filter(Boolean).join('');
+  // Store partner sub in module scope for accept/counter
+  window._pendingPartnerSub=ps;
+
+  return`<div class="card" style="border-left:3px solid var(--green)">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📋 Proposed agreement on the table</div>
+        <div class="card-sub">${pAsg?.role||'Your partner'} has submitted their version. Review the terms below.</div>
+      </div>
+      <span class="pill pill-green">Pending your response</span>
+    </div>
+    <div class="card-body">
+      <div class="review-answers" style="margin-bottom:16px">${answers||'<div style="color:#9ca3af;font-size:13px">No answers recorded.</div>'}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:10px">Do these terms match your understanding of the negotiation?</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn-confirm" style="flex:1" onclick="acceptPartnerTerms()">✓ Accept — these terms are correct</button>
+        <button class="btn-dispute" style="flex:1" onclick="showCounterForm()">✎ Submit different terms</button>
+      </div>
+      <div id="counter-form-wrap" style="display:none">
+        <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px;padding-top:12px;border-top:1px solid var(--border)">
+          Edit the terms below to reflect what you believe happened, then submit.
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+        <div id="counter-form-fields"></div>
+        <button class="submit-btn" id="counter-sub-btn" onclick="doCounterSubmit()">Submit my version</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-3);text-align:center">Most negotiations end in agreement — only submit different terms if something is genuinely off.</div>
+    </div>
+  </div>`;
+}
+
+// ── REVIEW CARD (both submitted, neither confirmed/disputed yet) ──────────────
 function renderReviewCard(pendingReviews,pAsgs){
   if(!pendingReviews||!pendingReviews.length||!activeSim)return'';
-  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
-  // Show each submitting partner's answers
+  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note','_original_answers'].includes(f.id)&&!f.id.startsWith('_'));
+
   const partnerCards=pendingReviews.map(ps=>{
     const pAsg=pAsgs.find(a=>a.student_id===ps.student_id);
     const role=pAsg?.role||'Partner';
@@ -622,127 +672,126 @@ function renderReviewCard(pendingReviews,pAsgs){
     </div>`;
   }).join('');
 
-  const allSubmitted=pendingReviews.length>0&&submission;
+  // Pre-build the dispute form HTML using dispute-specific prefix 'dff'
+  const disputeFormHtml=renderForm(activeSim.fields,submission?submission.form_data:{},'dff');
+
   return`<div class="review-card">
     <div class="review-title">📋 ${pendingReviews.length===1?'Your partner has':'Your partners have'} submitted their results</div>
-    <div class="review-sub">Review ${pendingReviews.length===1?'their':'each partner\u2019s'} answers below. If they match your understanding, confirm. If something is off, flag it for your instructor.</div>
+    <div class="review-sub">Compare their answers with yours. If everything matches, confirm. If something is off, submit your corrected version.</div>
     ${partnerCards}
-    ${!allSubmitted
-      ?'<div style="font-size:12px;color:#92400e;padding:8px 0">Submit your own results first, then you can confirm or dispute.</div>'
-      :`<div class="review-actions">
-        <button class="btn-confirm" onclick="doConfirm()">✓ Confirm — this matches</button>
-        <button class="btn-dispute" onclick="showDisputeForm()">⚠ Disagree</button>
+    <div class="review-actions">
+      <button class="btn-confirm" onclick="doConfirm()">✓ Confirmed — we agree</button>
+      <button class="btn-dispute" onclick="showDisputeForm()">⚠ We disagree</button>
+    </div>
+    <div class="dispute-form" id="dispute-form">
+      <div style="font-size:13px;font-weight:600;color:var(--red);margin:12px 0 10px">Correct any fields that are wrong, then submit your version:</div>
+      <div id="dispute-form-fields">${disputeFormHtml}</div>
+      <div class="field" style="margin-top:4px">
+        <label class="field-label">Note for your instructor <span style="font-weight:400;text-transform:none;font-size:11px">(optional)</span></label>
+        <textarea id="dispute-note" placeholder="Briefly describe what you disagree with" style="min-height:50px;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none"></textarea>
       </div>
-      <div class="dispute-form" id="dispute-form">
-        <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:12px">Submit your version of what happened:</div>
-        <div id="dispute-form-fields">${renderForm(activeSim.fields,submission?submission.form_data:{})}</div>
-        <div class="field" style="margin-top:4px">
-          <label class="field-label">Note for your instructor <span style="font-weight:400;text-transform:none;font-size:11px">(optional)</span></label>
-          <textarea id="dispute-note" placeholder="Briefly describe what you disagree with" style="min-height:50px;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical"></textarea>
-        </div>
-        <button class="submit-btn" style="background:var(--red);margin-top:4px" onclick="doDispute()">Submit my version</button>
-      </div>`}
+      <button class="submit-btn" style="background:var(--red)" onclick="doDispute()">Submit my version</button>
+    </div>
   </div>`;
 }
 
-function renderReflectionForm(){
-  if(!activeSim)return'';
-  // Parse reflection questions — JSON array or plain text
-  let reflQs=[];
-  const rawQ=activeSim.reflection_question||'';
-  try{const p=JSON.parse(rawQ);if(Array.isArray(p))reflQs=p.filter(Boolean);}catch(e){}
-  if(!reflQs.length&&rawQ)reflQs=[rawQ];
-  if(!reflQs.length)reflQs=['What was your biggest takeaway from this simulation?'];
-
-  const customFields=reflQs.map((q,i)=>`
-    <div class="field">
-      <label class="field-label">${q}</label>
-      <textarea id="ref-custom-${i}" placeholder="Your response…" style="min-height:70px"></textarea>
-    </div>`).join('');
-
-  return`<div class="reflection-card">
-    <div class="reflection-title">💭 Reflection</div>
-    <div class="reflection-sub">Take 2 minutes to reflect. Your responses are private — only you and your instructor can see them.</div>
-    <div class="field">
-      <label class="field-label">What was your most important mistake?</label>
-      <textarea id="ref-mistake" placeholder="Be honest — this is for your learning." style="min-height:70px"></textarea>
-    </div>
-    <div class="field">
-      <label class="field-label">What would you do differently?</label>
-      <textarea id="ref-different" placeholder="Specific changes to your strategy or approach." style="min-height:70px"></textarea>
-    </div>
-    ${customFields}
-    <button class="submit-btn" onclick="doReflect()">Submit reflection</button>
-  </div>`;
-}
-
-function renderForm(fields,values){
-  return (fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id)).map(f=>{
+// ── FORM RENDERER (accepts id prefix to avoid duplicate IDs) ─────────────────
+// prefix='ff' for main form, 'dff' for dispute form, 'cff' for counter form
+function renderForm(fields,values,prefix){
+  prefix=prefix||'ff';
+  return (fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note','_original_answers'].includes(f.id)&&!f.id.startsWith('_')).map(f=>{
     const req=f.required?`<span class="field-req">*</span>`:'';
+    const inputId=prefix+'_'+f.id;
     if(f.type==='radio'){
-      const opts=(f.options||[]).map(o=>`<label class="radio-option ${values[f.id]===o?'selected':''}" onclick="selectRadio('${f.id}','${o}',this)"><input type="radio" name="${f.id}" value="${o}" ${values[f.id]===o?'checked':''}>${o}</label>`).join('');
+      const opts=(f.options||[]).map(o=>{
+        const sel=(values&&values[f.id]===o)?'selected':'';
+        return`<label class="radio-option ${sel}" onclick="selectRadio('${prefix}','${f.id}','${o}',this)">
+          <input type="radio" name="${prefix}_${f.id}" value="${o}" ${sel?'checked':''}>${o}
+        </label>`;
+      }).join('');
       return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><div class="radio-group">${opts}</div></div>`;
     }
     if(f.type==='number'){
-      return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><input type="number" id="ff_${f.id}" value="${values[f.id]||''}" oninput="formValues['${f.id}']=this.value;updateProgress()" placeholder="Enter number"></div>`;
+      return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label>
+        <input type="number" id="${inputId}" value="${(values&&values[f.id])||''}"
+          oninput="updateFormValue('${prefix}','${f.id}',this.value)" placeholder="Enter number">
+      </div>`;
     }
     if(f.type==='textarea'){
-      return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><textarea id="ff_${f.id}" oninput="formValues['${f.id}']=this.value;updateProgress()" placeholder="Your answer…">${values[f.id]||''}</textarea></div>`;
+      return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label>
+        <textarea id="${inputId}" oninput="updateFormValue('${prefix}','${f.id}',this.value)" placeholder="Your answer…">${(values&&values[f.id])||''}</textarea>
+      </div>`;
     }
-    return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label><input type="text" id="ff_${f.id}" value="${values[f.id]||''}" oninput="formValues['${f.id}']=this.value;updateProgress()" placeholder="Your answer"></div>`;
+    return`<div class="field"><label class="field-label">${f.label||f.id} ${req}</label>
+      <input type="text" id="${inputId}" value="${(values&&values[f.id])||''}"
+        oninput="updateFormValue('${prefix}','${f.id}',this.value)" placeholder="Your answer">
+    </div>`;
   }).join('');
 }
 
-function renderReadonly(fields,data){
-  return(fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id)).map(f=>`
-    <div class="readonly-row">
-      <div class="readonly-label">${f.label||f.id}</div>
-      <div class="readonly-value">${data[f.id]||'—'}</div>
-    </div>`).join('');
+// ── FORM VALUE TRACKING ───────────────────────────────────────────────────────
+function updateFormValue(prefix,fid,val){
+  if(prefix==='ff'){formValues[fid]=val;updateProgress();}
+  else if(prefix==='dff'){disputeValues[fid]=val;}
+  else if(prefix==='cff'){formValues[fid]=val;updateProgress();}
 }
 
-function selectRadio(fid,val,el){
-  formValues[fid]=val;
-  document.querySelectorAll(`.radio-option`).forEach(o=>{
-    if(o.querySelector('input')?.name===fid)o.classList.remove('selected');
+function selectRadio(prefix,fid,val,el){
+  updateFormValue(prefix,fid,val);
+  // Only deselect radios with same prefix+fid name
+  document.querySelectorAll(`.radio-option input[name="${prefix}_${fid}"]`).forEach(inp=>{
+    inp.parentElement.classList.remove('selected');
   });
   el.classList.add('selected');
-  updateProgress();
+  if(prefix==='ff'||prefix==='cff') updateProgress();
 }
 
-function restoreRadios(){
-  Object.entries(formValues).forEach(([fid,val])=>{
-    document.querySelectorAll('.radio-option').forEach(o=>{
-      if(o.querySelector('input')?.name===fid&&o.querySelector('input')?.value===val){
-        o.classList.add('selected');
-      }
+function restoreRadios(prefix){
+  prefix=prefix||'ff';
+  const vals=prefix==='dff'?disputeValues:formValues;
+  Object.entries(vals).forEach(([fid,val])=>{
+    document.querySelectorAll(`.radio-option input[name="${prefix}_${fid}"]`).forEach(inp=>{
+      if(inp.value===val) inp.parentElement.classList.add('selected');
     });
   });
 }
 
 function updateProgress(){
   if(!activeSim)return;
-  const fields=(activeSim.fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  const fields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_'));
   const filled=fields.filter(f=>formValues[f.id]&&String(formValues[f.id]).trim()).length;
   const pct=fields.length?Math.round(filled/fields.length*100):0;
   const bar=document.getElementById('prog-fill');
   if(bar)bar.style.width=pct+'%';
 }
 
+// ── BRIEF DOWNLOAD WITH TRACKING ─────────────────────────────────────────────
+async function downloadBrief(url,asgId){
+  window.open(url,'_blank');
+  // Track first open — fire and forget, don't await
+  if(asgId&&assignment&&!assignment.brief_opened_at){
+    sb('assignments?id=eq.'+asgId,{
+      method:'PATCH',
+      body:JSON.stringify({brief_opened_at:new Date().toISOString()}),
+      prefer:'return=minimal'
+    }).then(r=>{
+      if(r.ok&&assignment) assignment.brief_opened_at=new Date().toISOString();
+    });
+  }
+}
+
+// ── AUTOSAVE ──────────────────────────────────────────────────────────────────
 function startAutosave(){
   clearInterval(window._autosave);
   window._autosave=setInterval(saveDraft,30000);
 }
-
 function saveDraft(){
-  if(draftKey&&Object.keys(formValues).length){
+  if(draftKey&&Object.keys(formValues).length)
     localStorage.setItem(draftKey,JSON.stringify(formValues));
-  }
 }
 
 function getNotes(){
   if(!activeSim||!student)return'';
-  // Try Supabase first, fall back to localStorage for migration
   const note=window._myNotes&&window._myNotes.find(n=>n.simulation_id===activeSim.id);
   return note?.content||localStorage.getItem('notes_'+student.id+'_'+activeSim.id)||'';
 }
@@ -753,7 +802,6 @@ function scheduleNotesSave(){
     const area=document.getElementById('notes-area');
     if(!area||!activeSim||!student)return;
     const txt=area.value;
-    // Save to Supabase (upsert)
     const existing=window._myNotes&&window._myNotes.find(n=>n.simulation_id===activeSim.id);
     if(existing){
       await sb('notes?id=eq.'+existing.id,{method:'PATCH',body:JSON.stringify({content:txt,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
@@ -761,7 +809,6 @@ function scheduleNotesSave(){
       const r=await sb('notes',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,content:txt}),prefer:'return=representation'});
       if(r.ok&&r.data?.[0]){if(!window._myNotes)window._myNotes=[];window._myNotes.push(r.data[0]);}
     }
-    // Also keep localStorage as backup
     localStorage.setItem('notes_'+student.id+'_'+activeSim.id,txt);
     const saved=document.getElementById('notes-saved');
     if(saved){saved.classList.add('show');setTimeout(()=>saved.classList.remove('show'),2000);}
@@ -771,8 +818,12 @@ function scheduleNotesSave(){
 async function loadPartnerName(){
   if(!assignment||!activeSim)return;
   const r=await sb('assignments?simulation_id=eq.'+activeSim.id+'&group_number=eq.'+assignment.group_number+'&released=eq.true&student_id=neq.'+student.id+'&select=student_id,role');
-  if(!r.ok||!r.data?.length){const el=document.getElementById('partner-line');if(el)el.textContent='No partner assigned yet.';return;}
-  const ids=r.data.map(a=>'\"'+a.student_id+'\"').join(',');
+  if(!r.ok||!r.data?.length){
+    const el=document.getElementById('partner-line');
+    if(el)el.textContent='No partner assigned yet.';
+    return;
+  }
+  const ids=r.data.map(a=>'"'+a.student_id+'"').join(',');
   const nr=await sb('students?id=in.('+ids+')&is_archived=eq.false&select=id,name');
   if(!nr.ok||!nr.data?.length)return;
   const nm={};nr.data.forEach(s=>nm[s.id]=s.name);
@@ -781,138 +832,158 @@ async function loadPartnerName(){
   if(el)el.textContent='Negotiating with: '+parts;
 }
 
-function downloadBrief(url){
-  window.open(url,'_blank');
-}
-
-function canEdit(){
-  return !!(submission&&activeSim?.submission_open);
-}
-
+function canEdit(){return !!(submission&&activeSim?.submission_open);}
 function enterEdit(){editMode=true;load();}
-function cancelEdit(){editMode=false;load();}
+function cancelEdit(){editMode=false;formValues={};load();}
 
+// ── ACCEPT PARTNER TERMS ──────────────────────────────────────────────────────
 async function acceptPartnerTerms(){
-  // Copy partner's form data as our own submission, flagged as confirmed
   const ps=window._pendingPartnerSub;
   if(!ps||!activeSim||!student)return;
   if(!confirm('Accept these terms and submit? This will record the same answers as your partner.'))return;
-  const btn=document.querySelector('.btn-confirm');
-  if(btn){btn.disabled=true;btn.textContent='Submitting…';}
-  // Copy all non-private, non-internal fields from partner
+  const btns=document.querySelectorAll('.btn-confirm');
+  btns.forEach(b=>{b.disabled=true;b.textContent='Submitting…';});
   const fd={};
   (activeSim.fields||[]).filter(f=>!f.id.startsWith('_')).forEach(f=>{
     fd[f.id]=ps.form_data?.[f.id]||'';
   });
-  fd._confirmed=true; // auto-confirmed since we accepted
+  fd._confirmed=true;
   const now=new Date().toISOString();
   const r=await sb('submissions',{method:'POST',body:JSON.stringify({
     student_id:student.id,simulation_id:activeSim.id,
     form_data:fd,submitted_at:now,updated_at:now
   }),prefer:'return=minimal'});
-  if(r.ok){window._pendingPartnerSub=null;await load();}
-  else{if(btn){btn.disabled=false;btn.textContent='✓ Accept these terms';}alert('Could not submit. Please try again.');}
+  if(r.ok){
+    window._pendingPartnerSub=null;
+    if(draftKey)localStorage.removeItem(draftKey);
+    await load();
+  } else {
+    btns.forEach(b=>{b.disabled=false;b.textContent='✓ Accept — these terms are correct';});
+    alert('Could not submit. Please try again.');
+  }
 }
 
-function counterPartnerTerms(){
-  // Pre-fill form with partner's answers so student can edit before submitting
+// ── SHOW COUNTER FORM ─────────────────────────────────────────────────────────
+function showCounterForm(){
+  const wrap=document.getElementById('counter-form-wrap');
+  if(!wrap||!activeSim)return;
   const ps=window._pendingPartnerSub;
-  if(!ps||!activeSim)return;
-  // Copy partner answers into formValues
-  formValues={};
-  (activeSim.fields||[]).filter(f=>!f.id.startsWith('_')).forEach(f=>{
-    formValues[f.id]=ps.form_data?.[f.id]||'';
-  });
-  // Switch to edit mode by re-rendering with a flag
-  window._counterMode=true;
-  editMode=false; // not editing existing submission, creating new one
-  load(); // reload will show the form with these pre-filled values via formValues + draft
-  // After load, formValues will be picked up by renderForm via localStorage draft trick
-  localStorage.setItem(draftKey,JSON.stringify(formValues));
-  load();
+  // Pre-fill with partner's answers as starting point
+  const prefill={};
+  if(ps){
+    (activeSim.fields||[]).filter(f=>!f.id.startsWith('_')).forEach(f=>{
+      prefill[f.id]=ps.form_data?.[f.id]||'';
+    });
+  }
+  // Use cff prefix for counter form to avoid ID collisions
+  document.getElementById('counter-form-fields').innerHTML=renderForm(activeSim.fields,prefill,'cff');
+  // Copy prefill into formValues so progress bar and submit work
+  formValues={...prefill};
+  updateProgress();
+  restoreRadios('cff');
+  wrap.style.display='block';
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+  // Hide the action buttons since form is now showing
+  const disputeBtn=document.querySelector('.btn-dispute');
+  const confirmBtn=document.querySelector('.btn-confirm');
+  if(disputeBtn)disputeBtn.style.display='none';
+  if(confirmBtn)confirmBtn.style.display='none';
 }
 
+// ── SUBMIT FROM COUNTER FORM ──────────────────────────────────────────────────
+async function doCounterSubmit(){
+  if(!activeSim||!student)return;
+  const missing=(activeSim.fields||[]).filter(f=>f.required&&!f.id.startsWith('_')&&!formValues[f.id]);
+  if(missing.length){alert('Please fill in: '+missing.map(f=>f.label).join(', '));return;}
+  if(!confirm('Submit your version of the results?'))return;
+  const btn=document.getElementById('counter-sub-btn');
+  if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  const now=new Date().toISOString();
+  const r=await sb('submissions',{method:'POST',body:JSON.stringify({
+    student_id:student.id,simulation_id:activeSim.id,
+    form_data:{...formValues},submitted_at:now,updated_at:now
+  }),prefer:'return=minimal'});
+  if(r.ok){
+    window._pendingPartnerSub=null;
+    if(draftKey)localStorage.removeItem(draftKey);
+    await load();
+  } else {
+    if(btn){btn.disabled=false;btn.textContent='Submit my version';}
+    alert('Could not submit. Please try again.');
+  }
+}
+
+// ── MAIN FORM SUBMIT ──────────────────────────────────────────────────────────
 async function doSubmit(){
   if(!activeSim)return;
-  const missing=(activeSim.fields||[]).filter(f=>f.required&&!formValues[f.id]&&!['_confirmed','_disputed','_dispute_note'].includes(f.id));
+  const missing=(activeSim.fields||[]).filter(f=>f.required&&!f.id.startsWith('_')&&!formValues[f.id]);
   if(missing.length){alert('Please fill in: '+missing.map(f=>f.label).join(', '));return;}
   if(!confirm('Submit your results for '+activeSim.name+'?'))return;
   const btn=document.getElementById('sub-btn');
-  btn.disabled=true;btn.textContent='Submitting…';
+  if(btn){btn.disabled=true;btn.textContent='Submitting…';}
   try{
     const now=new Date().toISOString();
     if(submission){
-      await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:formValues,updated_at:now}),prefer:'return=minimal'});
+      await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:{...formValues},updated_at:now}),prefer:'return=minimal'});
     } else {
-      await sb('submissions',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,form_data:formValues,submitted_at:now,updated_at:now}),prefer:'return=minimal'});
+      await sb('submissions',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,form_data:{...formValues},submitted_at:now,updated_at:now}),prefer:'return=minimal'});
     }
     if(draftKey)localStorage.removeItem(draftKey);
     editMode=false;
+    formValues={};
     await load();
   }catch(e){
     saveDraft();
-    btn.disabled=false;btn.textContent=editMode?'Update results':'Submit results';
+    if(btn){btn.disabled=false;btn.textContent=editMode?'Update results':'Submit results';}
     alert('Submission failed — your progress is saved. Please try again.');
   }
 }
 
-async function doReflect(){
-  if(!activeSim||!student)return;
-  const mistake=document.getElementById('ref-mistake')?.value||'';
-  const different=document.getElementById('ref-different')?.value||'';
-  // Collect all custom question answers
-  const customAnswers=[];
-  let qi=0;
-  while(document.getElementById('ref-custom-'+qi)){
-    customAnswers.push(document.getElementById('ref-custom-'+qi)?.value||'');
-    qi++;
-  }
-  // Store as pipe-separated string so it fits the existing custom_response column
-  const custom=customAnswers.join(' ||| ');
-  const btn=document.querySelector('.reflection-card .submit-btn');
-  if(btn){btn.disabled=true;btn.textContent='Saving…';}
-  const r=await sb('reflections',{method:'POST',body:JSON.stringify({student_id:student.id,simulation_id:activeSim.id,mistake,do_differently:different,custom_response:custom}),prefer:'return=minimal'});
-  if(r.ok){await load();}
-  else{if(btn){btn.disabled=false;btn.textContent='Submit reflection';}alert('Could not save. Please try again.');}
-}
-
+// ── CONFIRM PARTNER ANSWERS ───────────────────────────────────────────────────
 async function doConfirm(){
   if(!submission)return;
-  await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:{...submission.form_data,_confirmed:true},updated_at:new Date().toISOString()}),prefer:'return=minimal'});
-  await load();
+  const btn=document.querySelector('.btn-confirm');
+  if(btn){btn.disabled=true;btn.textContent='Confirming…';}
+  const r=await sb('submissions?id=eq.'+submission.id,{
+    method:'PATCH',
+    body:JSON.stringify({form_data:{...submission.form_data,_confirmed:true},updated_at:new Date().toISOString()}),
+    prefer:'return=minimal'
+  });
+  if(r.ok){await load();}
+  else{if(btn){btn.disabled=false;btn.textContent='✓ Confirmed — we agree';}alert('Could not confirm. Please try again.');}
 }
 
+// ── SHOW DISPUTE FORM ─────────────────────────────────────────────────────────
 function showDisputeForm(){
   const form=document.getElementById('dispute-form');
   if(!form)return;
-  form.classList.add('show');
-  // Pre-populate with student's own submitted answers so they can correct specific fields
+  // Initialize disputeValues from current submission (strip flags)
+  disputeValues={};
+  Object.entries(submission?.form_data||{}).forEach(([k,v])=>{
+    if(!k.startsWith('_'))disputeValues[k]=v;
+  });
+  // Re-render dispute form fields with dff prefix and current values
   const fieldsDiv=document.getElementById('dispute-form-fields');
-  if(fieldsDiv&&activeSim&&submission){
-    // Copy current form_data into a working object, stripping internal flags
-    const vals={};
-    Object.entries(submission.form_data||{}).forEach(([k,v])=>{
-      if(!k.startsWith('_'))vals[k]=v;
-    });
-    fieldsDiv.innerHTML=renderForm(activeSim.fields,vals);
-    restoreRadios();
+  if(fieldsDiv&&activeSim){
+    fieldsDiv.innerHTML=renderForm(activeSim.fields,disputeValues,'dff');
   }
+  form.classList.add('show');
+  restoreRadios('dff');
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+  // Hide the action buttons
+  const btns=document.querySelector('.review-actions');
+  if(btns)btns.style.display='none';
 }
 
+// ── SUBMIT DISPUTE ────────────────────────────────────────────────────────────
 async function doDispute(){
   if(!submission||!activeSim)return;
-  // Collect the corrected answers from the dispute form
-  const disputeValues={};
+  // Collect text/number values from dispute form (radios already in disputeValues via selectRadio)
   const fields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_'));
   fields.forEach(f=>{
-    if(f.type==='radio'){
-      // Radio buttons in dispute form have same name= attribute
-      const checked=document.querySelector('#dispute-form-fields input[name="'+f.id+'"]:checked');
-      if(checked)disputeValues[f.id]=checked.value;
-      else disputeValues[f.id]=submission.form_data?.[f.id]||'';
-    } else {
-      const el=document.getElementById('ff_'+f.id);
-      disputeValues[f.id]=el?el.value:(submission.form_data?.[f.id]||'');
+    if(f.type!=='radio'){
+      const el=document.getElementById('dff_'+f.id);
+      if(el) disputeValues[f.id]=el.value;
     }
   });
   const note=document.getElementById('dispute-note')?.value||'';
@@ -920,17 +991,110 @@ async function doDispute(){
     ...disputeValues,
     _disputed:true,
     _dispute_note:note,
-    _original_answers:{...submission.form_data}  // preserve original for instructor comparison
+    _original_answers:{...submission.form_data}
   };
   const btn=document.querySelector('#dispute-form .submit-btn');
   if(btn){btn.disabled=true;btn.textContent='Submitting…';}
-  const r=await sb('submissions?id=eq.'+submission.id,{method:'PATCH',body:JSON.stringify({form_data:newFormData,updated_at:new Date().toISOString()}),prefer:'return=minimal'});
-  if(r.ok){await load();}
+  const r=await sb('submissions?id=eq.'+submission.id,{
+    method:'PATCH',
+    body:JSON.stringify({form_data:newFormData,updated_at:new Date().toISOString()}),
+    prefer:'return=minimal'
+  });
+  if(r.ok){disputeValues={};await load();}
   else{if(btn){btn.disabled=false;btn.textContent='Submit my version';}alert('Could not submit. Please try again.');}
 }
 
+// ── REFLECTION ────────────────────────────────────────────────────────────────
+function renderReflectionForm(){
+  if(!activeSim)return'';
+  let reflQs=[];
+  const rawQ=activeSim.reflection_question||'';
+  try{const p=JSON.parse(rawQ);if(Array.isArray(p))reflQs=p.filter(Boolean);}catch(e){}
+  if(!reflQs.length&&rawQ)reflQs=[rawQ];
+  if(!reflQs.length)reflQs=['What was your biggest takeaway from this simulation?'];
+  return`<div class="reflection-card">
+    <div class="reflection-title">💭 Reflection</div>
+    <div class="reflection-sub">Take 2 minutes to reflect. Your responses are private.</div>
+    <div class="field">
+      <label class="field-label">What was your most important mistake?</label>
+      <textarea id="ref-mistake" placeholder="Be honest — this is for your learning." style="min-height:70px"></textarea>
+    </div>
+    <div class="field">
+      <label class="field-label">What would you do differently?</label>
+      <textarea id="ref-different" placeholder="Specific changes to your strategy or approach." style="min-height:70px"></textarea>
+    </div>
+    ${reflQs.map((q,i)=>`<div class="field"><label class="field-label">${q}</label>
+      <textarea id="ref-custom-${i}" placeholder="Your response…" style="min-height:70px"></textarea>
+    </div>`).join('')}
+    <button class="submit-btn" onclick="doReflect()">Submit reflection</button>
+  </div>`;
+}
 
-// ── ASSESSMENT FORM ──────────────────────────────────────────────────────────
+async function doReflect(){
+  if(!activeSim||!student)return;
+  const mistake=document.getElementById('ref-mistake')?.value||'';
+  const different=document.getElementById('ref-different')?.value||'';
+  const customAnswers=[];
+  let qi=0;
+  while(document.getElementById('ref-custom-'+qi)){
+    customAnswers.push(document.getElementById('ref-custom-'+qi).value||'');
+    qi++;
+  }
+  const btn=document.querySelector('.reflection-card .submit-btn');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  const r=await sb('reflections',{method:'POST',body:JSON.stringify({
+    student_id:student.id,simulation_id:activeSim.id,
+    mistake,do_differently:different,custom_response:customAnswers.join(' ||| ')
+  }),prefer:'return=minimal'});
+  if(r.ok){await load();}
+  else{if(btn){btn.disabled=false;btn.textContent='Submit reflection';}alert('Could not save. Please try again.');}
+}
+
+// ── READONLY ──────────────────────────────────────────────────────────────────
+function renderReadonly(fields,data){
+  return(fields||[]).filter(f=>!f.id.startsWith('_')).map(f=>`
+    <div class="readonly-row">
+      <div class="readonly-label">${f.label||f.id}</div>
+      <div class="readonly-value">${data[f.id]||'—'}</div>
+    </div>`).join('');
+}
+
+// ── MY PROGRESS ───────────────────────────────────────────────────────────────
+function renderMyProgress(submissions,assignments,reflections){
+  if(submissions.length<2)return'';
+  const completedSims=submissions.map(sub=>{
+    const sim=allSims.find(s=>s.id===sub.simulation_id);
+    const asg=assignments.find(a=>a.simulation_id===sub.simulation_id);
+    const refl=reflections.find(r=>r.simulation_id===sub.simulation_id);
+    if(!sim)return null;
+    const dealField=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
+    return{sim,asg,sub,refl,deal:sub.form_data?.[dealField]};
+  }).filter(Boolean);
+  const dealCount=completedSims.filter(s=>s.deal==='Yes').length;
+  return`<div class="card">
+    <div class="card-header"><div class="card-title">📈 My progress</div></div>
+    <div class="card-body">
+      <div style="display:flex;gap:12px;margin-bottom:16px">
+        ${[
+          {v:completedSims.length,l:'Completed',c:'var(--accent)'},
+          {v:dealCount,l:'Deals',c:'var(--green)'},
+          {v:reflections.length,l:'Reflections',c:'var(--blue)'}
+        ].map(s=>`<div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
+          <div style="font-size:22px;font-weight:800;color:${s.c}">${s.v}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">${s.l}</div>
+        </div>`).join('')}
+      </div>
+      ${completedSims.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg)">
+        <div style="width:8px;height:8px;border-radius:50%;background:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--border)'};flex-shrink:0"></div>
+        <div style="flex:1;font-size:13px">${s.sim.name}</div>
+        <div style="font-size:12px;color:var(--text-3)">${s.asg?.role||''}</div>
+        ${s.refl?'<span style="font-size:10px;color:var(--green)">✎</span>':''}
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── ASSESSMENT ────────────────────────────────────────────────────────────────
 const ASSESSMENT_QUESTIONS=[
   "If the other party's position seems very important to him or her, I may sacrifice my own position.",
   "I address problems and concerns directly without blame or judgment.",
@@ -958,15 +1122,7 @@ const ASSESSMENT_QUESTIONS=[
   "I may not be open to hear other points of view.",
   "I avoid taking positions that would create controversy."
 ];
-
-// White box (active input) column per question — the ONLY cell students fill in per row
-const ASSESS_WHITE_BOX = {
-    1:'C',2:'E',3:'B',4:'E',5:'D',
-    6:'A',7:'B',8:'B',9:'C',10:'D',
-    11:'D',12:'C',13:'E',14:'A',15:'B',
-    16:'A',17:'A',18:'E',19:'C',20:'D',
-    21:'E',22:'C',23:'C',24:'B',25:'A'
-  };
+const ASSESS_WHITE_BOX={1:'C',2:'E',3:'B',4:'E',5:'D',6:'A',7:'B',8:'B',9:'C',10:'D',11:'D',12:'C',13:'E',14:'A',15:'B',16:'A',17:'A',18:'E',19:'C',20:'D',21:'E',22:'C',23:'C',24:'B',25:'A'};
 
 function openAssessmentPage(type){
   const overlay=document.getElementById('assessment-overlay');
@@ -976,73 +1132,42 @@ function openAssessmentPage(type){
   const anonEl=document.getElementById('assess-anon-id');
   if(anonEl)anonEl.textContent='#'+String(student?.anon_number||'?').padStart(2,'0');
   renderAssessmentTable(type);
-  // Scroll overlay to top
   overlay.scrollTop=0;
 }
-
-function closeAssessmentPage(){
-  document.getElementById('assessment-overlay').style.display='none';
-}
+function closeAssessmentPage(){document.getElementById('assessment-overlay').style.display='none';}
 
 function renderAssessmentTable(type){
   const container=document.getElementById('assessment-table-container');
   const cols=['A','B','C','D','E'];
-  
-  // Running totals per column
-  const totals={A:0,B:0,C:0,D:0,E:0};
-  
-  const headerCols=cols.map(c=>`
-    <th style="width:44px;text-align:center;padding:8px 4px;background:#1a6b5c;color:#fff;font-size:14px;font-weight:700;border:1px solid #14594d">${c}</th>
-  `).join('');
-
+  const headerCols=cols.map(c=>`<th style="width:44px;text-align:center;padding:8px 4px;background:#1a6b5c;color:#fff;font-size:14px;font-weight:700;border:1px solid #14594d">${c}</th>`).join('');
   const rows=ASSESSMENT_QUESTIONS.map((q,i)=>{
     const n=i+1;
     const activeCol=ASSESS_WHITE_BOX[n];
     const cells=cols.map(col=>{
-      if(col===activeCol){
-        return`<td style="text-align:center;padding:4px;border:1px solid #ccc;background:#fff">
-          <input type="number" id="aq_${n}" min="0" max="5" value=""
-            style="width:36px;height:30px;text-align:center;border:1px solid #aaa;border-radius:4px;font-size:14px;font-weight:600;padding:0"
-            oninput="updateAssessTotal()" onchange="this.value=Math.max(0,Math.min(5,parseInt(this.value)||0))">
-        </td>`;
-      }
+      if(col===activeCol)return`<td style="text-align:center;padding:4px;border:1px solid #ccc;background:#fff">
+        <input type="number" id="aq_${n}" min="0" max="5" value=""
+          style="width:36px;height:30px;text-align:center;border:1px solid #aaa;border-radius:4px;font-size:14px;font-weight:600;padding:0"
+          oninput="updateAssessTotal()" onchange="this.value=Math.max(0,Math.min(5,parseInt(this.value)||0))">
+      </td>`;
       return`<td style="background:#d0d0d0;border:1px solid #bbb;width:44px"></td>`;
     }).join('');
-    
     return`<tr style="border-bottom:1px solid #ddd">
-      <td style="padding:8px 10px;font-size:13px;line-height:1.5;border:1px solid #ddd;vertical-align:middle">
-        <span style="font-weight:600;margin-right:6px">${n}.</span>${q}
-      </td>
+      <td style="padding:8px 10px;font-size:13px;line-height:1.5;border:1px solid #ddd;vertical-align:middle"><span style="font-weight:600;margin-right:6px">${n}.</span>${q}</td>
       ${cells}
     </tr>`;
   }).join('');
-
-  const totalCells=cols.map(c=>`
-    <td style="text-align:center;padding:8px 4px;border:1px solid #ccc;background:#f0f0f0">
-      <div id="col-total-${c}" style="width:36px;height:30px;line-height:30px;text-align:center;font-size:14px;font-weight:700;margin:0 auto;background:#fff;border:1px solid #aaa;border-radius:4px">0</div>
-    </td>
-  `).join('');
-
+  const totalCells=cols.map(c=>`<td style="text-align:center;padding:8px 4px;border:1px solid #ccc;background:#f0f0f0">
+    <div id="col-total-${c}" style="width:36px;height:30px;line-height:30px;text-align:center;font-size:14px;font-weight:700;margin:0 auto;background:#fff;border:1px solid #aaa;border-radius:4px">0</div>
+  </td>`).join('');
   container.innerHTML=`
     <div style="font-size:12px;color:#555;margin-bottom:12px;line-height:1.6;background:#fffbf0;border:1px solid #f0d9c0;border-radius:8px;padding:10px 14px">
-      Score yourself on each statement on a scale of <strong>0 – 5</strong>. &nbsp;
-      0 = never &nbsp; 1 = rarely &nbsp; 2 = sometimes &nbsp; 3 = occasionally &nbsp; 4 = frequently &nbsp; 5 = always
+      Score yourself on each statement on a scale of <strong>0 – 5</strong>. &nbsp;0 = never &nbsp;1 = rarely &nbsp;2 = sometimes &nbsp;3 = occasionally &nbsp;4 = frequently &nbsp;5 = always
     </div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead>
-          <tr style="background:#1a6b5c">
-            <th style="text-align:left;padding:10px 12px;color:#fff;font-size:14px;font-weight:700;border:1px solid #14594d">Statement</th>
-            ${headerCols}
-          </tr>
-        </thead>
+        <thead><tr style="background:#1a6b5c"><th style="text-align:left;padding:10px 12px;color:#fff;font-size:14px;font-weight:700;border:1px solid #14594d">Statement</th>${headerCols}</tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot>
-          <tr style="background:#f5f5f5">
-            <td style="padding:8px 12px;font-size:12px;font-weight:700;text-align:right;border:1px solid #ddd;color:#555">Total your score for each column</td>
-            ${totalCells}
-          </tr>
-        </tfoot>
+        <tfoot><tr style="background:#f5f5f5"><td style="padding:8px 12px;font-size:12px;font-weight:700;text-align:right;border:1px solid #ddd;color:#555">Total your score for each column</td>${totalCells}</tr></tfoot>
       </table>
     </div>`;
 }
@@ -1053,15 +1178,9 @@ function updateAssessTotal(){
   for(let n=1;n<=25;n++){
     const col=ASSESS_WHITE_BOX[n];
     const el=document.getElementById('aq_'+n);
-    if(el){
-      const v=Math.max(0,Math.min(5,parseInt(el.value)||0));
-      totals[col]+=v;
-    }
+    if(el)totals[col]+=Math.max(0,Math.min(5,parseInt(el.value)||0));
   }
-  cols.forEach(c=>{
-    const el=document.getElementById('col-total-'+c);
-    if(el)el.textContent=totals[c];
-  });
+  cols.forEach(c=>{const el=document.getElementById('col-total-'+c);if(el)el.textContent=totals[c];});
 }
 
 async function submitAssessment(){
@@ -1070,88 +1189,25 @@ async function submitAssessment(){
   const responses={};
   const colTotals={A:0,B:0,C:0,D:0,E:0};
   let missing=[];
-
   for(let n=1;n<=25;n++){
     const col=ASSESS_WHITE_BOX[n];
     const el=document.getElementById('aq_'+n);
     const v=el?Math.max(0,Math.min(5,parseInt(el.value)||0)):0;
-    if(el&&(el.value===''||el.value===null)){
-      missing.push(n);
-    }
+    if(el&&(el.value===''||el.value===null))missing.push(n);
     responses['q'+n]=v;
     colTotals[col]+=v;
   }
-
-  if(missing.length>0){
-    if(!confirm(`${missing.length} question(s) not answered (${missing.join(', ')}). Submit anyway with 0 for blank answers?`))return;
-  }
-
+  if(missing.length>0&&!confirm(`${missing.length} question(s) not answered (${missing.join(', ')}). Submit anyway with 0 for blank answers?`))return;
   const btn=document.getElementById('assess-submit-btn');
   if(btn){btn.disabled=true;btn.textContent='Submitting…';}
-
-  const r=await sb('self_assessments',{method:'POST',body:JSON.stringify({
-    student_id:student.id,
-    anon_number:student.anon_number,
-    type,
-    responses,
-    col_totals:colTotals
-  }),prefer:'return=minimal'});
-
-  if(r.ok){
-    closeAssessmentPage();
-    await load();
-  } else {
-    if(btn){btn.disabled=false;btn.textContent='Submit assessment';}
-    alert('Could not submit. Please try again.');
-  }
-}
-
-// ── MY PROGRESS ──────────────────────────────────────────────────────────────
-function renderMyProgress(submissions,assignments,reflections){
-  if(submissions.length<2)return'';
-  const completedSims=submissions.map(sub=>{
-    const sim=allSims.find(s=>s.id===sub.simulation_id);
-    const asg=assignments.find(a=>a.simulation_id===sub.simulation_id);
-    const refl=reflections.find(r=>r.simulation_id===sub.simulation_id);
-    if(!sim)return null;
-    const dealField=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
-    const deal=sub.form_data?.[dealField];
-    return{sim,asg,sub,refl,deal};
-  }).filter(Boolean);
-
-  const dealCount=completedSims.filter(s=>s.deal==='Yes').length;
-  const reflCount=reflections.length;
-
-  return`<div class="card">
-    <div class="card-header"><div class="card-title">📈 My progress</div></div>
-    <div class="card-body">
-      <div style="display:flex;gap:12px;margin-bottom:16px">
-        <div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
-          <div style="font-size:22px;font-weight:800;color:var(--accent)">${completedSims.length}</div>
-          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Completed</div>
-        </div>
-        <div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
-          <div style="font-size:22px;font-weight:800;color:var(--green)">${dealCount}</div>
-          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Deals</div>
-        </div>
-        <div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
-          <div style="font-size:22px;font-weight:800;color:var(--blue)">${reflCount}</div>
-          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Reflections</div>
-        </div>
-      </div>
-      <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Simulation outcomes</div>
-      ${completedSims.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg)">
-        <div style="width:8px;height:8px;border-radius:50%;background:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--border)'};flex-shrink:0"></div>
-        <div style="flex:1;font-size:13px">${s.sim.name}</div>
-        <div style="font-size:12px;color:var(--text-3)">${s.asg?.role||''}</div>
-        ${s.refl?'<span style="font-size:10px;color:var(--green)">✎ Reflected</span>':''}
-      </div>`).join('')}
-    </div>
-  </div>`;
+  const r=await sb('self_assessments',{method:'POST',body:JSON.stringify({student_id:student.id,anon_number:student.anon_number,type,responses,col_totals:colTotals}),prefer:'return=minimal'});
+  if(r.ok){closeAssessmentPage();await load();}
+  else{if(btn){btn.disabled=false;btn.textContent='Submit assessment';}alert('Could not submit. Please try again.');}
 }
 
 init();
 </script>
+
 <!-- ASSESSMENT OVERLAY -->
 <div class="assess-overlay" id="assessment-overlay">
   <div class="assess-modal">
@@ -1172,6 +1228,5 @@ init();
     </div>
   </div>
 </div>
-
 </body>
 </html>

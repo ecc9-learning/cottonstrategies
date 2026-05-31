@@ -208,6 +208,39 @@ textarea{resize:vertical;min-height:70px}
 .empty-state-sub{font-size:13px}
 .divider{border:none;border-top:1px solid #f3f4f6;margin:1.25rem 0}
 .text-muted{color:#9ca3af;font-size:12px}
+/* MOBILE RESPONSIVE */
+@media (max-width: 768px) {
+  .app-body { flex-direction: column; height: auto; overflow: visible; }
+  .sidebar { width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; overflow-x: auto; border-right: none; border-bottom: 1px solid #ece8e1; padding: .5rem; gap: .25rem; }
+  .sidebar-section { display: none; }
+  .sidebar-spacer, .sidebar-bottom { display: none; }
+  .nav-item { margin: 2px; padding: .5rem .75rem; font-size: 12px; white-space: nowrap; }
+  .sim-quick-list { display: none; }
+  .main-content { padding: 1rem; overflow-y: visible; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid { grid-template-columns: 1fr; }
+  .section-title { font-size: 16px; flex-direction: column; align-items: flex-start; gap: .5rem; }
+  .btn-row { flex-wrap: wrap; }
+  .detail-panel { width: 100%; top: 0; height: 100vh; }
+  .status-bar { height: auto; min-height: 52px; flex-wrap: wrap; padding: .5rem 1rem; gap: .5rem; }
+  .status-right { flex-wrap: wrap; gap: .75rem; }
+  table { font-size: 12px; }
+  th, td { padding: 6px 8px; }
+  .modal { padding: 1rem; max-height: 95vh; }
+  .proj-stats-row { flex-wrap: wrap; }
+  .proj-stat { min-width: 80px; }
+  .proj-group-grid { grid-template-columns: 1fr; }
+  .grid2 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .stat-val { font-size: 22px; }
+  .section-title { font-size: 15px; }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
 </style>
 </head>
 <body>
@@ -476,7 +509,8 @@ textarea{resize:vertical;min-height:70px}
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='sb_publishable_M0wQUS_qpy3MmAjMMdTDVw_6ld8QIum';
-const ANTHROPIC_KEY='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';
+const ANTHROPIC_KEY='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';
+
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
   const prefer = opts.prefer || (opts.method==='POST'?'return=minimal':'return=representation');
@@ -692,86 +726,214 @@ function renderCurrentSection() {
 
 // ── OVERVIEW ─────────────────────────────────────────────────────────────────
 function renderOverview() {
-  const expected = instructor?.class_size||20;
-  const assigned = activeSim?allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released).length:0;
-  const submitted = activeSim?allSubmissions.filter(s=>s.simulation_id===activeSim.id).length:0;
-  const notYet = allStudents.filter(s=>!allSubmissions.find(x=>x.student_id===s.id&&x.simulation_id===activeSim?.id));
-  const reflCount = activeSim?allReflections.filter(r=>r.simulation_id===activeSim.id).length:0;
+  const el = document.getElementById('section-overview');
 
-  // ── Active simulation banner ────────────────────────────────────────────
-  const banner = document.getElementById('overview-sim-banner');
-  if (!activeSim) {
-    banner.innerHTML=`<div style="background:#fef3e8;border:1px solid #f0d9c0;border-radius:12px;padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
-      <div>
-        <div style="font-size:14px;font-weight:700;color:#bf5700">No simulation active</div>
-        <div style="font-size:13px;color:#78716c;margin-top:3px">Set a simulation active to get started.</div>
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="showSection('simulations')">Set active simulation →</button>
-    </div>`;
+  // Determine "mode" — game day (form open or pairings released) vs between simulations
+  const released = activeSim ? allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released) : [];
+  const subs = activeSim ? allSubmissions.filter(s=>s.simulation_id===activeSim.id) : [];
+  const isGameDay = activeSim && (activeSim.submission_open || released.length > 0);
+
+  if (isGameDay) {
+    renderGameDayOverview(subs, released);
   } else {
-    const simIdx=allSims.findIndex(s=>s.id===activeSim.id);
-    const nextSim=allSims[simIdx+1];
-    banner.innerHTML=`<div style="background:linear-gradient(135deg,#1a1a1a 0%,#222 100%);border-radius:12px;padding:1.5rem;color:#fff">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+    renderBetweenSimsOverview();
+  }
+}
+
+// ── GAME DAY VIEW ─────────────────────────────────────────────────────────────
+function renderGameDayOverview(subs, released) {
+  const groups = {};
+  released.forEach(a => {
+    if (!groups[a.group_number]) groups[a.group_number] = [];
+    const stu = allStudents.find(s => s.id === a.student_id);
+    const sub = subs.find(s => s.student_id === a.student_id);
+    const briefOpened = a.brief_opened_at ? true : false;
+    groups[a.group_number].push({ stu, asg: a, sub, briefOpened });
+  });
+
+  const totalGroups = Object.keys(groups).length;
+  const bothSubmitted = Object.values(groups).filter(m => m.every(x => x.sub)).length;
+  const oneSubmitted = Object.values(groups).filter(m => m.some(x => x.sub) && !m.every(x => x.sub)).length;
+  const noneSubmitted = Object.values(groups).filter(m => m.every(x => !x.sub)).length;
+  const disputed = subs.filter(s => s.form_data?._disputed).length;
+  const briefCount = released.filter(a => a.brief_opened_at).length;
+
+  const banner = document.getElementById('overview-sim-banner');
+  banner.innerHTML = `
+    <div style="background:linear-gradient(135deg,#111 0%,#1a1a1a 100%);border-radius:14px;padding:1.5rem;color:#fff;margin-bottom:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem">
         <div>
-          <div style="font-size:10px;font-weight:700;color:#bf5700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Now active</div>
-          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;line-height:1.1">${activeSim.name}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px">${activeSim.type} · ${(activeSim.roles||[]).join(' vs ')}</div>
+          <div style="font-size:10px;font-weight:700;color:#bf5700;text-transform:uppercase;letter-spacing:.14em;margin-bottom:5px">🔴 Game day</div>
+          <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700">${activeSim.name}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:3px">${activeSim.type} · ${(activeSim.roles||[]).join(' vs ')}</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${activeSim.submission_open
-            ?`<span style="background:#16a34a;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">Form open</span>
-               <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)" onclick="qaCloseForm()">Close form</button>`
-            :`<span style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600">Form closed</span>
+            ? `<span style="background:#16a34a;color:#fff;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700">Form open</span>
+               <button class="btn btn-sm" style="background:rgba(220,38,38,.8);color:#fff;border:none" onclick="qaCloseForm()">Close form</button>`
+            : `<span style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600">Form closed</span>
                <button class="btn btn-sm" style="background:#bf5700;color:#fff;border:none" onclick="qaOpenForm()">Open form</button>`}
-          <button class="btn btn-sm" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15)" onclick="showSection('simulations')">Switch sim</button>
+          <button class="btn btn-sm" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.15)" onclick="enterDebriefMode()">🎓 Debrief view</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-top:1.25rem">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem">
         ${[
-          {v:allStudents.length,l:'Students'},
-          {v:assigned,l:'Assigned'},
-          {v:submitted,l:'Submitted'},
-          {v:reflCount,l:'Reflections'},
-        ].map(s=>`<div style="background:rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;text-align:center">
-          <div style="font-size:22px;font-weight:800">${s.v}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.1em;margin-top:2px">${s.l}</div>
+          {v: totalGroups, l: 'Groups', c: '#fff'},
+          {v: bothSubmitted, l: 'Both submitted', c: '#4ade80'},
+          {v: oneSubmitted, l: 'One submitted', c: '#fbbf24'},
+          {v: noneSubmitted, l: 'Pending', c: '#9ca3af'},
+          {v: disputed, l: 'Disputed', c: disputed > 0 ? '#f87171' : '#9ca3af'},
+        ].map(s => `<div style="background:rgba(255,255,255,.06);border-radius:8px;padding:10px;text-align:center;border:1px solid rgba(255,255,255,.07)">
+          <div style="font-size:24px;font-weight:800;color:${s.c};line-height:1">${s.v}</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-top:3px">${s.l}</div>
         </div>`).join('')}
       </div>
-      ${nextSim?`<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.1);font-size:12px;color:rgba(255,255,255,.4)">Next up: <span style="color:rgba(255,255,255,.65)">${nextSim.name}</span></div>`:''}
     </div>`;
-  }
 
-  document.getElementById('overview-stats').innerHTML='';
+  document.getElementById('overview-stats').innerHTML = '';
 
-  // ── Who hasn't submitted ───────────────────────────────────────────────
+  // Group submission tracker
   const recent = document.getElementById('overview-recent');
-  if(activeSim&&notYet.length){
-    recent.innerHTML=`<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:.5rem">Not yet submitted (${notYet.length})</div>`+
-      notYet.map(s=>`<div style="font-size:13px;padding:.4rem 0;border-bottom:1px solid #f9fafb;display:flex;align-items:center;gap:8px">
-        <span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0"></span>
-        <span>${s.name}</span>
-      </div>`).join('');
-  } else if(submitted&&submitted===allStudents.length){
-    recent.innerHTML=`<div style="text-align:center;padding:1rem;font-size:14px;color:#16a34a;font-weight:600">✓ All students submitted</div>`;
-  } else {
-    recent.innerHTML=recent.innerHTML||'<div style="font-size:13px;color:#9ca3af;padding:.5rem 0">No active simulation.</div>';
-  }
+  const groupHtml = Object.entries(groups).sort(([a],[b]) => parseInt(a)-parseInt(b)).map(([gn, members]) => {
+    const allSub = members.every(m => m.sub);
+    const noneSub = members.every(m => !m.sub);
+    const bg = allSub ? '#f0fdf4' : noneSub ? '#fafafa' : '#fefce8';
+    const border = allSub ? '#bbf7d0' : noneSub ? '#e5e7eb' : '#fde68a';
+    const memberHtml = members.map(m => {
+      const briefIcon = m.briefOpened ? '📖' : '📄';
+      const subIcon = m.sub ? (m.sub.form_data?._disputed ? '⚠️' : m.sub.form_data?._confirmed ? '✓✓' : '✓') : '—';
+      const subColor = m.sub ? (m.sub.form_data?._disputed ? '#dc2626' : '#16a34a') : '#9ca3af';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px">${briefIcon}</span>
+          <span style="font-size:12px;font-weight:600">${m.stu?.name||'?'}</span>
+          <span style="font-size:10px;color:#9ca3af">${m.asg.role}</span>
+        </div>
+        <span style="font-size:13px;font-weight:700;color:${subColor}">${subIcon}</span>
+      </div>`;
+    }).join('');
+    return `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:10px 12px;margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Group ${gn}</div>
+      ${memberHtml}
+    </div>`;
+  }).join('');
 
+  recent.innerHTML = `<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+    <span>Groups <span style="color:#9ca3af;font-weight:400">(📖 brief opened · ✓ submitted)</span></span>
+    <button class="btn btn-ghost btn-sm" onclick="loadAll().then(renderCurrentSection)" style="font-size:11px">↺ Refresh</button>
+  </div>
+  <div style="max-height:320px;overflow-y:auto">${groupHtml || '<div style="color:#9ca3af;font-size:13px">No groups assigned yet.</div>'}</div>`;
+
+  // Form actions card
   const formBtn = document.getElementById('ov-form-btn');
   if (formBtn) {
     if (activeSim?.submission_open) {
-      formBtn.textContent='✕ Close results form';
-      formBtn.className='btn btn-danger';
-      formBtn.onclick=qaCloseForm;
+      formBtn.textContent = '✕ Close results form';
+      formBtn.className = 'btn btn-danger';
+      formBtn.onclick = qaCloseForm;
     } else {
-      formBtn.textContent='✓ Open results form';
-      formBtn.className='btn btn-success';
-      formBtn.onclick=qaOpenForm;
+      formBtn.textContent = '✓ Open results form';
+      formBtn.className = 'btn btn-success';
+      formBtn.onclick = qaOpenForm;
     }
   }
 }
 
+// ── BETWEEN SIMULATIONS VIEW ──────────────────────────────────────────────────
+function renderBetweenSimsOverview() {
+  const simIdx = activeSim ? allSims.findIndex(s => s.id === activeSim.id) : -1;
+  const nextSim = simIdx >= 0 ? allSims[simIdx + 1] : allSims[0];
+  const prevSim = simIdx > 0 ? allSims[simIdx - 1] : null;
+
+  // Semester progress arc
+  const totalSims = allSims.length;
+  const completedSims = allSims.filter((s, i) => {
+    const simSubs = allSubmissions.filter(x => x.simulation_id === s.id);
+    return simSubs.length > 0;
+  }).length;
+
+  // Brief prep status for next sim
+  let briefPrepHtml = '';
+  if (activeSim) {
+    const nextAssignments = allAssignments.filter(a => a.simulation_id === activeSim.id && a.released);
+    const briefOpened = nextAssignments.filter(a => a.brief_opened_at).length;
+    const notOpened = allStudents.filter(s => {
+      const asgn = nextAssignments.find(a => a.student_id === s.id);
+      return !asgn || !asgn.brief_opened_at;
+    });
+    briefPrepHtml = `<div class="card" style="margin-bottom:0">
+      <div class="card-title">Brief prep — ${activeSim.name}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="flex:1;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:#bf5700;border-radius:3px;width:${allStudents.length ? Math.round(briefOpened/allStudents.length*100) : 0}%;transition:width .3s"></div>
+        </div>
+        <span style="font-size:12px;color:#6b7280;flex-shrink:0">${briefOpened}/${allStudents.length} opened brief</span>
+      </div>
+      ${notOpened.length ? `<div style="font-size:12px;color:#374151;font-weight:600;margin-bottom:6px">Haven't opened brief:</div>
+      ${notOpened.slice(0,6).map(s => `<div style="font-size:12px;padding:3px 0;color:#6b7280;display:flex;align-items:center;gap:6px">
+        <span style="width:5px;height:5px;border-radius:50%;background:#f59e0b;flex-shrink:0;display:inline-block"></span>${s.name}
+      </div>`).join('')}
+      ${notOpened.length > 6 ? `<div style="font-size:11px;color:#9ca3af;margin-top:4px">+${notOpened.length-6} more</div>` : ''}` 
+      : '<div style="color:#16a34a;font-size:13px;font-weight:600">✓ All students have opened their brief</div>'}
+    </div>`;
+  }
+
+  const banner = document.getElementById('overview-sim-banner');
+  banner.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+      <div class="card" style="margin-bottom:0;background:linear-gradient(135deg,#1a1a1a,#222);color:#fff">
+        <div style="font-size:10px;font-weight:700;color:#bf5700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">Current simulation</div>
+        ${activeSim ? `
+          <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:4px">${activeSim.name}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.45)">${activeSim.type} · ${(activeSim.roles||[]).join(' vs ')}</div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" style="background:#bf5700;color:#fff;border:none" onclick="showSection('assignments')">👥 Manage assignments</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)" onclick="showSection('results')">📊 Results</button>
+          </div>` 
+        : `<div style="color:rgba(255,255,255,.5);font-size:13px">No simulation active</div>
+           <button class="btn btn-sm" style="background:#bf5700;color:#fff;border:none;margin-top:12px" onclick="showSection('simulations')">Set active simulation →</button>`}
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">Semester progress</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="flex:1;height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden">
+            <div style="height:100%;background:linear-gradient(90deg,#bf5700,#f59e0b);border-radius:4px;width:${totalSims ? Math.round(completedSims/totalSims*100) : 0}%"></div>
+          </div>
+          <span style="font-size:12px;color:#6b7280;flex-shrink:0">${completedSims}/${totalSims}</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${allSims.slice(0, 14).map((s, i) => {
+            const hasSubs = allSubmissions.filter(x => x.simulation_id === s.id).length > 0;
+            const isActive = s.id === activeSim?.id;
+            const bg = isActive ? '#bf5700' : hasSubs ? '#1a1a1a' : '#f3f4f6';
+            const color = isActive || hasSubs ? '#fff' : '#9ca3af';
+            const title = s.name;
+            return `<div title="${title}" style="width:18px;height:18px;border-radius:4px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:${color};cursor:default">${i+1}</div>`;
+          }).join('')}
+        </div>
+        ${nextSim ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid #f3f4f6;font-size:12px;color:#374151">
+          <span style="color:#9ca3af">Next: </span><span style="font-weight:600">${nextSim.name}</span>
+        </div>` : ''}
+      </div>
+    </div>
+    ${briefPrepHtml}`;
+
+  document.getElementById('overview-stats').innerHTML = '';
+  document.getElementById('overview-recent').innerHTML = '';
+
+  const formBtn = document.getElementById('ov-form-btn');
+  if (formBtn) {
+    if (activeSim?.submission_open) {
+      formBtn.textContent = '✕ Close results form';
+      formBtn.className = 'btn btn-danger';
+      formBtn.onclick = qaCloseForm;
+    } else {
+      formBtn.textContent = '✓ Open results form';
+      formBtn.className = 'btn btn-success';
+      formBtn.onclick = qaOpenForm;
+    }
+  }
+}
 // ── ROSTER ───────────────────────────────────────────────────────────────────
 function renderRoster() {
   const expected=instructor?.class_size||20;
@@ -1979,100 +2141,266 @@ function dbRenderClassCharts(body,subs,fields,dealField){
 
 let projChartIndex=0;
 let projCharts=[];
+let projShowPrivate=false;
 
-function buildProjCharts(sim,subs){
-  // Returns array of {label, render(container)} objects
+// ── Build chart sequence from simulation fields ───────────────────────────────
+function buildProjCharts(sim, subs){
   const charts=[];
-  const fields=sim.fields||[];
+  const allFields=sim.fields||[];
+  const publicFields=allFields.filter(f=>!f.id.startsWith('_')&&!f.private);
+  const privateFields=allFields.filter(f=>!f.id.startsWith('_')&&f.private);
+  const fieldsToShow=projShowPrivate?[...publicFields,...privateFields]:publicFields;
 
-  // Chart 1: Deal / No deal (if applicable)
-  const dealField=fields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
+  const dealField=fieldsToShow.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
+  const released=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
+
+  // ── Chart 1: Deal / No deal by group (always first) ──
   if(dealField){
-    const dealVals=subs.map(s=>s.form_data?.[dealField.id]);
     charts.push({
-      label:'Deal / No deal',
+      label:'Deal outcomes by group',
+      type:'groups',
       render:(c)=>{
-        const yes=dealVals.filter(v=>v==='Yes').length;
-        const no=dealVals.filter(v=>v==='No').length;
-        c.innerHTML='';
-        const canvas=document.createElement('canvas');
-        canvas.style.cssText='max-width:400px;max-height:300px;margin:0 auto;display:block';
-        c.appendChild(canvas);
-        setTimeout(()=>{
-          new Chart(canvas,{type:'doughnut',data:{
-            labels:['Deal ✓','No deal ✗'],
-            datasets:[{data:[yes,no],backgroundColor:['#4ade80','#f87171'],borderWidth:0}]
-          },options:{responsive:true,maintainAspectRatio:true,plugins:{
-            legend:{labels:{color:'#fff',font:{size:14}}},
-            tooltip:{callbacks:{label:(c)=>c.label+': '+c.parsed+' ('+Math.round(c.parsed/(yes+no)*100)+'%)'}}
-          }}});
-        },50);
+        const groups={};
+        released.forEach(a=>{
+          if(!groups[a.group_number])groups[a.group_number]=[];
+          const stu=allStudents.find(s=>s.id===a.student_id);
+          const sub=subs.find(s=>s.student_id===a.student_id);
+          groups[a.group_number].push({stu,asg:a,sub});
+        });
+        c.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding:8px">';
+        Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
+          const deal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes');
+          const noDeal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='No');
+          const pending=members.every(m=>!m.sub);
+          const borderColor=deal?'#4ade80':noDeal?'#f87171':'#555';
+          const outcomeText=deal?'✓ Deal':noDeal?'✗ No deal':'Pending';
+          const outcomeColor=deal?'#4ade80':noDeal?'#f87171':'#9ca3af';
+          const card=document.createElement('div');
+          card.style.cssText=`background:#1a1a1a;border:2px solid ${borderColor};border-radius:12px;padding:16px`;
+          card.innerHTML=`<div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Group ${gn}</div>
+            ${members.map(m=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222">
+              <div>
+                <div style="font-size:14px;font-weight:600;color:#fff">${m.stu?.name||'?'}</div>
+                <div style="font-size:11px;color:#9ca3af">${m.asg.role}</div>
+              </div>
+              <div style="font-size:13px;font-weight:700;color:${m.sub?'#ccc':'#555'}">${m.sub?'Submitted':'—'}</div>
+            </div>`).join('')}
+            <div style="margin-top:10px;font-size:16px;font-weight:800;color:${outcomeColor}">${outcomeText}</div>`;
+          c.querySelector('div').appendChild(card);
+        });
       }
     });
   }
 
-  // Charts for other radio fields
-  fields.filter(f=>f.type==='radio'&&f.id!==dealField?.id).forEach(f=>{
-    const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
+  // ── Chart 2: Price distribution by role (number fields) ──
+  const numFields=fieldsToShow.filter(f=>f.type==='number');
+  numFields.forEach(field=>{
+    const vals=subs.map(s=>{
+      const asg=released.find(a=>a.student_id===s.student_id);
+      const v=parseFloat(s.form_data?.[field.id]);
+      return isNaN(v)?null:{v,role:asg?.role||'',name:allStudents.find(x=>x.id===s.student_id)?.name||'?'};
+    }).filter(Boolean);
     if(!vals.length)return;
-    const counts={};
-    vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
+
     charts.push({
-      label:f.label||f.id,
+      label:field.label+(field.private?' 🔒':''),
+      type:'bar-by-role',
       render:(c)=>{
         c.innerHTML='';
+        const avg=Math.round(vals.reduce((a,b)=>a+b.v,0)/vals.length);
+        // Group by role for coloring
+        const roles=[...new Set(vals.map(v=>v.role))];
+        const ROLE_COLORS=['#bf5700','rgba(96,165,250,.85)','#4ade80','#f59e0b','#a78bfa'];
+        const colorMap={};
+        roles.forEach((r,i)=>colorMap[r]=ROLE_COLORS[i%ROLE_COLORS.length]);
+
         const canvas=document.createElement('canvas');
-        canvas.style.cssText='max-width:500px;max-height:300px;margin:0 auto;display:block';
+        canvas.style.cssText='max-width:700px;max-height:320px;margin:0 auto;display:block';
         c.appendChild(canvas);
-        const labels=Object.keys(counts);
+
+        // Avg label
+        const avgDiv=document.createElement('div');
+        avgDiv.style.cssText='text-align:center;margin-top:12px;font-size:14px;color:#9ca3af';
+        avgDiv.innerHTML=`Class average: <span style="color:#bf5700;font-weight:700;font-size:18px">${avg.toLocaleString()}</span>`;
+        c.appendChild(avgDiv);
+
+        // Role legend
+        if(roles.length>1){
+          const legend=document.createElement('div');
+          legend.style.cssText='display:flex;gap:16px;justify-content:center;margin-top:8px';
+          roles.forEach(r=>{ legend.innerHTML+=`<span style="font-size:12px;color:#9ca3af"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:4px"></span>${r}</span>`; });
+          c.appendChild(legend);
+        }
+
         setTimeout(()=>{
           new Chart(canvas,{type:'bar',data:{
-            labels,
-            datasets:[{data:labels.map(l=>counts[l]),backgroundColor:'#bf5700',borderRadius:6}]
-          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{
-            x:{ticks:{color:'#ccc',font:{size:13}}},
-            y:{ticks:{color:'#9ca3af',stepSize:1}}
+            labels:vals.map(v=>v.name.split(' ')[0]),
+            datasets:[{
+              data:vals.map(v=>v.v),
+              backgroundColor:vals.map(v=>colorMap[v.role]||'#bf5700'),
+              borderRadius:6,borderSkipped:false
+            }]
+          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},
+            annotation:{annotations:{avg:{type:'line',yMin:avg,yMax:avg,borderColor:'rgba(255,255,255,.4)',borderWidth:1,borderDash:[4,4]}}}
+          },scales:{
+            x:{ticks:{color:'#ccc',font:{size:12}}},
+            y:{ticks:{color:'#9ca3af'}}
           }}});
         },50);
       }
     });
   });
 
-  // Charts for number fields
-  fields.filter(f=>f.type==='number').forEach(f=>{
-    const vals=subs.map(s=>parseFloat(s.form_data?.[f.id])).filter(v=>!isNaN(v));
+  // ── Chart 3: Radio fields (deal field already done, skip it) ──
+  fieldsToShow.filter(f=>f.type==='radio'&&f.id!==dealField?.id).forEach(field=>{
+    const vals=subs.map(s=>s.form_data?.[field.id]).filter(Boolean);
     if(!vals.length)return;
+    const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
     charts.push({
-      label:f.label||f.id,
+      label:field.label+(field.private?' 🔒':''),
+      type:'radio-bar',
       render:(c)=>{
         c.innerHTML='';
         const canvas=document.createElement('canvas');
-        canvas.style.cssText='max-width:600px;max-height:280px;margin:0 auto;display:block';
+        canvas.style.cssText='max-width:600px;max-height:300px;margin:0 auto;display:block';
         c.appendChild(canvas);
-        const min=Math.min(...vals),max=Math.max(...vals);
-        const bins=5;
-        const step=(max-min)/bins||1;
-        const buckets=Array(bins).fill(0);
-        const labels=Array.from({length:bins},(_,i)=>Math.round(min+i*step)+'-'+Math.round(min+(i+1)*step));
-        vals.forEach(v=>{const i=Math.min(Math.floor((v-min)/step),bins-1);buckets[i]++;});
+        const labels=Object.keys(counts);
+        const total=vals.length;
         setTimeout(()=>{
           new Chart(canvas,{type:'bar',data:{
-            labels,datasets:[{data:buckets,backgroundColor:'rgba(191,87,0,0.7)',borderColor:'#bf5700',borderWidth:2,borderRadius:6}]
-          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{
-            x:{ticks:{color:'#ccc',font:{size:12}}},
-            y:{ticks:{color:'#9ca3af',stepSize:1}}
+            labels,
+            datasets:[{data:labels.map(l=>counts[l]),backgroundColor:'#bf5700',borderRadius:8,borderSkipped:false}]
+          },options:{responsive:true,maintainAspectRatio:true,plugins:{
+            legend:{display:false},
+            tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} of ${total} (${Math.round(ctx.parsed.y/total*100)}%)`}}
+          },scales:{
+            x:{ticks:{color:'#ccc',font:{size:14}}},
+            y:{ticks:{color:'#9ca3af',stepSize:1},max:Math.max(...Object.values(counts))+1}
           }}});
         },50);
       }
     });
   });
+
+  // ── Chart 4: Creative terms — show actual text as quotes ──
+  fieldsToShow.filter(f=>f.type==='textarea').forEach(field=>{
+    const responses=subs.map(s=>{
+      const v=s.form_data?.[field.id];
+      if(!v||v.trim().length<3)return null;
+      const stu=allStudents.find(x=>x.id===s.student_id);
+      const asg=released.find(a=>a.student_id===s.student_id);
+      return{text:v,name:stu?.name||'?',role:asg?.role||''};
+    }).filter(Boolean);
+    if(!responses.length)return;
+    charts.push({
+      label:field.label+(field.private?' 🔒':''),
+      type:'quotes',
+      render:(c)=>{
+        c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:8px">
+          ${responses.map(r=>`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:18px">
+            <div style="font-size:22px;color:#bf5700;margin-bottom:8px;line-height:1">"</div>
+            <div style="font-size:14px;color:#e5e7eb;line-height:1.6;margin-bottom:12px">${r.text}</div>
+            <div style="font-size:11px;color:#9ca3af;font-weight:600">${r.name} · ${r.role}</div>
+          </div>`).join('')}
+        </div>`;
+      }
+    });
+  });
+
+  // ── Chart 5: Group-by-group detail (all public answers) ──
+  charts.push({
+    label:'Group detail',
+    type:'group-detail',
+    render:(c)=>{
+      const groups={};
+      released.forEach(a=>{
+        if(!groups[a.group_number])groups[a.group_number]=[];
+        const stu=allStudents.find(s=>s.id===a.student_id);
+        const sub=subs.find(s=>s.student_id===a.student_id);
+        groups[a.group_number].push({stu,asg:a,sub});
+      });
+      const displayFields=fieldsToShow.filter(f=>f.type!=='textarea');
+      const headerCells=displayFields.map(f=>`<th style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:10px;text-transform:uppercase;letter-spacing:.06em;border:1px solid #333;max-width:120px">${(f.label||'').substring(0,16)}</th>`).join('');
+      const html=Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([gn,members])=>{
+        const deal=dealField?members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes'):null;
+        const outcomeColor=deal===true?'#4ade80':deal===false?'#f87171':'#9ca3af';
+        const outcomeText=deal===true?'✓ Deal':deal===false?'✗ No deal':'Pending';
+        const rows=members.map(m=>{
+          const fd=m.sub?.form_data||{};
+          const cells=displayFields.map(f=>{
+            const v=fd[f.id]||'—';
+            if(f.type==='radio'&&(f.options||[]).includes('Yes')){
+              const col=v==='Yes'?'#4ade80':v==='No'?'#f87171':'#9ca3af';
+              return`<td style="text-align:center;padding:8px;border:1px solid #2a2a2a;font-weight:700;color:${col}">${v}</td>`;
+            }
+            return`<td style="text-align:center;padding:8px;border:1px solid #2a2a2a;color:#d1d5db;font-size:12px">${String(v).substring(0,30)}</td>`;
+          }).join('');
+          return`<tr>
+            <td style="padding:10px 12px;border:1px solid #2a2a2a">
+              <div style="font-weight:700;color:#fff">${m.stu?.name||'?'}</div>
+              <div style="font-size:11px;color:#9ca3af">${m.asg.role}</div>
+            </td>${cells}
+          </tr>`;
+        }).join('');
+        return`<div style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#fff">Group ${gn}</div>
+            <span style="font-size:13px;font-weight:700;color:${outcomeColor}">${outcomeText}</span>
+          </div>
+          <div style="overflow-x:auto;border-radius:8px;border:1px solid #333">
+            <table style="width:100%;border-collapse:collapse">
+              <tr style="background:#222"><th style="padding:8px 12px;text-align:left;color:#9ca3af;font-size:11px;border:1px solid #333">Student</th>${headerCells}<th style="padding:8px 10px;color:#9ca3af;font-size:11px;border:1px solid #333">Status</th></tr>
+              ${rows}
+            </table>
+          </div>
+        </div>`;
+      }).join('');
+      c.innerHTML=html||'<div style="color:#555;text-align:center;padding:3rem">No groups yet.</div>';
+    }
+  });
+
+  // ── Chart 6: Private BATNA comparison (shown only if projShowPrivate) ──
+  if(projShowPrivate && privateFields.length){
+    privateFields.filter(f=>f.type==='number'||f.type==='text').forEach(field=>{
+      const byRole={};
+      subs.forEach(s=>{
+        const v=s.form_data?.[field.id];
+        if(!v)return;
+        const asg=released.find(a=>a.student_id===s.student_id);
+        const stu=allStudents.find(x=>x.id===s.student_id);
+        const role=asg?.role||'Unknown';
+        if(!byRole[role])byRole[role]=[];
+        byRole[role].push({name:stu?.name||'?',value:v});
+      });
+      if(!Object.keys(byRole).length)return;
+      charts.push({
+        label:`🔒 ${field.label} (private)`,
+        type:'private-compare',
+        render:(c)=>{
+          const roles=Object.keys(byRole);
+          c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(${roles.length},1fr);gap:20px;padding:8px">
+            ${roles.map(role=>{
+              const items=byRole[role];
+              return`<div style="background:#1a1a1a;border:1px solid #444;border-radius:10px;padding:16px">
+                <div style="font-size:12px;font-weight:700;color:#bf5700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">${role}</div>
+                ${items.map(item=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #222">
+                  <span style="font-size:13px;color:#fff">${item.name}</span>
+                  <span style="font-size:15px;font-weight:700;color:#fbbf24">${item.value}</span>
+                </div>`).join('')}
+              </div>`;
+            }).join('')}
+          </div>`;
+        }
+      });
+    });
+  }
 
   return charts;
 }
 
 function renderProjChart(){
   if(!projCharts.length){
-    document.getElementById('proj-charts').innerHTML='<div style="color:#9ca3af;text-align:center;padding:2rem">No chart data yet.</div>';
+    document.getElementById('proj-charts').innerHTML='<div style="color:#9ca3af;text-align:center;padding:3rem;font-size:16px">No submissions yet.</div>';
     document.getElementById('proj-chart-label').textContent='';
     document.getElementById('proj-chart-counter').textContent='';
     return;
@@ -2087,8 +2415,12 @@ function renderProjChart(){
   chart.render(container);
 }
 
-function projNextChart(){projChartIndex++;renderProjChart();}
-function projPrevChart(){projChartIndex--;renderProjChart();}
+function projNextChart(){
+  if(projChartIndex<projCharts.length-1){projChartIndex++;renderProjChart();}
+}
+function projPrevChart(){
+  if(projChartIndex>0){projChartIndex--;renderProjChart();}
+}
 
 function projToggleGroups(){
   const gs=document.getElementById('proj-groups-section');
@@ -2100,6 +2432,15 @@ function projToggleGroups(){
   btn.style.background=showing?'#333':'#bf5700';
 }
 
+function projTogglePrivate(){
+  projShowPrivate=!projShowPrivate;
+  const btn=document.getElementById('proj-private-btn');
+  if(btn){btn.style.background=projShowPrivate?'#fbbf24':'#333';btn.style.color=projShowPrivate?'#111':'#ccc';}
+  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
+  projCharts=buildProjCharts(activeSim,subs);
+  renderProjChart();
+}
+
 function buildProjGroups(sim,subs){
   const groups={};
   const released=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
@@ -2109,14 +2450,10 @@ function buildProjGroups(sim,subs){
     const sub=subs.find(s=>s.student_id===a.student_id);
     const dealField=(sim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
     const deal=sub?sub.form_data?.[dealField]:null;
-    const disputed=sub?.form_data?._disputed;
-    const confirmed=sub?.form_data?._confirmed;
-    groups[a.group_number].push({name:stu?.name||'Unknown',role:a.role,deal,sub,disputed,confirmed});
+    groups[a.group_number].push({name:stu?.name||'Unknown',role:a.role,deal,sub,disputed:sub?.form_data?._disputed,confirmed:sub?.form_data?._confirmed});
   });
-
   return Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([gn,members])=>{
-    const groupDeal=members.length>1&&members.every(m=>m.deal==='Yes')?'yes':
-                    members.some(m=>m.deal==='No')||members.some(m=>!m.sub)?'no':'pending';
+    const groupDeal=members.length>1&&members.every(m=>m.deal==='Yes')?'yes':members.some(m=>m.deal==='No')||members.some(m=>!m.sub)?'no':'pending';
     const borderColor=groupDeal==='yes'?'#4ade80':groupDeal==='no'?'#f87171':'#555';
     return`<div class="proj-group-card" style="border-color:${borderColor}">
       <div class="proj-group-num">Group ${gn} ${groupDeal==='yes'?'<span style="color:#4ade80">✓ Deal</span>':groupDeal==='no'?'<span style="color:#f87171">✗ No deal</span>':'<span style="color:#9ca3af">Pending</span>'}</div>
@@ -2126,8 +2463,7 @@ function buildProjGroups(sim,subs){
           <div class="proj-member-role">${m.role}</div>
         </div>
         <div style="text-align:right">
-          ${m.sub?`<div class="proj-member-deal ${m.deal==='Yes'?'proj-deal-yes':m.deal==='No'?'proj-deal-no':''}">${m.deal||'Submitted'}</div>`:
-            '<div style="color:#555;font-size:12px">No submission</div>'}
+          ${m.sub?`<div class="proj-member-deal ${m.deal==='Yes'?'proj-deal-yes':m.deal==='No'?'proj-deal-no':''}">${m.deal||'Submitted'}</div>`:'<div style="color:#555;font-size:12px">Pending</div>'}
           ${m.disputed?'<div class="proj-disputed">DISPUTED</div>':''}
           ${m.confirmed?'<div style="font-size:10px;color:#4ade80;font-weight:600">CONFIRMED</div>':''}
         </div>
@@ -2144,7 +2480,7 @@ function enterProjection(){
   const notSub=allStudents.filter(s=>!subs.find(x=>x.student_id===s.id)).length;
 
   document.getElementById('proj-title').textContent=activeSim.name;
-  document.getElementById('proj-sub').textContent=`${subs.length} submissions · ${deals} deals · ${notSub} not yet submitted`;
+  document.getElementById('proj-sub').textContent=`${subs.length} submissions · ${deals} deals · ${notSub} pending`;
 
   document.getElementById('proj-stats').innerHTML=[
     {v:subs.length,l:'Submitted'},
@@ -2153,21 +2489,40 @@ function enterProjection(){
     {v:notSub,l:'Pending'},
   ].map(s=>`<div class="proj-stat"><div class="proj-stat-val">${s.v}</div><div class="proj-stat-lbl">${s.l}</div></div>`).join('');
 
-  // Build charts
+  projShowPrivate=false;
   projCharts=buildProjCharts(activeSim,subs);
   projChartIndex=0;
   renderProjChart();
 
-  // Build groups
-  const groupsHtml=buildProjGroups(activeSim,subs);
-  document.getElementById('proj-groups-body').innerHTML=groupsHtml||'<div style="color:#9ca3af">No assignments released yet.</div>';
-
-  // Reset view to charts
+  document.getElementById('proj-groups-body').innerHTML=buildProjGroups(activeSim,subs)||'<div style="color:#9ca3af">No groups yet.</div>';
   document.getElementById('proj-main-section').style.display='block';
   document.getElementById('proj-groups-section').style.display='none';
   document.getElementById('proj-groups-btn').style.background='#333';
 
+  // Add private toggle button to nav
+  const nav=document.querySelector('.proj-nav');
+  let privBtn=document.getElementById('proj-private-btn');
+  if(!privBtn){
+    privBtn=document.createElement('button');
+    privBtn.id='proj-private-btn';
+    privBtn.className='proj-nav-btn';
+    privBtn.style.cssText='background:#333;color:#ccc;width:auto;padding:0 12px;font-size:11px;font-weight:600';
+    privBtn.textContent='🔒 Private';
+    privBtn.onclick=projTogglePrivate;
+    nav.insertBefore(privBtn, nav.lastElementChild);
+  }
+  privBtn.style.background='#333';
+  privBtn.style.color='#ccc';
+
   document.getElementById('projection-mode').classList.add('active');
+
+  // Keyboard navigation
+  window._projKeyHandler=(e)=>{
+    if(e.key==='ArrowRight'||e.key==='ArrowDown')projNextChart();
+    else if(e.key==='ArrowLeft'||e.key==='ArrowUp')projPrevChart();
+    else if(e.key==='Escape')exitProjection();
+  };
+  document.addEventListener('keydown',window._projKeyHandler);
 
   // Auto-refresh every 30s
   window._projRefresh=setInterval(async()=>{
@@ -2175,24 +2530,24 @@ function enterProjection(){
     const newSubs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
     const newDeals=newSubs.filter(s=>s.form_data?.[dealField]==='Yes').length;
     const newNotSub=allStudents.filter(s=>!newSubs.find(x=>x.student_id===s.id)).length;
-    document.getElementById('proj-sub').textContent=`${newSubs.length} submissions · ${newDeals} deals · ${newNotSub} not yet submitted`;
+    document.getElementById('proj-sub').textContent=`${newSubs.length} submissions · ${newDeals} deals · ${newNotSub} pending`;
     document.getElementById('proj-stats').innerHTML=[
-      {v:newSubs.length,l:'Submitted'},
-      {v:newDeals,l:'Deals'},
-      {v:newSubs.length?Math.round(newDeals/newSubs.length*100)+'%':'—',l:'Deal rate'},
-      {v:newNotSub,l:'Pending'},
+      {v:newSubs.length,l:'Submitted'},{v:newDeals,l:'Deals'},
+      {v:newSubs.length?Math.round(newDeals/newSubs.length*100)+'%':'—',l:'Deal rate'},{v:newNotSub,l:'Pending'},
     ].map(s=>`<div class="proj-stat"><div class="proj-stat-val">${s.v}</div><div class="proj-stat-lbl">${s.l}</div></div>`).join('');
     projCharts=buildProjCharts(activeSim,newSubs);
     renderProjChart();
-    document.getElementById('proj-groups-body').innerHTML=buildProjGroups(activeSim,newSubs)||'<div style="color:#9ca3af">No assignments released yet.</div>';
+    document.getElementById('proj-groups-body').innerHTML=buildProjGroups(activeSim,newSubs)||'<div style="color:#9ca3af">No groups yet.</div>';
   },30000);
 }
 
 function exitProjection(){
   clearInterval(window._projRefresh);
+  document.removeEventListener('keydown',window._projKeyHandler);
   document.getElementById('projection-mode').classList.remove('active');
   renderResults();
 }
+
 
 function exportCSV(){
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
@@ -3229,7 +3584,7 @@ async function generateAISummary(){
         'anthropic-dangerous-direct-browser-access':'true'
       },
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
+        model:'claude-haiku-4-5-20251001',
         max_tokens:1500,
         messages:[{role:'user',content:prompt}]
       })
