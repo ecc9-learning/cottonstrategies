@@ -479,7 +479,10 @@ textarea{resize:vertical;min-height:70px}
   <div class="proj-body">
     <div class="proj-stats-row" id="proj-stats"></div>
     <div class="proj-section" id="proj-main-section">
-      <div class="proj-section-title" id="proj-chart-label">Overview</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1rem">
+        <div class="proj-section-title" id="proj-chart-label" style="margin-bottom:0">Overview</div>
+        <div id="proj-chart-toolbar"></div>
+      </div>
       <div id="proj-charts"></div>
     </div>
     <div class="proj-section" id="proj-groups-section" style="display:none">
@@ -2143,6 +2146,17 @@ let projChartIndex=0;
 let projCharts=[];
 let projShowPrivate=false;
 
+// ── Chart controls: per-chart type override + global palette ──────────────────
+let projChartTypes={};  // {chartIndex: 'bar'|'donut'|'table'|'quotes'}
+const PROJ_PALETTES=[
+  {name:'Burnt orange (default)', c:['#bf5700','rgba(96,165,250,.85)','#4ade80','#f59e0b','#a78bfa','#f87171','#34d399']},
+  {name:'Academic blue',          c:['#1d4ed8','#7c3aed','#0891b2','#64748b','#d97706','#16a34a','#dc2626']},
+  {name:'High contrast',          c:['#f9fafb','#9ca3af','#4b5563','#d1d5db','#6b7280','#e5e7eb','#374151']},
+  {name:'Deal focused',           c:['#4ade80','#f87171','#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399']},
+  {name:'Monochrome',             c:['rgba(191,87,0,1)','rgba(191,87,0,.7)','rgba(191,87,0,.45)','rgba(191,87,0,.25)','#9ca3af','#6b7280','#4b5563']},
+];
+let projPaletteIdx=0;
+
 // ── Build chart sequence from simulation fields ───────────────────────────────
 function buildProjCharts(sim, subs){
   const charts=[];
@@ -2158,8 +2172,9 @@ function buildProjCharts(sim, subs){
   if(dealField){
     charts.push({
       label:'Deal outcomes by group',
-      type:'groups',
-      render:(c)=>{
+      chartType:'groups',
+      render:(c, palette, typeOverride)=>{
+        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
         const groups={};
         released.forEach(a=>{
           if(!groups[a.group_number])groups[a.group_number]=[];
@@ -2204,48 +2219,80 @@ function buildProjCharts(sim, subs){
 
     charts.push({
       label:field.label+(field.private?' 🔒':''),
-      type:'bar-by-role',
-      render:(c)=>{
+      chartType:'bar-by-role',
+      render:(c, palette, typeOverride)=>{
+        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
         c.innerHTML='';
         const avg=Math.round(vals.reduce((a,b)=>a+b.v,0)/vals.length);
-        // Group by role for coloring
         const roles=[...new Set(vals.map(v=>v.role))];
-        const ROLE_COLORS=['#bf5700','rgba(96,165,250,.85)','#4ade80','#f59e0b','#a78bfa'];
         const colorMap={};
-        roles.forEach((r,i)=>colorMap[r]=ROLE_COLORS[i%ROLE_COLORS.length]);
+        roles.forEach((r,i)=>colorMap[r]=palette[i%palette.length]);
 
+        if(typeOverride==='table'){
+          // Table view
+          const sorted=[...vals].sort((a,b)=>b.v-a.v);
+          c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">
+            <thead><tr style="background:#222">
+              <th style="padding:10px 14px;text-align:left;color:#9ca3af;border:1px solid #333">Student</th>
+              <th style="padding:10px 14px;text-align:left;color:#9ca3af;border:1px solid #333">Role</th>
+              <th style="padding:10px 14px;text-align:right;color:#9ca3af;border:1px solid #333">${field.label}</th>
+            </tr></thead>
+            <tbody>${sorted.map((v,i)=>`<tr>
+              <td style="padding:10px 14px;border:1px solid #2a2a2a;color:#fff;font-weight:600">${v.name}</td>
+              <td style="padding:10px 14px;border:1px solid #2a2a2a;color:#9ca3af">${v.role}</td>
+              <td style="padding:10px 14px;border:1px solid #2a2a2a;text-align:right;font-weight:700;color:${palette[0]};font-size:16px">${v.v.toLocaleString()}</td>
+            </tr>`).join('')}</tbody>
+            <tfoot><tr style="background:#1a1a1a">
+              <td colspan="2" style="padding:8px 14px;border:1px solid #333;color:#9ca3af;font-size:12px">Class average</td>
+              <td style="padding:8px 14px;border:1px solid #333;text-align:right;color:${palette[0]};font-weight:700">${avg.toLocaleString()}</td>
+            </tr></tfoot>
+          </table></div>`;
+          return;
+        }
+
+        if(typeOverride==='donut'){
+          // Donut: bucket into ranges
+          const mn=Math.min(...vals.map(v=>v.v)),mx=Math.max(...vals.map(v=>v.v));
+          const bucketCount=Math.min(5,vals.length);
+          const step=(mx-mn)/bucketCount||1;
+          const counts={};
+          vals.forEach(v=>{
+            const b=Math.floor((v.v-mn)/step);
+            const label=Math.round(mn+b*step).toLocaleString()+'–'+Math.round(mn+(b+1)*step).toLocaleString();
+            counts[label]=(counts[label]||0)+1;
+          });
+          const canvas=document.createElement('canvas');
+          canvas.style.cssText='max-width:400px;max-height:300px;margin:0 auto;display:block';
+          c.appendChild(canvas);
+          setTimeout(()=>{
+            new Chart(canvas,{type:'doughnut',data:{
+              labels:Object.keys(counts),
+              datasets:[{data:Object.values(counts),backgroundColor:palette.slice(0,Object.keys(counts).length),borderWidth:2,borderColor:'#111'}]
+            },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:'#ccc',font:{size:13}}}},cutout:'55%'}});
+          },50);
+          return;
+        }
+
+        // Default: bar chart
         const canvas=document.createElement('canvas');
         canvas.style.cssText='max-width:700px;max-height:320px;margin:0 auto;display:block';
         c.appendChild(canvas);
-
-        // Avg label
         const avgDiv=document.createElement('div');
         avgDiv.style.cssText='text-align:center;margin-top:12px;font-size:14px;color:#9ca3af';
-        avgDiv.innerHTML=`Class average: <span style="color:#bf5700;font-weight:700;font-size:18px">${avg.toLocaleString()}</span>`;
+        avgDiv.innerHTML=`Class average: <span style="color:${palette[0]};font-weight:700;font-size:18px">${avg.toLocaleString()}</span>`;
         c.appendChild(avgDiv);
-
-        // Role legend
         if(roles.length>1){
           const legend=document.createElement('div');
           legend.style.cssText='display:flex;gap:16px;justify-content:center;margin-top:8px';
-          roles.forEach(r=>{ legend.innerHTML+=`<span style="font-size:12px;color:#9ca3af"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:4px"></span>${r}</span>`; });
+          roles.forEach(r=>{legend.innerHTML+=`<span style="font-size:12px;color:#9ca3af"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:4px"></span>${r}</span>`;});
           c.appendChild(legend);
         }
-
         setTimeout(()=>{
           new Chart(canvas,{type:'bar',data:{
             labels:vals.map(v=>v.name.split(' ')[0]),
-            datasets:[{
-              data:vals.map(v=>v.v),
-              backgroundColor:vals.map(v=>colorMap[v.role]||'#bf5700'),
-              borderRadius:6,borderSkipped:false
-            }]
-          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},
-            annotation:{annotations:{avg:{type:'line',yMin:avg,yMax:avg,borderColor:'rgba(255,255,255,.4)',borderWidth:1,borderDash:[4,4]}}}
-          },scales:{
-            x:{ticks:{color:'#ccc',font:{size:12}}},
-            y:{ticks:{color:'#9ca3af'}}
-          }}});
+            datasets:[{data:vals.map(v=>v.v),backgroundColor:vals.map(v=>colorMap[v.role]||palette[0]),borderRadius:6,borderSkipped:false}]
+          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},
+            scales:{x:{ticks:{color:'#ccc',font:{size:12}}},y:{ticks:{color:'#9ca3af'}}}}});
         },50);
       }
     });
@@ -2258,18 +2305,48 @@ function buildProjCharts(sim, subs){
     const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
     charts.push({
       label:field.label+(field.private?' 🔒':''),
-      type:'radio-bar',
-      render:(c)=>{
+      chartType:'radio-bar',
+      render:(c, palette, typeOverride)=>{
+        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
         c.innerHTML='';
+        const labels=Object.keys(counts);
+        const total=vals.length;
+
+        if(typeOverride==='table'){
+          c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:15px">
+            <thead><tr style="background:#222">
+              <th style="padding:10px 14px;text-align:left;color:#9ca3af;border:1px solid #333">${field.label}</th>
+              <th style="padding:10px 14px;text-align:center;color:#9ca3af;border:1px solid #333">Count</th>
+              <th style="padding:10px 14px;text-align:center;color:#9ca3af;border:1px solid #333">%</th>
+            </tr></thead>
+            <tbody>${labels.map((l,i)=>`<tr>
+              <td style="padding:12px 14px;border:1px solid #2a2a2a;color:#fff;font-weight:600;font-size:15px">${l}</td>
+              <td style="padding:12px 14px;border:1px solid #2a2a2a;text-align:center;font-weight:800;color:${palette[i%palette.length]};font-size:22px">${counts[l]}</td>
+              <td style="padding:12px 14px;border:1px solid #2a2a2a;text-align:center;color:#9ca3af">${Math.round(counts[l]/total*100)}%</td>
+            </tr>`).join('')}</tbody>
+          </table></div>`;
+          return;
+        }
+
         const canvas=document.createElement('canvas');
         canvas.style.cssText='max-width:600px;max-height:300px;margin:0 auto;display:block';
         c.appendChild(canvas);
-        const labels=Object.keys(counts);
-        const total=vals.length;
+
+        if(typeOverride==='donut'){
+          setTimeout(()=>{
+            new Chart(canvas,{type:'doughnut',data:{
+              labels:labels.map(l=>l+' ('+counts[l]+')'),
+              datasets:[{data:labels.map(l=>counts[l]),backgroundColor:palette.slice(0,labels.length),borderWidth:2,borderColor:'#111'}]
+            },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:'#ccc',font:{size:14}}}},cutout:'50%'}});
+          },50);
+          return;
+        }
+
+        // Default: bar
         setTimeout(()=>{
           new Chart(canvas,{type:'bar',data:{
             labels,
-            datasets:[{data:labels.map(l=>counts[l]),backgroundColor:'#bf5700',borderRadius:8,borderSkipped:false}]
+            datasets:[{data:labels.map(l=>counts[l]),backgroundColor:palette[0],borderRadius:8,borderSkipped:false}]
           },options:{responsive:true,maintainAspectRatio:true,plugins:{
             legend:{display:false},
             tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} of ${total} (${Math.round(ctx.parsed.y/total*100)}%)`}}
@@ -2294,11 +2371,20 @@ function buildProjCharts(sim, subs){
     if(!responses.length)return;
     charts.push({
       label:field.label+(field.private?' 🔒':''),
-      type:'quotes',
-      render:(c)=>{
+      chartType:'quotes',
+      render:(c, palette, typeOverride)=>{
+        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
+        if(typeOverride==='list'){
+          c.innerHTML='<div style="display:flex;flex-direction:column;gap:12px;padding:8px">'+
+            responses.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;padding:12px;background:#1a1a1a;border-radius:8px;border-left:3px solid ${palette[i%palette.length]}">
+              <div style="flex:1;font-size:15px;color:#e5e7eb;line-height:1.6">${r.text}</div>
+              <div style="font-size:11px;color:#9ca3af;font-weight:600;white-space:nowrap;padding-top:2px">${r.name}<br>${r.role}</div>
+            </div>`).join('')+'</div>';
+          return;
+        }
         c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:8px">
-          ${responses.map(r=>`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:18px">
-            <div style="font-size:22px;color:#bf5700;margin-bottom:8px;line-height:1">"</div>
+          ${responses.map((r,i)=>`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:18px;border-top:3px solid ${palette[i%palette.length]}">
+            <div style="font-size:22px;color:${palette[0]};margin-bottom:8px;line-height:1">"</div>
             <div style="font-size:14px;color:#e5e7eb;line-height:1.6;margin-bottom:12px">${r.text}</div>
             <div style="font-size:11px;color:#9ca3af;font-weight:600">${r.name} · ${r.role}</div>
           </div>`).join('')}
@@ -2310,8 +2396,9 @@ function buildProjCharts(sim, subs){
   // ── Chart 5: Group-by-group detail (all public answers) ──
   charts.push({
     label:'Group detail',
-    type:'group-detail',
-    render:(c)=>{
+    chartType:'group-detail',
+    render:(c, palette, typeOverride)=>{
+      palette=palette||PROJ_PALETTES[projPaletteIdx].c;
       const groups={};
       released.forEach(a=>{
         if(!groups[a.group_number])groups[a.group_number]=[];
@@ -2375,8 +2462,9 @@ function buildProjCharts(sim, subs){
       if(!Object.keys(byRole).length)return;
       charts.push({
         label:`🔒 ${field.label} (private)`,
-        type:'private-compare',
-        render:(c)=>{
+        chartType:'private-compare',
+        render:(c, palette, typeOverride)=>{
+          palette=palette||PROJ_PALETTES[projPaletteIdx].c;
           const roles=Object.keys(byRole);
           c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(${roles.length},1fr);gap:20px;padding:8px">
             ${roles.map(role=>{
@@ -2403,6 +2491,7 @@ function renderProjChart(){
     document.getElementById('proj-charts').innerHTML='<div style="color:#9ca3af;text-align:center;padding:3rem;font-size:16px">No submissions yet.</div>';
     document.getElementById('proj-chart-label').textContent='';
     document.getElementById('proj-chart-counter').textContent='';
+    renderProjToolbar(null);
     return;
   }
   projChartIndex=Math.max(0,Math.min(projChartIndex,projCharts.length-1));
@@ -2412,7 +2501,61 @@ function renderProjChart(){
   const container=document.getElementById('proj-charts');
   Object.values(activeCharts).forEach(c=>{try{c.destroy();}catch(e){}});
   activeCharts={};
-  chart.render(container);
+  // Pass current palette colors and any type override to render()
+  const palette=PROJ_PALETTES[projPaletteIdx].c;
+  const typeOverride=projChartTypes[projChartIndex]||null;
+  chart.render(container, palette, typeOverride);
+  renderProjToolbar(chart);
+}
+
+function renderProjToolbar(chart){
+  const toolbar=document.getElementById('proj-chart-toolbar');
+  if(!toolbar)return;
+
+  // Palette swatches
+  const swatches=PROJ_PALETTES.map((p,i)=>`
+    <button onclick="setProjPalette(${i})" title="${p.name}"
+      style="width:20px;height:20px;border-radius:50%;padding:0;border:2px solid ${i===projPaletteIdx?'#fff':'transparent'};
+        background:${p.c[0]};cursor:pointer;transition:border .15s;flex-shrink:0"></button>`).join('');
+
+  // Chart type buttons — only show for charts that support multiple types
+  let typeHtml='';
+  if(chart){
+    const typeOverride=projChartTypes[projChartIndex]||null;
+    const types=[];
+    if(chart.chartType==='bar-by-role'||chart.chartType==='radio-bar'){
+      types.push({v:null,l:'Bar'},{v:'donut',l:'Donut'},{v:'table',l:'Table'});
+    } else if(chart.chartType==='groups'){
+      types.push({v:null,l:'Cards'},{v:'table',l:'Table'});
+    } else if(chart.chartType==='quotes'){
+      types.push({v:null,l:'Quotes'},{v:'list',l:'List'});
+    }
+    if(types.length>1){
+      typeHtml='<div style="display:flex;gap:3px;background:#1a1a1a;border-radius:6px;padding:3px;margin-right:8px">'+
+        types.map(t=>`<button onclick="setProjType(${JSON.stringify(t.v)})"
+          style="padding:4px 11px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;
+            background:${typeOverride===t.v?'#bf5700':'transparent'};color:${typeOverride===t.v?'#fff':'#9ca3af'};transition:all .15s">${t.l}</button>`).join('')+
+      '</div>';
+    }
+  }
+
+  toolbar.innerHTML=`<div style="display:flex;align-items:center;gap:6px">
+    ${typeHtml}
+    <div style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:#1a1a1a;border-radius:6px">
+      <span style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-right:2px">Color</span>
+      ${swatches}
+    </div>
+  </div>`;
+}
+
+function setProjPalette(idx){
+  projPaletteIdx=idx;
+  renderProjChart();
+}
+
+function setProjType(typeVal){
+  projChartTypes[projChartIndex]=typeVal;
+  renderProjChart();
 }
 
 function projNextChart(){
@@ -2490,6 +2633,7 @@ function enterProjection(){
   ].map(s=>`<div class="proj-stat"><div class="proj-stat-val">${s.v}</div><div class="proj-stat-lbl">${s.l}</div></div>`).join('');
 
   projShowPrivate=false;
+  projChartTypes={};
   projCharts=buildProjCharts(activeSim,subs);
   projChartIndex=0;
   renderProjChart();
