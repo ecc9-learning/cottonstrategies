@@ -5,53 +5,127 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cotton Strategies — Negotiation Class</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f8f7f5;
+  --navy:#0f1e3c;
+  --navy-2:#162447;
+  --navy-3:#1e3a6e;
+  --bg:#f4f6fa;
   --surface:#ffffff;
-  --border:#e8e3dc;
-  --text:#1a1a1a;
-  --text-secondary:#6b6560;
+  --border:#dde3ef;
+  --text:#0f1e3c;
+  --text-2:#2d3e5f;
+  --text-3:#546a8f;
   --accent:#bf5700;
   --accent-hover:#a84a00;
-  --blue:#2563eb;
-  --radius:12px;
-  --shadow:0 2px 12px rgba(0,0,0,.07);
+  --green:#0d7c4b;
+  --red:#c0392b;
+  --radius:14px;
+  --shadow:0 2px 4px rgba(15,30,60,.07),0 8px 24px rgba(15,30,60,.08);
 }
-body{background:var(--bg);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column}
-nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between}
-.nav-logo{font-family:'Playfair Display',serif;font-size:15px;font-weight:500;color:var(--text);letter-spacing:.01em}
-.nav-logo span{color:var(--accent);font-style:italic}
-.nav-sub{font-size:12px;color:var(--text-secondary)}
-main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px}
-.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:36px 32px;width:100%;max-width:420px}
-.card-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px}
-.card-sub{font-size:13px;color:var(--text-secondary);margin-bottom:28px;line-height:1.5}
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px}
-.tab{flex:1;padding:10px;font-size:13px;font-weight:500;color:var(--text-secondary);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+body{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 40%,#1a2f5a 100%);
+  font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  min-height:100vh;display:flex;flex-direction:column;
+  position:relative;
+}
+body::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 60% at 50% 120%,rgba(191,87,0,.15),transparent);
+  pointer-events:none;
+}
+nav{
+  background:rgba(255,255,255,.06);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  padding:0 28px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:relative;z-index:1;
+}
+.nav-logo{
+  font-family:'Playfair Display',serif;
+  font-size:15px;font-weight:600;color:#fff;letter-spacing:.01em;
+  display:flex;align-items:center;gap:7px;
+}
+.nav-logo::before{content:'';width:5px;height:5px;border-radius:50%;background:#bf5700;display:inline-block}
+.nav-logo span{color:#ffab66;font-style:italic}
+.nav-sub{font-size:12px;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif}
+main{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:32px 16px;position:relative;z-index:1;
+}
+.card{
+  background:var(--surface);border-radius:var(--radius);
+  border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:36px 32px;width:100%;max-width:420px;
+  border-top:3px solid var(--accent);
+}
+.card-title{
+  font-family:'Playfair Display',serif;
+  font-size:22px;font-weight:700;color:var(--text);
+  margin-bottom:4px;letter-spacing:-.01em;
+}
+.card-sub{font-size:13px;color:var(--text-3);margin-bottom:28px;line-height:1.55}
 .split-btns{display:flex;gap:8px;margin-bottom:24px}
-.split-btn{flex:1;padding:11px;font-size:14px;font-weight:600;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;background:#fff;color:var(--text-secondary);transition:all .15s;font-family:inherit}
-.split-btn:hover{border-color:var(--accent);color:var(--accent)}
-.split-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.split-btn{
+  flex:1;padding:11px;font-size:13.5px;font-weight:600;
+  border:1.5px solid var(--border);border-radius:9px;
+  cursor:pointer;background:#fff;color:var(--text-3);
+  transition:all .15s;font-family:'DM Sans',sans-serif;
+}
+.split-btn:hover{border-color:var(--navy-3);color:var(--navy-3)}
+.split-btn.active{
+  background:var(--navy-3);color:#fff;border-color:var(--navy-3);
+  box-shadow:0 2px 8px rgba(30,58,110,.2);
+}
 .field{margin-bottom:16px}
-.field label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.field input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);background:var(--surface);transition:border .15s;outline:none}
-.field input:focus{border-color:var(--accent)}
-.btn{width:100%;padding:12px;font-size:14px;font-weight:600;border:none;border-radius:8px;cursor:pointer;transition:all .15s}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:var(--accent-hover)}
-.btn-primary:disabled{background:#d1cfc9;cursor:not-allowed}
-.msg{font-size:13px;text-align:center;margin-top:14px;min-height:18px;line-height:1.5}
-.msg.error{color:#dc2626}
-.msg.success{color:#16a34a}
-.link{color:var(--accent);cursor:pointer;text-decoration:underline;font-size:13px}
-.divider{text-align:center;margin:16px 0;font-size:12px;color:var(--text-secondary)}
-footer{text-align:center;padding:16px;font-size:12px;color:var(--text-secondary)}
-.pin-hint{font-size:11px;color:var(--text-secondary);margin-top:4px}
-.info-box{background:#fdf8f4;border:1px solid #f0e6d8;border-radius:8px;padding:12px 14px;font-size:13px;color:#7c5a3a;margin-bottom:20px;line-height:1.5}
+.field label{
+  display:block;font-size:10.5px;font-weight:700;
+  color:var(--text-3);text-transform:uppercase;
+  letter-spacing:.08em;margin-bottom:7px;
+  font-family:'Space Grotesk',sans-serif;
+}
+.field input{
+  width:100%;padding:11px 14px;
+  border:1.5px solid var(--border);border-radius:9px;
+  font-size:14px;color:var(--text);background:var(--surface);
+  transition:border .15s,box-shadow .15s;outline:none;
+  font-family:'DM Sans',sans-serif;
+}
+.field input:focus{
+  border-color:var(--navy-3);
+  box-shadow:0 0 0 3px rgba(30,58,110,.1);
+}
+.btn{
+  width:100%;padding:13px;font-size:14px;font-weight:700;
+  border:none;border-radius:9px;cursor:pointer;transition:all .15s;
+  font-family:'DM Sans',sans-serif;letter-spacing:.01em;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--navy-3),var(--navy));
+  color:#fff;box-shadow:0 2px 8px rgba(15,30,60,.18);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(15,30,60,.25)}
+.btn-primary:disabled{background:#c8d0e4;cursor:not-allowed;transform:none;box-shadow:none}
+.msg{font-size:13px;text-align:center;margin-top:14px;min-height:18px;line-height:1.5;border-radius:7px;padding:0}
+.msg.error{color:var(--red);background:#fdf0ef;border:1px solid #f5b8b3;padding:10px 14px}
+.msg.success{color:var(--green);background:#e6f7ef;border:1px solid #a3d9be;padding:10px 14px}
+.link{color:var(--accent);cursor:pointer;text-decoration:underline;font-size:13px;font-weight:500}
+.divider{text-align:center;margin:16px 0;font-size:12px;color:var(--text-3)}
+.pin-hint{font-size:11px;color:var(--text-3);margin-top:4px;line-height:1.4}
+.info-box{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;font-size:13px;
+  color:var(--text-2);margin-bottom:20px;line-height:1.5;
+}
+footer{
+  text-align:center;padding:16px;
+  font-size:12px;color:rgba(255,255,255,.25);
+  position:relative;z-index:1;
+  font-family:'Space Grotesk',sans-serif;
+}
 </style>
 </head>
 <body>
@@ -70,14 +144,14 @@ footer{text-align:center;padding:16px;font-size:12px;color:var(--text-secondary)
 
     <!-- REGISTER -->
     <div id="pane-register">
-      <div class="info-box">You'll need the <strong>class access code</strong> from Canvas to register.</div>
+      <div class="info-box">📋 You'll need the <strong>class access code</strong> from your instructor to register.</div>
       <div class="field"><label>Full name</label><input type="text" id="r-name" placeholder="First Last" autocomplete="name"></div>
       <div class="field"><label>Email address</label><input type="email" id="r-email" placeholder="you@utexas.edu" autocomplete="email"></div>
       <div class="field"><label>Class access code</label><input type="text" id="r-code" placeholder="e.g. NEGLAW26" autocomplete="off" style="text-transform:uppercase"></div>
       <div class="field">
         <label>Choose a PIN</label>
         <input type="password" id="r-pin" placeholder="4+ characters" autocomplete="new-password">
-        <div class="pin-hint">Choose something you'll remember — you'll use this all semester.</div>
+        <div class="pin-hint">Choose something memorable — you'll use this all semester.</div>
       </div>
       <div class="field"><label>Confirm PIN</label><input type="password" id="r-pin2" placeholder="Repeat PIN" autocomplete="new-password"></div>
       <button class="btn btn-primary" id="r-btn" onclick="doRegister()">Create account</button>
@@ -96,11 +170,14 @@ footer{text-align:center;padding:16px;font-size:12px;color:var(--text-secondary)
 
     <!-- FORGOT PIN -->
     <div id="pane-forgot" style="display:none">
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Enter your email and choose a new PIN. You'll need the class access code to verify.</div>
+      <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;line-height:1.55">Enter your email and choose a new PIN. You'll need the class access code to verify.</div>
       <div class="field"><label>Email address</label><input type="email" id="f-email" placeholder="you@utexas.edu"></div>
       <div class="field"><label>New PIN</label><input type="password" id="f-pin" placeholder="Choose a new PIN"></div>
       <div class="field"><label>Confirm new PIN</label><input type="password" id="f-pin2" placeholder="Repeat PIN"></div>
-      <div class="field"><label>Class access code <span style="font-weight:400;text-transform:none;font-size:11px">(to verify you're in the class)</span></label><input type="text" id="f-code" placeholder="Class access code" style="text-transform:uppercase"></div>
+      <div class="field">
+        <label>Class access code <span style="font-weight:400;text-transform:none;font-size:11px">(to verify you're in the class)</span></label>
+        <input type="text" id="f-code" placeholder="Class access code" style="text-transform:uppercase">
+      </div>
       <button class="btn btn-primary" id="f-btn" onclick="doForgot()">Reset PIN</button>
       <div class="msg" id="f-msg"></div>
       <div style="text-align:center;margin-top:12px"><span class="link" onclick="switchTab('login')">← Back to login</span></div>
@@ -133,7 +210,7 @@ function switchTab(t){
   ['register','login','forgot'].forEach(id=>{
     document.getElementById('pane-'+id).style.display=id===t?'block':'none';
     const btn=document.getElementById('tab-'+id);
-    if(btn) btn.classList.toggle('active',id===t);
+    if(btn)btn.classList.toggle('active',id===t);
   });
 }
 
@@ -145,32 +222,47 @@ async function doRegister(){
   const pin2=document.getElementById('r-pin2').value;
   const msg=document.getElementById('r-msg');
   const btn=document.getElementById('r-btn');
+
+  msg.className='msg';msg.textContent='';
   if(!name||!email||!code||!pin){msg.className='msg error';msg.textContent='Please fill in all fields.';return;}
   if(pin!==pin2){msg.className='msg error';msg.textContent='PINs do not match.';return;}
   if(pin.length<4){msg.className='msg error';msg.textContent='PIN must be at least 4 characters.';return;}
-  btn.disabled=true;btn.textContent='Creating account…';msg.textContent='';
-  // Verify access code
+
+  btn.disabled=true;btn.textContent='Creating account…';
+
+  // Verify access code against DB
   const instrR=await sb('instructors?select=id,access_code&limit=1');
-  if(!instrR.ok||!instrR.data?.length){msg.className='msg error';msg.textContent='Could not verify access code. Try again.';btn.disabled=false;btn.textContent='Create account';return;}
+  if(!instrR.ok||!instrR.data?.length){
+    msg.className='msg error';msg.textContent='Could not connect. Please try again.';
+    btn.disabled=false;btn.textContent='Create account';return;
+  }
   const validCode=(instrR.data[0].access_code||'NEGLAW26').toUpperCase();
-  if(code!==validCode){msg.className='msg error';msg.textContent='Incorrect access code. Check Canvas for the class code.';btn.disabled=false;btn.textContent='Create account';return;}
-  // Check duplicate email
-  const dup=await sb('students?email=eq.'+encodeURIComponent(email)+'&is_archived=eq.false&select=id');
-  if(dup.ok&&dup.data?.length){msg.className='msg error';msg.textContent='An account with that email already exists. Log in instead.';btn.disabled=false;btn.textContent='Create account';return;}
-  // Assign anon number
-  const existing=await sb('students?is_archived=eq.false&select=anon_number&order=anon_number.asc');
+  if(code!==validCode){
+    msg.className='msg error';msg.textContent='Incorrect access code. Check with your instructor.';
+    btn.disabled=false;btn.textContent='Create account';return;
+  }
+
+  // Assign anon number (gap-filling)
+  const existing=await sb('students?select=anon_number&order=anon_number.asc');
   let anonNum=1;
   if(existing.ok&&existing.data?.length){
     const used=existing.data.map(s=>s.anon_number).filter(Boolean);
     while(used.includes(anonNum))anonNum++;
   }
+
   const hash=await hashPin(pin);
-  const res=await sb('students',{method:'POST',body:JSON.stringify({name,email,pin_hash:hash,anon_number:anonNum,is_archived:false}),prefer:'return=representation'});
+  const res=await sb('students',{
+    method:'POST',
+    body:JSON.stringify({name,email,pin_hash:hash,anon_number:anonNum,is_archived:false}),
+    prefer:'return=representation'
+  });
+
   if(res.ok&&res.data?.[0]){
     localStorage.setItem('neg_student_id',res.data[0].id);
     window.location.href='/student.html';
   } else {
-    msg.className='msg error';msg.textContent='Registration failed. Please try again.';
+    msg.className='msg error';
+    msg.textContent='Registration failed. Please try again.';
     btn.disabled=false;btn.textContent='Create account';
   }
 }
@@ -180,8 +272,11 @@ async function doLogin(){
   const pin=document.getElementById('l-pin').value;
   const msg=document.getElementById('l-msg');
   const btn=document.getElementById('l-btn');
+
+  msg.className='msg';msg.textContent='';
   if(!email||!pin){msg.className='msg error';msg.textContent='Please enter your email and PIN.';return;}
-  btn.disabled=true;btn.textContent='Logging in…';msg.textContent='';
+
+  btn.disabled=true;btn.textContent='Logging in…';
   const hash=await hashPin(pin);
   const r=await sb('students?email=eq.'+encodeURIComponent(email)+'&pin_hash=eq.'+hash+'&is_archived=eq.false&select=id,name');
   if(r.ok&&r.data?.length){
@@ -200,26 +295,37 @@ async function doForgot(){
   const code=document.getElementById('f-code').value.trim().toUpperCase();
   const msg=document.getElementById('f-msg');
   const btn=document.getElementById('f-btn');
+
+  msg.className='msg';msg.textContent='';
   if(!email||!pin||!pin2||!code){msg.className='msg error';msg.textContent='Please fill in all fields.';return;}
   if(pin!==pin2){msg.className='msg error';msg.textContent='PINs do not match.';return;}
   if(pin.length<4){msg.className='msg error';msg.textContent='PIN must be at least 4 characters.';return;}
-  btn.disabled=true;btn.textContent='Resetting…';msg.textContent='';
+
+  btn.disabled=true;btn.textContent='Resetting…';
   const instrR=await sb('instructors?select=access_code&limit=1');
-  if(!instrR.ok||!instrR.data?.length){msg.className='msg error';msg.textContent='Could not verify. Try again.';btn.disabled=false;btn.textContent='Reset PIN';return;}
+  if(!instrR.ok||!instrR.data?.length){
+    msg.className='msg error';msg.textContent='Could not verify. Try again.';
+    btn.disabled=false;btn.textContent='Reset PIN';return;
+  }
   const validCode=(instrR.data[0].access_code||'NEGLAW26').toUpperCase();
-  if(code!==validCode){msg.className='msg error';msg.textContent='Incorrect access code.';btn.disabled=false;btn.textContent='Reset PIN';return;}
+  if(code!==validCode){
+    msg.className='msg error';msg.textContent='Incorrect access code.';
+    btn.disabled=false;btn.textContent='Reset PIN';return;
+  }
   const stuR=await sb('students?email=eq.'+encodeURIComponent(email)+'&is_archived=eq.false&select=id');
-  if(!stuR.ok||!stuR.data?.length){msg.className='msg error';msg.textContent='No account found with that email.';btn.disabled=false;btn.textContent='Reset PIN';return;}
+  if(!stuR.ok||!stuR.data?.length){
+    msg.className='msg error';msg.textContent='No active account found with that email.';
+    btn.disabled=false;btn.textContent='Reset PIN';return;
+  }
   const hash=await hashPin(pin);
   const upR=await sb('students?id=eq.'+stuR.data[0].id,{method:'PATCH',body:JSON.stringify({pin_hash:hash}),prefer:'return=minimal'});
   if(upR.ok){
-    msg.className='msg success';msg.textContent='PIN reset successfully. You can now log in.';
-    btn.disabled=false;btn.textContent='Reset PIN';
+    msg.className='msg success';msg.textContent='PIN reset successfully. Logging you in…';
     setTimeout(()=>switchTab('login'),1500);
   } else {
     msg.className='msg error';msg.textContent='Reset failed. Please try again.';
-    btn.disabled=false;btn.textContent='Reset PIN';
   }
+  btn.disabled=false;btn.textContent='Reset PIN';
 }
 
 // Auto-redirect if already logged in
