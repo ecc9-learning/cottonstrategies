@@ -727,9 +727,8 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
         <div class="section-title">
           Results
           <div class="btn-row">
-            <button class="btn btn-primary btn-sm" onclick="enterDebriefMode()">🎓 Debrief view</button>
-            <button class="btn btn-outline btn-sm" onclick="enterProjection()">📡 Live results</button>
-            <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+            <button class="btn btn-primary btn-sm" onclick="enterPresentMode()">✦ Present</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">↓ Export CSV</button>
           </div>
         </div>
         <div id="results-body"></div>
@@ -805,53 +804,43 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
   <div class="modal" id="modal-content"></div>
 </div>
 
-<!-- PROJECTION -->
-<div class="projection-mode" id="projection-mode">
-  <div class="proj-header">
-    <div>
-      <div class="proj-title-text" id="proj-title">Results</div>
-      <div class="proj-sub" id="proj-sub"></div>
-    </div>
-    <div class="proj-nav">
-      <button class="proj-nav-btn" onclick="projPrevChart()" title="Previous chart">‹</button>
-      <span id="proj-chart-counter" style="font-size:12px;color:#9ca3af;min-width:50px;text-align:center"></span>
-      <button class="proj-nav-btn" onclick="projNextChart()" title="Next chart">›</button>
-      <button class="proj-nav-btn" onclick="projToggleGroups()" title="Group view" id="proj-groups-btn" style="width:auto;padding:0 12px;font-size:12px">Groups</button>
-      <button class="proj-nav-btn" style="background:#dc2626;width:auto;padding:0 14px;font-size:12px;font-weight:600" onclick="exitProjection()">✕ Exit</button>
-    </div>
-  </div>
-  <div class="proj-body">
-    <div class="proj-stats-row" id="proj-stats"></div>
-    <div class="proj-section" id="proj-main-section">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1rem">
-        <div class="proj-section-title" id="proj-chart-label" style="margin-bottom:0">Overview</div>
-        <div id="proj-chart-toolbar"></div>
+<!-- PRESENT MODE — unified debrief/projection -->
+<div id="present-mode" style="display:none;position:fixed;inset:0;z-index:999;font-family:'DM Sans',-apple-system,sans-serif">
+
+  <!-- Background: deep editorial navy with texture -->
+  <div style="position:absolute;inset:0;background:linear-gradient(160deg,#06111f 0%,#0a1a32 50%,#0d1f3c 100%)"></div>
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 120% 80% at 20% 0%,rgba(191,87,0,.06),transparent),radial-gradient(ellipse 80% 60% at 80% 100%,rgba(30,58,110,.2),transparent);pointer-events:none"></div>
+
+  <!-- TOP BAR -->
+  <div id="pm-topbar" style="position:absolute;top:0;left:0;right:0;height:52px;background:rgba(6,17,31,.85);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:10">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div>
+        <div id="pm-title" style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:#fff;letter-spacing:-.01em"></div>
+        <div id="pm-sub" style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px;font-family:'Space Grotesk',sans-serif;letter-spacing:.04em"></div>
       </div>
-      <div id="proj-charts"></div>
     </div>
-    <div class="proj-section" id="proj-groups-section" style="display:none">
-      <div class="proj-section-title">Group results</div>
-      <div class="proj-group-grid" id="proj-groups-body"></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="pm-private-btn" onclick="pmTogglePrivate()" style="padding:5px 14px;font-size:11px;font-weight:700;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);cursor:pointer;letter-spacing:.04em;transition:all .2s;font-family:'Space Grotesk',sans-serif">🔒 PRIVATE</button>
+      <button onclick="pmExit()" style="padding:5px 16px;font-size:11px;font-weight:700;border:none;border-radius:6px;background:#c0392b;color:#fff;cursor:pointer;letter-spacing:.04em;font-family:'Space Grotesk',sans-serif">✕ EXIT</button>
     </div>
   </div>
+
+  <!-- BODY: sidebar + main -->
+  <div style="position:absolute;top:52px;bottom:0;left:0;right:0;display:flex">
+
+    <!-- LEFT SIDEBAR: navigation list -->
+    <div id="pm-sidebar" style="width:240px;flex-shrink:0;overflow-y:auto;border-right:1px solid rgba(255,255,255,.06);padding:16px 0;background:rgba(6,17,31,.6);backdrop-filter:blur(8px)">
+      <div id="pm-nav-list"></div>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div id="pm-main" style="flex:1;overflow-y:auto;padding:32px 40px;position:relative"></div>
+  </div>
+
+  <!-- KEYBOARD HINT -->
+  <div style="position:absolute;bottom:14px;right:20px;font-size:10px;color:rgba(255,255,255,.18);font-family:'Space Grotesk',sans-serif;letter-spacing:.06em;pointer-events:none">← → NAVIGATE &nbsp;·&nbsp; ESC EXIT</div>
 </div>
 
-<!-- DEBRIEF MODE OVERLAY -->
-<div id="debrief-overlay" style="display:none;position:fixed;inset:0;background:#0f0f0f;z-index:999;overflow:auto;font-family:'DM Sans',-apple-system,sans-serif;color:#fff">
-  <div style="background:#171717;border-bottom:1px solid #333;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10">
-    <div>
-      <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700" id="db-title">Debrief</div>
-      <div style="font-size:12px;color:#9ca3af;margin-top:2px" id="db-sub"></div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="dbShowView('overview')" id="db-btn-overview" style="background:#bf5700;border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Overview</button>
-      <button onclick="dbShowView('groups')" id="db-btn-groups" style="background:#333;border:none;color:#ccc;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Groups</button>
-      <button onclick="dbShowView('class')" id="db-btn-class" style="background:#333;border:none;color:#ccc;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Class charts</button>
-      <button onclick="exitDebriefMode()" style="background:#dc2626;border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">✕ Exit</button>
-    </div>
-  </div>
-  <div id="db-body" style="padding:24px 28px;max-width:1100px;margin:0 auto"></div>
-</div>
 
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
@@ -1120,7 +1109,7 @@ function renderGameDayOverview(subs, released) {
                <button class="btn btn-sm" style="background:rgba(220,38,38,.8);color:#fff;border:none" onclick="qaCloseForm()">Close form</button>`
             : `<span style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600">Form closed</span>
                <button class="btn btn-sm" style="background:#bf5700;color:#fff;border:none" onclick="qaOpenForm()">Open form</button>`}
-          <button class="btn btn-sm" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.15)" onclick="enterDebriefMode()">🎓 Debrief view</button>
+          <button class="btn btn-sm" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.15)" onclick="enterPresentMode()">✦ Present</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem">
@@ -2166,141 +2155,29 @@ function buildHist(container,id,title,vals,color){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DEBRIEF MODE
+// PRESENT MODE — unified debrief / presentation
 // ══════════════════════════════════════════════════════════════════════════════
-let _dbView='overview';
-let _dbCharts={};
 
-function enterDebriefMode(){
-  if(!activeSim){alert('No active simulation.');return;}
-  document.getElementById('debrief-overlay').style.display='block';
-  document.getElementById('db-title').textContent=activeSim.name+' — Debrief';
+let pmItems=[];          // [{type:'group'|'chart', id, label, data}]
+let pmIndex=0;           // current item index
+let pmShowPrivate=false;
+let pmEditValues={};     // session-only edits: {submissionId_fieldId: value}
+let pmChartTypes={};     // {itemIndex: 'bar'|'donut'|'table'}
+let pmPaletteIdx=0;
+let pmActiveCharts={};   // Chart.js instances to destroy
+
+const PM_PALETTES=[
+  {name:'Navy & orange', c:['#bf5700','#4a90d9','#5ee0a8','#f59e0b','#a78bfa','#ff8a80','#34d399']},
+  {name:'Deep slate',    c:['#7eb8ff','#3d5278','#546a8f','#4a90d9','#1e3a6e','#0d7c4b','#9a6800']},
+  {name:'High contrast', c:['#ffffff','#d1d9f0','#8fa3c0','#546a8f','#3d5278','#1e3a6e','#0f1e3c']},
+  {name:'Deal focus',    c:['#5ee0a8','#ff8a80','#fbbf24','#7eb8ff','#a78bfa','#f472b6','#34d399']},
+  {name:'Monochrome',    c:['#bf5700','rgba(191,87,0,.75)','rgba(191,87,0,.5)','rgba(191,87,0,.3)','#8fa3c0','#546a8f','#3d5278']},
+];
+
+// ── Build the item list from current sim ──────────────────────────────────────
+function pmBuildItems(){
+  if(!activeSim) return [];
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
-  document.getElementById('db-sub').textContent=subs.length+' submissions · '+allStudents.length+' students';
-  dbShowView('overview');
-}
-
-function exitDebriefMode(){
-  document.getElementById('debrief-overlay').style.display='none';
-  Object.values(_dbCharts).forEach(c=>{try{c.destroy();}catch(e){}});
-  _dbCharts={};
-}
-
-function dbShowView(view){
-  _dbView=view;
-  // Update button states
-  ['overview','groups','class'].forEach(v=>{
-    const btn=document.getElementById('db-btn-'+v);
-    if(btn)btn.style.background=v===view?'#bf5700':'#333';
-    if(btn)btn.style.color=v===view?'#fff':'#ccc';
-  });
-  Object.values(_dbCharts).forEach(c=>{try{c.destroy();}catch(e){}});
-  _dbCharts={};
-  const body=document.getElementById('db-body');
-  body.innerHTML='';
-  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
-  const publicFields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_')&&!f.private);
-  const dealField=publicFields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
-
-  if(view==='overview') dbRenderOverview(body,subs,publicFields,dealField);
-  else if(view==='groups') dbRenderGroups(body,subs,publicFields,dealField);
-  else if(view==='class') dbRenderClassCharts(body,subs,publicFields,dealField);
-}
-
-function dbRenderOverview(body,subs,fields,dealField){
-  const deals=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='Yes').length:0;
-  const noDeals=dealField?subs.filter(s=>s.form_data?.[dealField.id]==='No').length:0;
-  const dealRate=subs.length?Math.round(deals/subs.length*100):0;
-
-  // ── Key stats ──
-  body.innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
-    ${[
-      {v:subs.length+'/'+allStudents.length,l:'Submitted'},
-      {v:deals,l:'Deals reached'},
-      {v:noDeals,l:'No deal'},
-      {v:dealRate+'%',l:'Deal rate'},
-    ].map(s=>`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:16px;text-align:center">
-      <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:${s.l==='Deals reached'?'#4ade80':s.l==='No deal'?'#f87171':'#fff'}">${s.v}</div>
-      <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-top:4px">${s.l}</div>
-    </div>`).join('')}
-  </div>`;
-
-  // ── Deal/No deal doughnut ──
-  if(dealField&&subs.length){
-    const chartDiv=document.createElement('div');
-    chartDiv.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px';
-    body.appendChild(chartDiv);
-
-    // Doughnut
-    const d1=document.createElement('div');
-    d1.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
-    d1.innerHTML='<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:16px">Deal outcome</div><canvas id="db-deal-chart" style="max-height:220px"></canvas>';
-    chartDiv.appendChild(d1);
-    setTimeout(()=>{
-      const ctx=document.getElementById('db-deal-chart');
-      if(ctx)_dbCharts['deal']=new Chart(ctx,{type:'doughnut',data:{
-        labels:['Deal ✓','No deal ✗'],
-        datasets:[{data:[deals,noDeals],backgroundColor:['#4ade80','#f87171'],borderWidth:0,hoverOffset:4}]
-      },options:{plugins:{legend:{labels:{color:'#ccc',font:{size:13}}}},cutout:'65%'}});
-    },50);
-
-    // First numeric field chart
-    const numField=fields.find(f=>f.type==='number');
-    if(numField){
-      const d2=document.createElement('div');
-      d2.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
-      d2.innerHTML=`<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:16px">${numField.label}</div><canvas id="db-num-chart" style="max-height:220px"></canvas>`;
-      chartDiv.appendChild(d2);
-      const vals=subs.map(s=>parseFloat(s.form_data?.[numField.id])).filter(v=>!isNaN(v));
-      if(vals.length){
-        const min=Math.min(...vals),max=Math.max(...vals);
-        const bins=Math.min(6,vals.length);
-        const step=bins>1?(max-min)/bins:1;
-        const buckets=Array(bins).fill(0);
-        const labels=Array.from({length:bins},(_,i)=>step?Math.round(min+i*step)+'':String(min));
-        vals.forEach(v=>{const i=Math.min(Math.floor((v-min)/(step||1)),bins-1);buckets[i]++;});
-        setTimeout(()=>{
-          const ctx=document.getElementById('db-num-chart');
-          if(ctx)_dbCharts['num']=new Chart(ctx,{type:'bar',data:{
-            labels,datasets:[{data:buckets,backgroundColor:'#bf5700',borderRadius:4,borderSkipped:false}]
-          },options:{plugins:{legend:{display:false}},scales:{
-            x:{ticks:{color:'#9ca3af'},grid:{color:'#222'}},
-            y:{ticks:{color:'#9ca3af',stepSize:1},grid:{color:'#222'}}
-          }}});
-        },50);
-      }
-    }
-  }
-
-  // ── Radio field breakdowns ──
-  const radioFields=fields.filter(f=>f.type==='radio'&&f.id!==dealField?.id);
-  if(radioFields.length){
-    const rGrid=document.createElement('div');
-    rGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px';
-    body.appendChild(rGrid);
-    radioFields.forEach((f,i)=>{
-      const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
-      if(!vals.length)return;
-      const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
-      const div=document.createElement('div');
-      div.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:16px';
-      div.innerHTML=`<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:12px">${f.label}</div><canvas id="db-radio-${i}" style="max-height:160px"></canvas>`;
-      rGrid.appendChild(div);
-      setTimeout(()=>{
-        const ctx=document.getElementById('db-radio-'+i);
-        if(ctx)_dbCharts['r'+i]=new Chart(ctx,{type:'bar',data:{
-          labels:Object.keys(counts),
-          datasets:[{data:Object.values(counts),backgroundColor:'rgba(191,87,0,0.8)',borderRadius:4,borderSkipped:false}]
-        },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{
-          x:{ticks:{color:'#9ca3af',stepSize:1},grid:{color:'#222'}},
-          y:{ticks:{color:'#ccc'}}
-        }}});
-      },60+i*20);
-    });
-  }
-}
-
-function dbRenderGroups(body,subs,fields,dealField){
   const released=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
   const groups={};
   released.forEach(a=>{
@@ -2310,732 +2187,557 @@ function dbRenderGroups(body,subs,fields,dealField){
     groups[a.group_number].push({stu,asg:a,sub});
   });
 
-  const displayFields=fields.filter(f=>f.type!=='textarea');
-  const headerRow='<tr style="background:#222"><th style="padding:8px 12px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border:1px solid #333">Student / Role</th>'+
-    displayFields.map(f=>`<th style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border:1px solid #333;max-width:120px">${(f.label||'').substring(0,18)}</th>`).join('')+
-    '<th style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border:1px solid #333">Status</th></tr>';
+  const items=[];
 
-  const html=Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([gn,members])=>{
-    // Determine group outcome
-    const submitted=members.filter(m=>m.sub).length;
-    const deals=dealField?members.filter(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes').length:0;
-    const outcome=submitted===0?'pending':deals>0?'deal':'nodeal';
-    const outcomeColor=outcome==='deal'?'#4ade80':outcome==='nodeal'?'#f87171':'#9ca3af';
-    const outcomeLabel=outcome==='deal'?'✓ Deal':outcome==='nodeal'?'✗ No deal':'Pending';
-
-    const rows=members.map(m=>{
-      const fd=m.sub?.form_data||{};
-      const cells=displayFields.map(f=>{
-        const v=fd[f.id]||'—';
-        if(f.type==='radio'&&(f.options||[]).includes('Yes')){
-          const c=v==='Yes'?'#4ade80':v==='No'?'#f87171':'#9ca3af';
-          return`<td style="text-align:center;padding:8px 10px;border:1px solid #2a2a2a;font-weight:700;color:${c}">${v}</td>`;
-        }
-        return`<td style="text-align:center;padding:8px 10px;border:1px solid #2a2a2a;font-size:13px;color:#d1d5db">${v}</td>`;
-      }).join('');
-      const statusBadge=m.sub?.form_data?._confirmed?'<span style="color:#4ade80;font-size:11px">✓✓ Confirmed</span>':
-        m.sub?.form_data?._disputed?'<span style="color:#f87171;font-size:11px">⚠ Disputed</span>':
-        m.sub?'<span style="color:#9ca3af;font-size:11px">Submitted</span>':
-        '<span style="color:#555;font-size:11px">Pending</span>';
-      return`<tr style="border-bottom:1px solid #222">
-        <td style="padding:10px 12px;border:1px solid #2a2a2a">
-          <div style="font-weight:700;font-size:13px">${m.stu?.name||'Unknown'}</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:1px">${m.asg.role}</div>
-        </td>
-        ${cells}
-        <td style="text-align:center;padding:8px 10px;border:1px solid #2a2a2a">${statusBadge}</td>
-      </tr>`;
-    }).join('');
-
-    return`<div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#fff">Group ${gn}</div>
-        <span style="font-size:13px;font-weight:700;color:${outcomeColor}">${outcomeLabel}</span>
-        <span style="font-size:12px;color:#555">${submitted}/${members.length} submitted</span>
-      </div>
-      <div style="overflow-x:auto;border-radius:8px;border:1px solid #333">
-        <table style="width:100%;border-collapse:collapse">${headerRow}${rows}</table>
-      </div>
-    </div>`;
-  }).join('');
-
-  body.innerHTML=html||'<div style="color:#555;text-align:center;padding:3rem">No groups assigned yet.</div>';
-}
-
-function dbRenderClassCharts(body,subs,fields,dealField){
-  if(!subs.length){body.innerHTML='<div style="color:#555;text-align:center;padding:3rem">No submissions yet.</div>';return;}
-
-  // ── First offer vs final price scatter (if both numeric fields exist) ──
-  const priceField=fields.find(f=>f.type==='number'&&(f.label||'').toLowerCase().includes('final'));
-  const firstOfferField=fields.find(f=>f.type==='number'&&(f.label||'').toLowerCase().includes('first'));
-
-  let chartCount=0;
-  const grid=document.createElement('div');
-  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px';
-  body.appendChild(grid);
-
-  // Chart: Deal distribution by group
-  if(dealField){
-    const released=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
-    const groupNums=[...new Set(released.map(a=>a.group_number))].sort((a,b)=>a-b);
-    const groupDeals=groupNums.map(gn=>{
-      const members=released.filter(a=>a.group_number===gn);
-      const groupSubs=members.map(m=>subs.find(s=>s.student_id===m.student_id)).filter(Boolean);
-      return groupSubs.some(s=>s.form_data?.[dealField.id]==='Yes')?1:groupSubs.length?0:null;
-    }).filter(v=>v!==null);
-    const dealCount=groupDeals.filter(v=>v===1).length;
-    const noDealCount=groupDeals.filter(v=>v===0).length;
-
-    const d=document.createElement('div');
-    d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
-    d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:4px">Deals by group</div>
-      <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">${dealCount} of ${groupNums.length} groups reached a deal</div>
-      <canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
-    grid.appendChild(d);
-    const cid='db-cls-'+(chartCount++);
-    setTimeout(()=>{
-      const ctx=document.getElementById(cid);
-      if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'doughnut',data:{
-        labels:['Deals ('+dealCount+')','No deal ('+noDealCount+')'],
-        datasets:[{data:[dealCount,noDealCount],backgroundColor:['#4ade80','#f87171'],borderWidth:0}]
-      },options:{plugins:{legend:{labels:{color:'#ccc'}}},cutout:'60%'}});
-    },50);
-  }
-
-  // Chart: Final price distribution (if field exists)
-  if(priceField){
-    const vals=subs.map(s=>parseFloat(s.form_data?.[priceField.id])).filter(v=>!isNaN(v)&&v>0);
-    if(vals.length>1){
-      const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
-      const d=document.createElement('div');
-      d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
-      d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:4px">${priceField.label}</div>
-        <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">Class average: <strong style="color:#bf5700">${avg.toLocaleString()}</strong></div>
-        <canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
-      grid.appendChild(d);
-      const cid='db-cls-'+(chartCount++);
-      const asgns=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
-      const labels=subs.map(s=>{
-        const asg=asgns.find(a=>a.student_id===s.student_id);
-        const stu=allStudents.find(x=>x.id===s.student_id);
-        return(stu?.name||'?').split(' ')[0]+(asg?' ('+asg.role.split(' ')[0]+')':'');
-      });
-      const colors=subs.map(s=>{
-        const asg=asgns.find(a=>a.student_id===s.student_id);
-        return asg?.role.toLowerCase().includes('buyer')?'rgba(96,165,250,.8)':'rgba(191,87,0,.8)';
-      });
-      setTimeout(()=>{
-        const ctx=document.getElementById(cid);
-        if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'bar',data:{
-          labels,datasets:[{data:vals,backgroundColor:colors,borderRadius:4,borderSkipped:false}]
-        },options:{plugins:{
-          legend:{display:false},
-          annotation:{annotations:{avg:{type:'line',yMin:avg,yMax:avg,borderColor:'#fff',borderWidth:1,borderDash:[4,4],label:{display:true,content:'Avg: '+avg,color:'#fff',font:{size:10}}}}}
-        },scales:{
-          x:{ticks:{color:'#9ca3af',font:{size:10}},grid:{color:'#222'}},
-          y:{ticks:{color:'#9ca3af'},grid:{color:'#222'}}
-        }}});
-      },60);
-    }
-  }
-
-  // Chart: First offer vs final price scatter
-  if(priceField&&firstOfferField){
-    const pairs=subs.map(s=>{
-      const fo=parseFloat(s.form_data?.[firstOfferField.id]);
-      const fp=parseFloat(s.form_data?.[priceField.id]);
-      return(!isNaN(fo)&&!isNaN(fp))?{x:fo,y:fp}:null;
-    }).filter(Boolean);
-    if(pairs.length>1){
-      const d=document.createElement('div');
-      d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
-      d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:4px">First offer vs. final price</div>
-        <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">Anchoring effect — does your first offer predict the outcome?</div>
-        <canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
-      grid.appendChild(d);
-      const cid='db-cls-'+(chartCount++);
-      setTimeout(()=>{
-        const ctx=document.getElementById(cid);
-        if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'scatter',data:{
-          datasets:[{data:pairs,backgroundColor:'rgba(191,87,0,.7)',pointRadius:6,pointHoverRadius:8}]
-        },options:{plugins:{legend:{display:false}},scales:{
-          x:{title:{display:true,text:'First offer',color:'#9ca3af'},ticks:{color:'#9ca3af'},grid:{color:'#222'}},
-          y:{title:{display:true,text:'Final price',color:'#9ca3af'},ticks:{color:'#9ca3af'},grid:{color:'#222'}}
-        }}});
-      },70);
-    }
-  }
-
-  // Charts for remaining radio fields
-  const radioFields=fields.filter(f=>f.type==='radio'&&f.id!==dealField?.id);
-  radioFields.forEach((f,i)=>{
-    const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
-    if(!vals.length)return;
-    const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
-    const d=document.createElement('div');
-    d.style.cssText='background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:20px';
-    d.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:14px">${f.label}</div><canvas id="db-cls-${chartCount}" style="max-height:200px"></canvas>`;
-    grid.appendChild(d);
-    const cid='db-cls-'+(chartCount++);
-    setTimeout(()=>{
-      const ctx=document.getElementById(cid);
-      if(ctx)_dbCharts[cid]=new Chart(ctx,{type:'doughnut',data:{
-        labels:Object.keys(counts).map(k=>k+' ('+counts[k]+')'),
-        datasets:[{data:Object.values(counts),backgroundColor:['#bf5700','rgba(191,87,0,.4)','#555','#777'],borderWidth:0}]
-      },options:{plugins:{legend:{labels:{color:'#ccc',font:{size:12}}}},cutout:'50%'}});
-    },80+i*20);
+  // Group items first
+  Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
+    items.push({type:'group',id:'group-'+gn,label:'Group '+gn,groupNum:parseInt(gn),members});
   });
-}
 
-let projChartIndex=0;
-let projCharts=[];
-let projShowPrivate=false;
-
-// ── Chart controls: per-chart type override + global palette ──────────────────
-let projChartTypes={};  // {chartIndex: 'bar'|'donut'|'table'|'quotes'}
-const PROJ_PALETTES=[
-  {name:'Navy & orange (default)', c:['#bf5700','#4a90d9','#5ee0a8','#f59e0b','#a78bfa','#ff8a80','#34d399']},
-  {name:'Deep blue slate',         c:['#1e3a6e','#3d5278','#546a8f','#7eb8ff','#4a90d9','#0d7c4b','#9a6800']},
-  {name:'High contrast white',     c:['#ffffff','#d1d9f0','#8fa3c0','#546a8f','#3d5278','#1e3a6e','#0f1e3c']},
-  {name:'Deal focused',            c:['#5ee0a8','#ff8a80','#fbbf24','#7eb8ff','#a78bfa','#f472b6','#34d399']},
-  {name:'Monochrome orange',       c:['#bf5700','rgba(191,87,0,.75)','rgba(191,87,0,.5)','rgba(191,87,0,.3)','#8fa3c0','#546a8f','#3d5278']},
-];
-let projPaletteIdx=0;
-
-// ── Build chart sequence from simulation fields ───────────────────────────────
-function buildProjCharts(sim, subs){
-  const charts=[];
-  const allFields=sim.fields||[];
+  // Then chart items
+  const allFields=activeSim.fields||[];
   const publicFields=allFields.filter(f=>!f.id.startsWith('_')&&!f.private);
   const privateFields=allFields.filter(f=>!f.id.startsWith('_')&&f.private);
-  const fieldsToShow=projShowPrivate?[...publicFields,...privateFields]:publicFields;
-
+  const fieldsToShow=pmShowPrivate?[...publicFields,...privateFields]:publicFields;
   const dealField=fieldsToShow.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
-  const released=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
 
-  // ── Chart 1: Deal / No deal by group (always first) ──
-  if(dealField){
-    charts.push({
-      label:'Deal outcomes by group',
-      chartType:'groups',
-      render:(c, palette, typeOverride)=>{
-        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
-        const groups={};
-        released.forEach(a=>{
-          if(!groups[a.group_number])groups[a.group_number]=[];
-          const stu=allStudents.find(s=>s.id===a.student_id);
-          const sub=subs.find(s=>s.student_id===a.student_id);
-          groups[a.group_number].push({stu,asg:a,sub});
-        });
-        c.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding:8px">';
-        Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
-          const deal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes');
-          const noDeal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='No');
-          const pending=members.every(m=>!m.sub);
-          const borderColor=deal?'#4ade80':noDeal?'#f87171':'#555';
-          const outcomeText=deal?'✓ Deal':noDeal?'✗ No deal':'Pending';
-          const outcomeColor=deal?'#4ade80':noDeal?'#f87171':'#9ca3af';
-          const card=document.createElement('div');
-          card.style.cssText=`background:#1a1a1a;border:2px solid ${borderColor};border-radius:12px;padding:16px`;
-          card.innerHTML=`<div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Group ${gn}</div>
-            ${members.map(m=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222">
-              <div>
-                <div style="font-size:14px;font-weight:600;color:#fff">${m.stu?.name||'?'}</div>
-                <div style="font-size:11px;color:#9ca3af">${m.asg.role}</div>
-              </div>
-              <div style="font-size:13px;font-weight:700;color:${m.sub?'#ccc':'#555'}">${m.sub?'Submitted':'—'}</div>
-            </div>`).join('')}
-            <div style="margin-top:10px;font-size:16px;font-weight:800;color:${outcomeColor}">${outcomeText}</div>`;
-          c.querySelector('div').appendChild(card);
-        });
-      }
-    });
+  // Deal outcomes chart
+  if(dealField&&subs.length){
+    items.push({type:'chart',chartType:'deal',id:'chart-deal',label:'Deal outcomes',dealField,subs,groups,released});
   }
 
-  // ── Chart 2: Price distribution by role (number fields) ──
-  const numFields=fieldsToShow.filter(f=>f.type==='number');
-  numFields.forEach(field=>{
+  // Numeric fields
+  fieldsToShow.filter(f=>f.type==='number').forEach(f=>{
     const vals=subs.map(s=>{
       const asg=released.find(a=>a.student_id===s.student_id);
-      const v=parseFloat(s.form_data?.[field.id]);
-      return isNaN(v)?null:{v,role:asg?.role||'',name:allStudents.find(x=>x.id===s.student_id)?.name||'?'};
+      const v=parseFloat(s.form_data?.[f.id]);
+      return isNaN(v)?null:{v,role:asg?.role||'',name:allStudents.find(x=>x.id===s.student_id)?.name||'?',subId:s.id};
     }).filter(Boolean);
-    if(!vals.length)return;
-
-    charts.push({
-      label:field.label+(field.private?' 🔒':''),
-      chartType:'bar-by-role',
-      render:(c, palette, typeOverride)=>{
-        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
-        c.innerHTML='';
-        const avg=Math.round(vals.reduce((a,b)=>a+b.v,0)/vals.length);
-        const roles=[...new Set(vals.map(v=>v.role))];
-        const colorMap={};
-        roles.forEach((r,i)=>colorMap[r]=palette[i%palette.length]);
-
-        if(typeOverride==='table'){
-          // Table view
-          const sorted=[...vals].sort((a,b)=>b.v-a.v);
-          c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">
-            <thead><tr style="background:#222">
-              <th style="padding:10px 14px;text-align:left;color:#9ca3af;border:1px solid #333">Student</th>
-              <th style="padding:10px 14px;text-align:left;color:#9ca3af;border:1px solid #333">Role</th>
-              <th style="padding:10px 14px;text-align:right;color:#9ca3af;border:1px solid #333">${field.label}</th>
-            </tr></thead>
-            <tbody>${sorted.map((v,i)=>`<tr>
-              <td style="padding:10px 14px;border:1px solid #2a2a2a;color:#fff;font-weight:600">${v.name}</td>
-              <td style="padding:10px 14px;border:1px solid #2a2a2a;color:#9ca3af">${v.role}</td>
-              <td style="padding:10px 14px;border:1px solid #2a2a2a;text-align:right;font-weight:700;color:${palette[0]};font-size:16px">${v.v.toLocaleString()}</td>
-            </tr>`).join('')}</tbody>
-            <tfoot><tr style="background:#1a1a1a">
-              <td colspan="2" style="padding:8px 14px;border:1px solid #333;color:#9ca3af;font-size:12px">Class average</td>
-              <td style="padding:8px 14px;border:1px solid #333;text-align:right;color:${palette[0]};font-weight:700">${avg.toLocaleString()}</td>
-            </tr></tfoot>
-          </table></div>`;
-          return;
-        }
-
-        if(typeOverride==='donut'){
-          // Donut: bucket into ranges
-          const mn=Math.min(...vals.map(v=>v.v)),mx=Math.max(...vals.map(v=>v.v));
-          const bucketCount=Math.min(5,vals.length);
-          const step=(mx-mn)/bucketCount||1;
-          const counts={};
-          vals.forEach(v=>{
-            const b=Math.floor((v.v-mn)/step);
-            const label=Math.round(mn+b*step).toLocaleString()+'–'+Math.round(mn+(b+1)*step).toLocaleString();
-            counts[label]=(counts[label]||0)+1;
-          });
-          const canvas=document.createElement('canvas');
-          canvas.style.cssText='max-width:400px;max-height:300px;margin:0 auto;display:block';
-          c.appendChild(canvas);
-          setTimeout(()=>{
-            new Chart(canvas,{type:'doughnut',data:{
-              labels:Object.keys(counts),
-              datasets:[{data:Object.values(counts),backgroundColor:palette.slice(0,Object.keys(counts).length),borderWidth:2,borderColor:'#111'}]
-            },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:'#ccc',font:{size:13}}}},cutout:'55%'}});
-          },50);
-          return;
-        }
-
-        // Default: bar chart
-        const canvas=document.createElement('canvas');
-        canvas.style.cssText='max-width:700px;max-height:320px;margin:0 auto;display:block';
-        c.appendChild(canvas);
-        const avgDiv=document.createElement('div');
-        avgDiv.style.cssText='text-align:center;margin-top:12px;font-size:14px;color:#9ca3af';
-        avgDiv.innerHTML=`Class average: <span style="color:${palette[0]};font-weight:700;font-size:18px">${avg.toLocaleString()}</span>`;
-        c.appendChild(avgDiv);
-        if(roles.length>1){
-          const legend=document.createElement('div');
-          legend.style.cssText='display:flex;gap:16px;justify-content:center;margin-top:8px';
-          roles.forEach(r=>{legend.innerHTML+=`<span style="font-size:12px;color:#9ca3af"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:4px"></span>${r}</span>`;});
-          c.appendChild(legend);
-        }
-        setTimeout(()=>{
-          new Chart(canvas,{type:'bar',data:{
-            labels:vals.map(v=>v.name.split(' ')[0]),
-            datasets:[{data:vals.map(v=>v.v),backgroundColor:vals.map(v=>colorMap[v.role]||palette[0]),borderRadius:6,borderSkipped:false}]
-          },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},
-            scales:{x:{ticks:{color:'#ccc',font:{size:12}}},y:{ticks:{color:'#9ca3af'}}}}});
-        },50);
-      }
-    });
+    if(vals.length) items.push({type:'chart',chartType:'number',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,vals,subs,released,private:f.private});
   });
 
-  // ── Chart 3: Radio fields (deal field already done, skip it) ──
-  fieldsToShow.filter(f=>f.type==='radio'&&f.id!==dealField?.id).forEach(field=>{
-    const vals=subs.map(s=>s.form_data?.[field.id]).filter(Boolean);
-    if(!vals.length)return;
-    const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
-    charts.push({
-      label:field.label+(field.private?' 🔒':''),
-      chartType:'radio-bar',
-      render:(c, palette, typeOverride)=>{
-        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
-        c.innerHTML='';
-        const labels=Object.keys(counts);
-        const total=vals.length;
-
-        if(typeOverride==='table'){
-          c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:15px">
-            <thead><tr style="background:#222">
-              <th style="padding:10px 14px;text-align:left;color:#9ca3af;border:1px solid #333">${field.label}</th>
-              <th style="padding:10px 14px;text-align:center;color:#9ca3af;border:1px solid #333">Count</th>
-              <th style="padding:10px 14px;text-align:center;color:#9ca3af;border:1px solid #333">%</th>
-            </tr></thead>
-            <tbody>${labels.map((l,i)=>`<tr>
-              <td style="padding:12px 14px;border:1px solid #2a2a2a;color:#fff;font-weight:600;font-size:15px">${l}</td>
-              <td style="padding:12px 14px;border:1px solid #2a2a2a;text-align:center;font-weight:800;color:${palette[i%palette.length]};font-size:22px">${counts[l]}</td>
-              <td style="padding:12px 14px;border:1px solid #2a2a2a;text-align:center;color:#9ca3af">${Math.round(counts[l]/total*100)}%</td>
-            </tr>`).join('')}</tbody>
-          </table></div>`;
-          return;
-        }
-
-        const canvas=document.createElement('canvas');
-        canvas.style.cssText='max-width:600px;max-height:300px;margin:0 auto;display:block';
-        c.appendChild(canvas);
-
-        if(typeOverride==='donut'){
-          setTimeout(()=>{
-            new Chart(canvas,{type:'doughnut',data:{
-              labels:labels.map(l=>l+' ('+counts[l]+')'),
-              datasets:[{data:labels.map(l=>counts[l]),backgroundColor:palette.slice(0,labels.length),borderWidth:2,borderColor:'#111'}]
-            },options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:'#ccc',font:{size:14}}}},cutout:'50%'}});
-          },50);
-          return;
-        }
-
-        // Default: bar
-        setTimeout(()=>{
-          new Chart(canvas,{type:'bar',data:{
-            labels,
-            datasets:[{data:labels.map(l=>counts[l]),backgroundColor:palette[0],borderRadius:8,borderSkipped:false}]
-          },options:{responsive:true,maintainAspectRatio:true,plugins:{
-            legend:{display:false},
-            tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} of ${total} (${Math.round(ctx.parsed.y/total*100)}%)`}}
-          },scales:{
-            x:{ticks:{color:'#ccc',font:{size:14}}},
-            y:{ticks:{color:'#9ca3af',stepSize:1},max:Math.max(...Object.values(counts))+1}
-          }}});
-        },50);
-      }
-    });
+  // Radio fields (skip deal field)
+  fieldsToShow.filter(f=>f.type==='radio'&&f.id!==dealField?.id).forEach(f=>{
+    const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
+    if(vals.length) items.push({type:'chart',chartType:'radio',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,vals,subs,released,private:f.private});
   });
 
-  // ── Chart 4: Creative terms — show actual text as quotes ──
-  fieldsToShow.filter(f=>f.type==='textarea').forEach(field=>{
+  // Text/textarea fields as quote cards
+  fieldsToShow.filter(f=>f.type==='textarea'||f.type==='text').forEach(f=>{
     const responses=subs.map(s=>{
-      const v=s.form_data?.[field.id];
-      if(!v||v.trim().length<3)return null;
+      const v=s.form_data?.[f.id];
+      if(!v||v.trim().length<2)return null;
       const stu=allStudents.find(x=>x.id===s.student_id);
       const asg=released.find(a=>a.student_id===s.student_id);
-      return{text:v,name:stu?.name||'?',role:asg?.role||''};
+      return{text:v,name:stu?.name||'?',role:asg?.role||'',subId:s.id,fieldId:f.id};
     }).filter(Boolean);
-    if(!responses.length)return;
-    charts.push({
-      label:field.label+(field.private?' 🔒':''),
-      chartType:'quotes',
-      render:(c, palette, typeOverride)=>{
-        palette=palette||PROJ_PALETTES[projPaletteIdx].c;
-        if(typeOverride==='list'){
-          c.innerHTML='<div style="display:flex;flex-direction:column;gap:12px;padding:8px">'+
-            responses.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;padding:12px;background:#1a1a1a;border-radius:8px;border-left:3px solid ${palette[i%palette.length]}">
-              <div style="flex:1;font-size:15px;color:#e5e7eb;line-height:1.6">${r.text}</div>
-              <div style="font-size:11px;color:#9ca3af;font-weight:600;white-space:nowrap;padding-top:2px">${r.name}<br>${r.role}</div>
-            </div>`).join('')+'</div>';
-          return;
-        }
-        c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:8px">
-          ${responses.map((r,i)=>`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:18px;border-top:3px solid ${palette[i%palette.length]}">
-            <div style="font-size:22px;color:${palette[0]};margin-bottom:8px;line-height:1">"</div>
-            <div style="font-size:14px;color:#e5e7eb;line-height:1.6;margin-bottom:12px">${r.text}</div>
-            <div style="font-size:11px;color:#9ca3af;font-weight:600">${r.name} · ${r.role}</div>
-          </div>`).join('')}
-        </div>`;
-      }
-    });
+    if(responses.length) items.push({type:'chart',chartType:'quotes',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,responses,private:f.private});
   });
 
-  // ── Chart 5: Group-by-group detail (all public answers) ──
-  charts.push({
-    label:'Group detail',
-    chartType:'group-detail',
-    render:(c, palette, typeOverride)=>{
-      palette=palette||PROJ_PALETTES[projPaletteIdx].c;
-      const groups={};
-      released.forEach(a=>{
-        if(!groups[a.group_number])groups[a.group_number]=[];
-        const stu=allStudents.find(s=>s.id===a.student_id);
-        const sub=subs.find(s=>s.student_id===a.student_id);
-        groups[a.group_number].push({stu,asg:a,sub});
-      });
-      const displayFields=fieldsToShow.filter(f=>f.type!=='textarea');
-      const headerCells=displayFields.map(f=>`<th style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:10px;text-transform:uppercase;letter-spacing:.06em;border:1px solid #333;max-width:120px">${(f.label||'').substring(0,16)}</th>`).join('');
-      const html=Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([gn,members])=>{
-        const deal=dealField?members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes'):null;
-        const outcomeColor=deal===true?'#4ade80':deal===false?'#f87171':'#9ca3af';
-        const outcomeText=deal===true?'✓ Deal':deal===false?'✗ No deal':'Pending';
-        const rows=members.map(m=>{
-          const fd=m.sub?.form_data||{};
-          const cells=displayFields.map(f=>{
-            const v=fd[f.id]||'—';
-            if(f.type==='radio'&&(f.options||[]).includes('Yes')){
-              const col=v==='Yes'?'#4ade80':v==='No'?'#f87171':'#9ca3af';
-              return`<td style="text-align:center;padding:8px;border:1px solid #2a2a2a;font-weight:700;color:${col}">${v}</td>`;
-            }
-            return`<td style="text-align:center;padding:8px;border:1px solid #2a2a2a;color:#d1d5db;font-size:12px">${String(v).substring(0,30)}</td>`;
-          }).join('');
-          return`<tr>
-            <td style="padding:10px 12px;border:1px solid #2a2a2a">
-              <div style="font-weight:700;color:#fff">${m.stu?.name||'?'}</div>
-              <div style="font-size:11px;color:#9ca3af">${m.asg.role}</div>
-            </td>${cells}
-          </tr>`;
-        }).join('');
-        return`<div style="margin-bottom:20px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#fff">Group ${gn}</div>
-            <span style="font-size:13px;font-weight:700;color:${outcomeColor}">${outcomeText}</span>
-          </div>
-          <div style="overflow-x:auto;border-radius:8px;border:1px solid #333">
-            <table style="width:100%;border-collapse:collapse">
-              <tr style="background:#222"><th style="padding:8px 12px;text-align:left;color:#9ca3af;font-size:11px;border:1px solid #333">Student</th>${headerCells}<th style="padding:8px 10px;color:#9ca3af;font-size:11px;border:1px solid #333">Status</th></tr>
-              ${rows}
-            </table>
-          </div>
-        </div>`;
-      }).join('');
-      c.innerHTML=html||'<div style="color:#555;text-align:center;padding:3rem">No groups yet.</div>';
+  return items;
+}
+
+// ── Open present mode ──────────────────────────────────────────────────────────
+function enterPresentMode(){
+  if(!activeSim){alert('No active simulation.');return;}
+  pmShowPrivate=false;
+  pmChartTypes={};
+  pmPaletteIdx=0;
+  pmEditValues={};
+  pmItems=pmBuildItems();
+  pmIndex=0;
+
+  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
+  const deals=subs.filter(s=>{
+    const df=(activeSim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'));
+    return df&&s.form_data?.[df.id]==='Yes';
+  }).length;
+
+  document.getElementById('pm-title').textContent=activeSim.name;
+  document.getElementById('pm-sub').textContent=(subs.length+' SUBMISSIONS · '+deals+' DEALS · '+allStudents.length+' STUDENTS').toUpperCase();
+
+  pmRenderNav();
+  pmRenderItem();
+
+  document.getElementById('present-mode').style.display='block';
+
+  window._pmKeyHandler=e=>{
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'){pmNext();e.preventDefault();}
+    else if(e.key==='ArrowLeft'||e.key==='ArrowUp'){pmPrev();e.preventDefault();}
+    else if(e.key==='Escape')pmExit();
+  };
+  document.addEventListener('keydown',window._pmKeyHandler);
+}
+
+function pmExit(){
+  document.getElementById('present-mode').style.display='none';
+  document.removeEventListener('keydown',window._pmKeyHandler);
+  Object.values(pmActiveCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+  pmActiveCharts={};
+}
+
+function pmTogglePrivate(){
+  pmShowPrivate=!pmShowPrivate;
+  const btn=document.getElementById('pm-private-btn');
+  if(pmShowPrivate){btn.style.background='rgba(251,191,36,.2)';btn.style.color='#fbbf24';btn.style.borderColor='rgba(251,191,36,.3)';}
+  else{btn.style.background='rgba(255,255,255,.06)';btn.style.color='rgba(255,255,255,.5)';btn.style.borderColor='rgba(255,255,255,.15)';}
+  pmItems=pmBuildItems();
+  pmRenderNav();
+  pmRenderItem();
+}
+
+function pmNext(){if(pmIndex<pmItems.length-1){pmIndex++;pmRenderNav();pmRenderItem();}}
+function pmPrev(){if(pmIndex>0){pmIndex--;pmRenderNav();pmRenderItem();}}
+function pmJump(idx){pmIndex=idx;pmRenderNav();pmRenderItem();}
+
+// ── Render sidebar nav ─────────────────────────────────────────────────────────
+function pmRenderNav(){
+  const el=document.getElementById('pm-nav-list');
+  if(!el)return;
+
+  // Section headers + items
+  let html='';
+  let lastType='';
+
+  pmItems.forEach((item,i)=>{
+    const isActive=i===pmIndex;
+
+    if(item.type==='group'&&lastType!=='group'){
+      html+=`<div style="padding:8px 16px 4px;font-size:9px;font-weight:700;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:.12em;font-family:'Space Grotesk',sans-serif">Groups</div>`;
+    }
+    if(item.type==='chart'&&lastType!=='chart'){
+      html+=`<div style="padding:16px 16px 4px;font-size:9px;font-weight:700;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:.12em;font-family:'Space Grotesk',sans-serif">Class data</div>`;
+    }
+    lastType=item.type;
+
+    if(item.type==='group'){
+      // Show group outcome in nav
+      const members=item.members;
+      const df=(activeSim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
+      const allSub=members.every(m=>m.sub);
+      const deal=df&&members.some(m=>m.sub&&m.sub.form_data?.[df.id]==='Yes');
+      const noDeal=df&&members.some(m=>m.sub&&m.sub.form_data?.[df.id]==='No');
+      const dot=deal?'<span style="color:#5ee0a8">●</span>':noDeal?'<span style="color:#ff8a80">●</span>':'<span style="color:#555">●</span>';
+      html+=`<div onclick="pmJump(${i})" style="display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;transition:all .15s;border-left:2px solid ${isActive?'#bf5700':'transparent'};background:${isActive?'rgba(191,87,0,.1)':'transparent'}">
+        <span style="font-size:10px">${dot}</span>
+        <div>
+          <div style="font-size:12px;font-weight:${isActive?'700':'500'};color:${isActive?'#fff':'rgba(255,255,255,.55)'};transition:color .15s">${item.label}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.25);margin-top:1px">${members.map(m=>m.asg.role).join(' · ')}</div>
+        </div>
+      </div>`;
+    } else {
+      html+=`<div onclick="pmJump(${i})" style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:all .15s;border-left:2px solid ${isActive?'#bf5700':'transparent'};background:${isActive?'rgba(191,87,0,.1)':'transparent'}">
+        <div style="width:6px;height:6px;border-radius:50%;background:${isActive?'#bf5700':'rgba(255,255,255,.2)'};flex-shrink:0;transition:background .15s"></div>
+        <div style="font-size:12px;font-weight:${isActive?'700':'400'};color:${isActive?'#fff':'rgba(255,255,255,.45)'};transition:color .15s;line-height:1.3">${item.label}</div>
+      </div>`;
     }
   });
 
-  // ── Chart 6: Private BATNA comparison (shown only if projShowPrivate) ──
-  if(projShowPrivate && privateFields.length){
-    privateFields.filter(f=>f.type==='number'||f.type==='text').forEach(field=>{
-      const byRole={};
-      subs.forEach(s=>{
-        const v=s.form_data?.[field.id];
-        if(!v)return;
-        const asg=released.find(a=>a.student_id===s.student_id);
-        const stu=allStudents.find(x=>x.id===s.student_id);
-        const role=asg?.role||'Unknown';
-        if(!byRole[role])byRole[role]=[];
-        byRole[role].push({name:stu?.name||'?',value:v});
-      });
-      if(!Object.keys(byRole).length)return;
-      charts.push({
-        label:`🔒 ${field.label} (private)`,
-        chartType:'private-compare',
-        render:(c, palette, typeOverride)=>{
-          palette=palette||PROJ_PALETTES[projPaletteIdx].c;
-          const roles=Object.keys(byRole);
-          c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(${roles.length},1fr);gap:20px;padding:8px">
-            ${roles.map(role=>{
-              const items=byRole[role];
-              return`<div style="background:#1a1a1a;border:1px solid #444;border-radius:10px;padding:16px">
-                <div style="font-size:12px;font-weight:700;color:#bf5700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">${role}</div>
-                ${items.map(item=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #222">
-                  <span style="font-size:13px;color:#fff">${item.name}</span>
-                  <span style="font-size:15px;font-weight:700;color:#fbbf24">${item.value}</span>
-                </div>`).join('')}
-              </div>`;
-            }).join('')}
+  el.innerHTML=html||'<div style="padding:16px;color:rgba(255,255,255,.3);font-size:12px">No data yet.</div>';
+
+  // Scroll active item into view
+  const activeEl=el.querySelectorAll('[onclick]')[pmIndex];
+  if(activeEl)activeEl.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+
+// ── Render main content area ───────────────────────────────────────────────────
+function pmRenderItem(){
+  const el=document.getElementById('pm-main');
+  if(!el)return;
+
+  // Destroy old charts
+  Object.values(pmActiveCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+  pmActiveCharts={};
+
+  if(!pmItems.length){
+    el.innerHTML='<div style="text-align:center;padding:6rem 2rem;color:rgba(255,255,255,.3);font-size:16px">No submissions yet.</div>';
+    return;
+  }
+
+  const item=pmItems[pmIndex];
+
+  if(item.type==='group'){
+    pmRenderGroup(el,item);
+  } else {
+    pmRenderChart(el,item);
+  }
+
+  // Prev/next context hint
+  const prev=pmItems[pmIndex-1];
+  const next=pmItems[pmIndex+1];
+  const navHtml=`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06)">
+    <div style="font-size:12px;color:rgba(255,255,255,.2);font-family:'Space Grotesk',sans-serif">
+      ${prev?`← ${prev.label}`:' '}
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.18);font-family:'Space Grotesk',sans-serif">${pmIndex+1} / ${pmItems.length}</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.2);font-family:'Space Grotesk',sans-serif">
+      ${next?`${next.label} →`:' '}
+    </div>
+  </div>`;
+  el.insertAdjacentHTML('beforeend',navHtml);
+}
+
+// ── Render a group ─────────────────────────────────────────────────────────────
+function pmRenderGroup(el,item){
+  const {members,groupNum}=item;
+  const df=(activeSim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
+  const publicFields=(activeSim?.fields||[]).filter(f=>!f.id.startsWith('_')&&(pmShowPrivate||!f.private));
+
+  const deal=df&&members.some(m=>m.sub&&m.sub.form_data?.[df.id]==='Yes');
+  const noDeal=df&&members.some(m=>m.sub&&m.sub.form_data?.[df.id]==='No');
+  const outcomeColor=deal?'#5ee0a8':noDeal?'#ff8a80':'#8fa3c0';
+  const outcomeLabel=deal?'Deal reached':noDeal?'No deal':'Pending';
+
+  // Group header
+  let html=`<div style="margin-bottom:32px">
+    <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:6px">
+      <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:#fff;letter-spacing:-.02em">Group ${groupNum}</div>
+      <div style="font-size:16px;font-weight:700;color:${outcomeColor}">${outcomeLabel}</div>
+    </div>
+    <div style="display:flex;gap:16px">
+      ${members.map(m=>`<span style="font-size:13px;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif">${m.stu?.name||'?'} <span style="color:rgba(255,255,255,.2)">·</span> ${m.asg.role}</span>`).join('<span style="color:rgba(255,255,255,.15)"> | </span>')}
+    </div>
+  </div>`;
+
+  // Side-by-side member cards
+  html+=`<div style="display:grid;grid-template-columns:repeat(${members.length},1fr);gap:20px;margin-bottom:20px">`;
+
+  members.forEach(m=>{
+    const fd=m.sub?.form_data||{};
+    html+=`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:24px;position:relative">
+      <!-- Member header -->
+      <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff">${m.stu?.name||'Unknown'}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35);margin-top:3px;font-family:'Space Grotesk',sans-serif;text-transform:uppercase;letter-spacing:.06em">${m.asg.role}</div>
+        ${!m.sub?'<div style="font-size:12px;color:rgba(255,255,255,.25);margin-top:8px;font-style:italic">Not submitted</div>':''}
+      </div>`;
+
+    if(m.sub){
+      publicFields.forEach(f=>{
+        const rawVal=fd[f.id];
+        const editKey=m.sub.id+'_'+f.id;
+        const displayVal=pmEditValues[editKey]!==undefined?pmEditValues[editKey]:(rawVal||'—');
+        const isEmpty=!rawVal||rawVal==='—';
+        const isPrivate=f.private;
+        const privateDim=isPrivate&&!pmShowPrivate?'opacity:.5':'';
+
+        if(f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No')){
+          // Deal field — show big
+          const color=displayVal==='Yes'?'#5ee0a8':displayVal==='No'?'#ff8a80':'#8fa3c0';
+          html+=`<div style="margin-bottom:16px;${privateDim}">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-family:'Space Grotesk',sans-serif">${f.label}${isPrivate?' 🔒':''}</div>
+            <div style="font-size:28px;font-weight:800;color:${color};font-family:'Space Grotesk',sans-serif">${displayVal}</div>
+          </div>`;
+        } else if(f.type==='number'){
+          html+=`<div style="margin-bottom:16px;${privateDim}">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-family:'Space Grotesk',sans-serif">${f.label}${isPrivate?' 🔒':''}</div>
+            <div class="pm-editable" data-key="${editKey}" onclick="pmStartEdit(this,'${editKey}')"
+              style="font-size:26px;font-weight:700;color:${isEmpty?'rgba(255,255,255,.2)':'#fff'};font-family:'Space Grotesk',sans-serif;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s;display:inline-block"
+              title="Click to edit">${isEmpty?'—':parseFloat(displayVal).toLocaleString()}</div>
+          </div>`;
+        } else if(f.type==='textarea'||f.type==='text'){
+          html+=`<div style="margin-bottom:16px;${privateDim}">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-family:'Space Grotesk',sans-serif">${f.label}${isPrivate?' 🔒':''}</div>
+            <div class="pm-editable" data-key="${editKey}" onclick="pmStartEdit(this,'${editKey}')"
+              style="font-size:14px;color:${isEmpty?'rgba(255,255,255,.2)':'#e8e0d5'};line-height:1.65;cursor:pointer;padding:6px 8px;border-radius:6px;transition:background .15s;border:1px solid transparent"
+              title="Click to edit">${isEmpty?'No response':escHtml(displayVal)}</div>
+          </div>`;
+        } else {
+          // radio (non-deal)
+          const color=isEmpty?'rgba(255,255,255,.2)':'#bf5700';
+          html+=`<div style="margin-bottom:16px;${privateDim}">
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-family:'Space Grotesk',sans-serif">${f.label}${isPrivate?' 🔒':''}</div>
+            <div style="font-size:15px;font-weight:600;color:${color}">${displayVal}</div>
           </div>`;
         }
       });
-    });
-  }
+    }
 
-  return charts;
+    html+='</div>'; // end member card
+  });
+
+  html+='</div>'; // end grid
+  el.innerHTML=html;
 }
 
-function renderProjChart(){
-  if(!projCharts.length){
-    document.getElementById('proj-charts').innerHTML='<div style="color:#9ca3af;text-align:center;padding:3rem;font-size:16px">No submissions yet.</div>';
-    document.getElementById('proj-chart-label').textContent='';
-    document.getElementById('proj-chart-counter').textContent='';
-    renderProjToolbar(null);
+// ── Inline editing ──────────────────────────────────────────────────────────────
+function pmStartEdit(el,key){
+  const current=pmEditValues[key]!==undefined?pmEditValues[key]:el.innerText;
+  const isNumber=el.style.fontSize==='26px';
+  el.innerHTML=`<${isNumber?'input type="number"':'textarea'} id="pm-edit-input"
+    style="background:rgba(255,255,255,.08);border:1px solid rgba(191,87,0,.4);border-radius:4px;color:#fff;font-family:inherit;font-size:inherit;font-weight:inherit;width:100%;padding:4px 6px;outline:none;resize:vertical;min-height:${isNumber?'auto':'60px'}"
+    onblur="pmSaveEdit('${key}',this)" onkeydown="if((event.key==='Enter'&&${isNumber})||event.key==='Escape'){this.blur()}"
+  ></${isNumber?'input':'textarea'}>`;
+  const input=document.getElementById('pm-edit-input');
+  if(input){
+    input.value=current==='—'?'':current;
+    input.focus();
+    if(input.select)input.select();
+  }
+}
+
+function pmSaveEdit(key,input){
+  const val=input.value.trim();
+  pmEditValues[key]=val||'—';
+  pmRenderItem();
+}
+
+// ── Render a chart item ────────────────────────────────────────────────────────
+function pmRenderChart(el,item){
+  const palette=PM_PALETTES[pmPaletteIdx].c;
+  const typeOverride=pmChartTypes[pmIndex]||null;
+
+  // Chart header with controls
+  const typeOptions=pmGetTypeOptions(item);
+  const typeHtml=typeOptions.length>1?`<div style="display:flex;gap:3px;background:rgba(255,255,255,.06);border-radius:7px;padding:3px">
+    ${typeOptions.map(t=>`<button onclick="pmSetType('${t.v}')"
+      style="padding:4px 12px;font-size:11px;font-weight:700;border:none;border-radius:5px;cursor:pointer;letter-spacing:.03em;transition:all .15s;font-family:'Space Grotesk',sans-serif;
+        background:${typeOverride===t.v||(!typeOverride&&t.default)?'#bf5700':'transparent'};
+        color:${typeOverride===t.v||(!typeOverride&&t.default)?'#fff':'rgba(255,255,255,.4)'}">${t.label}</button>`).join('')}
+  </div>`:'';
+
+  const paletteHtml=`<div style="display:flex;align-items:center;gap:5px">
+    <span style="font-size:9px;color:rgba(255,255,255,.2);font-family:'Space Grotesk',sans-serif;letter-spacing:.06em">COLOR</span>
+    ${PM_PALETTES.map((p,i)=>`<button onclick="pmSetPalette(${i})" title="${p.name}"
+      style="width:18px;height:18px;border-radius:50%;border:2px solid ${i===pmPaletteIdx?'#fff':'transparent'};cursor:pointer;background:${p.c[0]};padding:0;transition:all .15s"></button>`).join('')}
+  </div>`;
+
+  let html=`<div style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#fff;letter-spacing:-.01em">${item.label}</div>
+    <div style="display:flex;align-items:center;gap:12px">${typeHtml}${paletteHtml}</div>
+  </div>`;
+
+  el.innerHTML=html;
+
+  // Render the actual chart content
+  const container=document.createElement('div');
+  container.id='pm-chart-container';
+  el.appendChild(container);
+
+  if(item.chartType==='deal') pmRenderDealChart(container,item,palette,typeOverride);
+  else if(item.chartType==='number') pmRenderNumberChart(container,item,palette,typeOverride);
+  else if(item.chartType==='radio') pmRenderRadioChart(container,item,palette,typeOverride);
+  else if(item.chartType==='quotes') pmRenderQuotesChart(container,item,palette,typeOverride);
+}
+
+function pmGetTypeOptions(item){
+  if(item.chartType==='number') return [{v:null,label:'Bar',default:true},{v:'donut',label:'Donut'},{v:'table',label:'Table'}];
+  if(item.chartType==='radio') return [{v:null,label:'Bar',default:true},{v:'donut',label:'Donut'},{v:'table',label:'Table'}];
+  if(item.chartType==='quotes') return [{v:null,label:'Cards',default:true},{v:'list',label:'List'}];
+  return [];
+}
+
+function pmSetType(v){pmChartTypes[pmIndex]=v;pmRenderItem();}
+function pmSetPalette(i){pmPaletteIdx=i;pmRenderItem();}
+
+// ── Deal outcomes chart ───────────────────────────────────────────────────────
+function pmRenderDealChart(c,item,palette,typeOverride){
+  const {subs,groups,dealField,released}=item;
+  const groupEntries=Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b));
+  const deals=groupEntries.filter(([,m])=>m.some(x=>x.sub&&x.sub.form_data?.[dealField.id]==='Yes')).length;
+  const noDeals=groupEntries.filter(([,m])=>m.some(x=>x.sub&&x.sub.form_data?.[dealField.id]==='No')).length;
+  const pending=groupEntries.filter(([,m])=>m.every(x=>!x.sub)).length;
+
+  if(typeOverride==='table'){
+    c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:rgba(255,255,255,.06)">
+        <th style="padding:12px 16px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">Group</th>
+        <th style="padding:12px 16px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">Members</th>
+        <th style="padding:12px 16px;text-align:center;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">Outcome</th>
+      </tr></thead>
+      <tbody>${groupEntries.map(([gn,members])=>{
+        const deal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes');
+        const noDeal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='No');
+        const color=deal?'#5ee0a8':noDeal?'#ff8a80':'#8fa3c0';
+        return`<tr><td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:#fff;font-weight:600">Group ${gn}</td>
+          <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.55);font-size:13px">${members.map(m=>m.stu?.name||'?').join(', ')}</td>
+          <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);text-align:center;font-weight:700;color:${color}">${deal?'✓ Deal':noDeal?'✗ No deal':'Pending'}</td></tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div style="display:flex;gap:24px;margin-top:20px;justify-content:center">
+      <div style="text-align:center"><div style="font-size:36px;font-weight:800;color:#5ee0a8;font-family:'Space Grotesk',sans-serif">${deals}</div><div style="font-size:11px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.08em">Deals</div></div>
+      <div style="text-align:center"><div style="font-size:36px;font-weight:800;color:#ff8a80;font-family:'Space Grotesk',sans-serif">${noDeals}</div><div style="font-size:11px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.08em">No deal</div></div>
+      <div style="text-align:center"><div style="font-size:36px;font-weight:800;color:#fff;font-family:'Space Grotesk',sans-serif">${deals+noDeals?Math.round(deals/(deals+noDeals)*100):0}%</div><div style="font-size:11px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.08em">Deal rate</div></div>
+    </div>`;
     return;
   }
-  projChartIndex=Math.max(0,Math.min(projChartIndex,projCharts.length-1));
-  const chart=projCharts[projChartIndex];
-  document.getElementById('proj-chart-label').textContent=chart.label;
-  document.getElementById('proj-chart-counter').textContent=(projChartIndex+1)+' / '+projCharts.length;
-  const container=document.getElementById('proj-charts');
-  Object.values(activeCharts).forEach(c=>{try{c.destroy();}catch(e){}});
-  activeCharts={};
-  // Pass current palette colors and any type override to render()
-  const palette=PROJ_PALETTES[projPaletteIdx].c;
-  const typeOverride=projChartTypes[projChartIndex]||null;
-  chart.render(container, palette, typeOverride);
-  renderProjToolbar(chart);
-}
 
-function renderProjToolbar(chart){
-  const toolbar=document.getElementById('proj-chart-toolbar');
-  if(!toolbar)return;
-
-  // Palette swatches
-  const swatches=PROJ_PALETTES.map((p,i)=>`
-    <button onclick="setProjPalette(${i})" title="${p.name}"
-      style="width:20px;height:20px;border-radius:50%;padding:0;border:2px solid ${i===projPaletteIdx?'#fff':'transparent'};
-        background:${p.c[0]};cursor:pointer;transition:border .15s;flex-shrink:0"></button>`).join('');
-
-  // Chart type buttons — only show for charts that support multiple types
-  let typeHtml='';
-  if(chart){
-    const typeOverride=projChartTypes[projChartIndex]||null;
-    const types=[];
-    if(chart.chartType==='bar-by-role'||chart.chartType==='radio-bar'){
-      types.push({v:null,l:'Bar'},{v:'donut',l:'Donut'},{v:'table',l:'Table'});
-    } else if(chart.chartType==='groups'){
-      types.push({v:null,l:'Cards'},{v:'table',l:'Table'});
-    } else if(chart.chartType==='quotes'){
-      types.push({v:null,l:'Quotes'},{v:'list',l:'List'});
-    }
-    if(types.length>1){
-      typeHtml='<div style="display:flex;gap:3px;background:#1a1a1a;border-radius:6px;padding:3px;margin-right:8px">'+
-        types.map(t=>`<button onclick="setProjType(${JSON.stringify(t.v)})"
-          style="padding:4px 11px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;
-            background:${typeOverride===t.v?'#bf5700':'transparent'};color:${typeOverride===t.v?'#fff':'#9ca3af'};transition:all .15s">${t.l}</button>`).join('')+
-      '</div>';
-    }
-  }
-
-  toolbar.innerHTML=`<div style="display:flex;align-items:center;gap:6px">
-    ${typeHtml}
-    <div style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:#1a1a1a;border-radius:6px">
-      <span style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-right:2px">Color</span>
-      ${swatches}
-    </div>
+  // Default: group cards grid
+  c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+    ${groupEntries.map(([gn,members])=>{
+      const deal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='Yes');
+      const noDeal=members.some(m=>m.sub&&m.sub.form_data?.[dealField.id]==='No');
+      const borderColor=deal?'#5ee0a8':noDeal?'#ff8a80':'rgba(255,255,255,.15)';
+      const outcomeColor=deal?'#5ee0a8':noDeal?'#ff8a80':'rgba(255,255,255,.3)';
+      return`<div style="background:rgba(255,255,255,.04);border:1.5px solid ${borderColor};border-radius:12px;padding:20px">
+        <div style="font-size:11px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;font-family:'Space Grotesk',sans-serif">Group ${gn}</div>
+        ${members.map(m=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+          <div style="font-size:14px;font-weight:600;color:#fff">${m.stu?.name||'?'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.3)">${m.asg.role}</div>
+        </div>`).join('')}
+        <div style="margin-top:12px;font-size:17px;font-weight:800;color:${outcomeColor};font-family:'Space Grotesk',sans-serif">${deal?'✓ Deal':noDeal?'✗ No deal':'Pending'}</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div style="display:flex;gap:24px;justify-content:center">
+    ${[{v:deals,l:'Deals',c:'#5ee0a8'},{v:noDeals,l:'No deal',c:'#ff8a80'},{v:deals+noDeals?Math.round(deals/(deals+noDeals)*100):0,l:'Deal rate',c:'#fff',s:'%'}].map(s=>`<div style="text-align:center;padding:16px 24px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:38px;font-weight:800;color:${s.c};font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em">${s.v}${s.s||''}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-top:4px">${s.l}</div>
+    </div>`).join('')}
   </div>`;
 }
 
-function setProjPalette(idx){
-  projPaletteIdx=idx;
-  renderProjChart();
-}
+// ── Number chart ──────────────────────────────────────────────────────────────
+function pmRenderNumberChart(c,item,palette,typeOverride){
+  const {vals,field}=item;
+  const avg=Math.round(vals.reduce((a,b)=>a+b.v,0)/vals.length);
+  const roles=[...new Set(vals.map(v=>v.role))];
+  const colorMap={};roles.forEach((r,i)=>colorMap[r]=palette[i%palette.length]);
 
-function setProjType(typeVal){
-  projChartTypes[projChartIndex]=typeVal;
-  renderProjChart();
-}
-
-function projNextChart(){
-  if(projChartIndex<projCharts.length-1){projChartIndex++;renderProjChart();}
-}
-function projPrevChart(){
-  if(projChartIndex>0){projChartIndex--;renderProjChart();}
-}
-
-function projToggleGroups(){
-  const gs=document.getElementById('proj-groups-section');
-  const ms=document.getElementById('proj-main-section');
-  const btn=document.getElementById('proj-groups-btn');
-  const showing=gs.style.display!=='none';
-  gs.style.display=showing?'none':'block';
-  ms.style.display=showing?'block':'none';
-  btn.style.background=showing?'#333':'#bf5700';
-}
-
-function projTogglePrivate(){
-  projShowPrivate=!projShowPrivate;
-  const btn=document.getElementById('proj-private-btn');
-  if(btn){btn.style.background=projShowPrivate?'#fbbf24':'#333';btn.style.color=projShowPrivate?'#111':'#ccc';}
-  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
-  projCharts=buildProjCharts(activeSim,subs);
-  renderProjChart();
-}
-
-function buildProjGroups(sim,subs){
-  const groups={};
-  const released=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
-  released.forEach(a=>{
-    if(!groups[a.group_number])groups[a.group_number]=[];
-    const stu=allStudents.find(s=>s.id===a.student_id);
-    const sub=subs.find(s=>s.student_id===a.student_id);
-    const dealField=(sim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
-    const deal=sub?sub.form_data?.[dealField]:null;
-    groups[a.group_number].push({name:stu?.name||'Unknown',role:a.role,deal,sub,disputed:sub?.form_data?._disputed,confirmed:sub?.form_data?._confirmed});
-  });
-  return Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([gn,members])=>{
-    const groupDeal=members.length>1&&members.every(m=>m.deal==='Yes')?'yes':members.some(m=>m.deal==='No')||members.some(m=>!m.sub)?'no':'pending';
-    const borderColor=groupDeal==='yes'?'#4ade80':groupDeal==='no'?'#f87171':'#555';
-    return`<div class="proj-group-card" style="border-color:${borderColor}">
-      <div class="proj-group-num">Group ${gn} ${groupDeal==='yes'?'<span style="color:#4ade80">✓ Deal</span>':groupDeal==='no'?'<span style="color:#f87171">✗ No deal</span>':'<span style="color:#9ca3af">Pending</span>'}</div>
-      ${members.map(m=>`<div class="proj-member">
-        <div>
-          <div class="proj-member-name">${m.name}</div>
-          <div class="proj-member-role">${m.role}</div>
-        </div>
-        <div style="text-align:right">
-          ${m.sub?`<div class="proj-member-deal ${m.deal==='Yes'?'proj-deal-yes':m.deal==='No'?'proj-deal-no':''}">${m.deal||'Submitted'}</div>`:'<div style="color:#555;font-size:12px">Pending</div>'}
-          ${m.disputed?'<div class="proj-disputed">DISPUTED</div>':''}
-          ${m.confirmed?'<div style="font-size:10px;color:#4ade80;font-weight:600">CONFIRMED</div>':''}
-        </div>
-      </div>`).join('')}
+  if(typeOverride==='table'){
+    const sorted=[...vals].sort((a,b)=>b.v-a.v);
+    c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:rgba(255,255,255,.06)">
+        ${['Student','Role',field.label].map(h=>`<th style="padding:12px 16px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">${h}</th>`).join('')}
+      </tr></thead>
+      <tbody>${sorted.map((v,i)=>`<tr>
+        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:#fff;font-weight:600">${v.name}</td>
+        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.45);font-size:12px">${v.role}</td>
+        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05)">
+          <span class="pm-editable" data-key="chart_${v.subId}_${field.id}" onclick="pmStartEdit(this,'chart_${v.subId}_${field.id}')"
+            style="font-size:20px;font-weight:700;color:${colorMap[v.role]||palette[0]};cursor:pointer;font-family:'Space Grotesk',sans-serif"
+            title="Click to edit">${parseFloat(pmEditValues['chart_'+v.subId+'_'+field.id]||v.v).toLocaleString()}</span>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div style="margin-top:20px;text-align:center;font-size:14px;color:rgba(255,255,255,.4)">
+      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif"> ${avg.toLocaleString()}</span>
     </div>`;
-  }).join('');
-}
-
-function enterProjection(){
-  if(!activeSim){alert('No active simulation.');return;}
-  const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id)||[];
-  const dealField=(activeSim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
-  const deals=subs.filter(s=>s.form_data?.[dealField]==='Yes').length;
-  const notSub=allStudents.filter(s=>!subs.find(x=>x.student_id===s.id)).length;
-
-  document.getElementById('proj-title').textContent=activeSim.name;
-  document.getElementById('proj-sub').textContent=`${subs.length} submissions · ${deals} deals · ${notSub} pending`;
-
-  document.getElementById('proj-stats').innerHTML=[
-    {v:subs.length,l:'Submitted'},
-    {v:deals,l:'Deals'},
-    {v:subs.length?Math.round(deals/subs.length*100)+'%':'—',l:'Deal rate'},
-    {v:notSub,l:'Pending'},
-  ].map(s=>`<div class="proj-stat"><div class="proj-stat-val">${s.v}</div><div class="proj-stat-lbl">${s.l}</div></div>`).join('');
-
-  projShowPrivate=false;
-  projChartTypes={};
-  projCharts=buildProjCharts(activeSim,subs);
-  projChartIndex=0;
-  renderProjChart();
-
-  document.getElementById('proj-groups-body').innerHTML=buildProjGroups(activeSim,subs)||'<div style="color:#9ca3af">No groups yet.</div>';
-  document.getElementById('proj-main-section').style.display='block';
-  document.getElementById('proj-groups-section').style.display='none';
-  document.getElementById('proj-groups-btn').style.background='#333';
-
-  // Add private toggle button to nav
-  const nav=document.querySelector('.proj-nav');
-  let privBtn=document.getElementById('proj-private-btn');
-  if(!privBtn){
-    privBtn=document.createElement('button');
-    privBtn.id='proj-private-btn';
-    privBtn.className='proj-nav-btn';
-    privBtn.style.cssText='background:#333;color:#ccc;width:auto;padding:0 12px;font-size:11px;font-weight:600';
-    privBtn.textContent='🔒 Private';
-    privBtn.onclick=projTogglePrivate;
-    nav.insertBefore(privBtn, nav.lastElementChild);
+    return;
   }
-  privBtn.style.background='#333';
-  privBtn.style.color='#ccc';
 
-  document.getElementById('projection-mode').classList.add('active');
+  if(typeOverride==='donut'){
+    const mn=Math.min(...vals.map(v=>v.v)),mx=Math.max(...vals.map(v=>v.v));
+    const bk=Math.min(5,vals.length),bs=(mx-mn)/bk||1;
+    const counts={};
+    vals.forEach(v=>{const b=Math.min(Math.floor((v.v-mn)/bs),bk-1);const lbl=Math.round(mn+b*bs).toLocaleString()+'–'+Math.round(mn+(b+1)*bs).toLocaleString();counts[lbl]=(counts[lbl]||0)+1;});
+    c.innerHTML='<canvas id="pm-canvas" style="max-width:420px;max-height:320px;margin:0 auto;display:block"></canvas>';
+    setTimeout(()=>{
+      const ctx=document.getElementById('pm-canvas');
+      if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(counts),datasets:[{data:Object.values(counts),backgroundColor:palette.slice(0,Object.keys(counts).length),borderWidth:0}]},options:{plugins:{legend:{labels:{color:'rgba(255,255,255,.7)',font:{size:14,family:'Space Grotesk'}}}},cutout:'55%'}});
+    },50);
+    return;
+  }
 
-  // Keyboard navigation
-  window._projKeyHandler=(e)=>{
-    if(e.key==='ArrowRight'||e.key==='ArrowDown')projNextChart();
-    else if(e.key==='ArrowLeft'||e.key==='ArrowUp')projPrevChart();
-    else if(e.key==='Escape')exitProjection();
-  };
-  document.addEventListener('keydown',window._projKeyHandler);
-
-  // Auto-refresh every 30s
-  window._projRefresh=setInterval(async()=>{
-    await loadAll();
-    const newSubs=allSubmissions.filter(s=>s.simulation_id===activeSim?.id)||[];
-    const newDeals=newSubs.filter(s=>s.form_data?.[dealField]==='Yes').length;
-    const newNotSub=allStudents.filter(s=>!newSubs.find(x=>x.student_id===s.id)).length;
-    document.getElementById('proj-sub').textContent=`${newSubs.length} submissions · ${newDeals} deals · ${newNotSub} pending`;
-    document.getElementById('proj-stats').innerHTML=[
-      {v:newSubs.length,l:'Submitted'},{v:newDeals,l:'Deals'},
-      {v:newSubs.length?Math.round(newDeals/newSubs.length*100)+'%':'—',l:'Deal rate'},{v:newNotSub,l:'Pending'},
-    ].map(s=>`<div class="proj-stat"><div class="proj-stat-val">${s.v}</div><div class="proj-stat-lbl">${s.l}</div></div>`).join('');
-    projCharts=buildProjCharts(activeSim,newSubs);
-    renderProjChart();
-    document.getElementById('proj-groups-body').innerHTML=buildProjGroups(activeSim,newSubs)||'<div style="color:#9ca3af">No groups yet.</div>';
-  },30000);
+  // Default: bar by name, colored by role
+  c.innerHTML=`<div style="max-width:700px;margin:0 auto">
+    <canvas id="pm-canvas" style="max-height:340px"></canvas>
+    <div style="text-align:center;margin-top:16px;font-size:14px;color:rgba(255,255,255,.4)">
+      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif"> ${avg.toLocaleString()}</span>
+    </div>
+    ${roles.length>1?`<div style="display:flex;gap:16px;justify-content:center;margin-top:10px">
+      ${roles.map(r=>`<span style="font-size:12px;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:5px"></span>${r}</span>`).join('')}
+    </div>`:''}
+  </div>`;
+  setTimeout(()=>{
+    const ctx=document.getElementById('pm-canvas');
+    if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'bar',data:{
+      labels:vals.map(v=>v.name.split(' ')[0]),
+      datasets:[{data:vals.map(v=>parseFloat(pmEditValues['chart_'+v.subId+'_'+field.id]||v.v)),backgroundColor:vals.map(v=>colorMap[v.role]||palette[0]),borderRadius:8,borderSkipped:false}]
+    },options:{responsive:true,plugins:{legend:{display:false}},scales:{
+      x:{ticks:{color:'rgba(255,255,255,.6)',font:{size:13,family:'Space Grotesk'}}},
+      y:{ticks:{color:'rgba(255,255,255,.35)'},grid:{color:'rgba(255,255,255,.05)'}}
+    }}});
+  },50);
 }
 
-function exitProjection(){
-  clearInterval(window._projRefresh);
-  document.removeEventListener('keydown',window._projKeyHandler);
-  document.getElementById('projection-mode').classList.remove('active');
-  renderResults();
+// ── Radio chart ───────────────────────────────────────────────────────────────
+function pmRenderRadioChart(c,item,palette,typeOverride){
+  const {vals,field}=item;
+  const counts={};vals.forEach(v=>{counts[v]=(counts[v]||0)+1;});
+  const labels=Object.keys(counts);
+  const total=vals.length;
+
+  if(typeOverride==='table'){
+    c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:rgba(255,255,255,.06)">
+        ${[field.label,'Count','%'].map(h=>`<th style="padding:12px 16px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">${h}</th>`).join('')}
+      </tr></thead>
+      <tbody>${labels.map((l,i)=>`<tr>
+        <td style="padding:14px 16px;border:1px solid rgba(255,255,255,.05);color:#fff;font-weight:600;font-size:15px">${l}</td>
+        <td style="padding:14px 16px;border:1px solid rgba(255,255,255,.05);font-weight:800;color:${palette[i%palette.length]};font-size:24px;font-family:'Space Grotesk',sans-serif">${counts[l]}</td>
+        <td style="padding:14px 16px;border:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.4)">${Math.round(counts[l]/total*100)}%</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+    return;
+  }
+
+  if(typeOverride==='donut'){
+    c.innerHTML='<canvas id="pm-canvas" style="max-width:420px;max-height:320px;margin:0 auto;display:block"></canvas>';
+    setTimeout(()=>{
+      const ctx=document.getElementById('pm-canvas');
+      if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'doughnut',data:{labels:labels.map(l=>l+' ('+counts[l]+')'),datasets:[{data:labels.map(l=>counts[l]),backgroundColor:palette.slice(0,labels.length),borderWidth:0}]},options:{plugins:{legend:{labels:{color:'rgba(255,255,255,.7)',font:{size:14,family:'Space Grotesk'}}}},cutout:'50%'}});
+    },50);
+    return;
+  }
+
+  // Default: horizontal bar
+  c.innerHTML='<canvas id="pm-canvas" style="max-width:600px;max-height:320px;margin:0 auto;display:block"></canvas>';
+  setTimeout(()=>{
+    const ctx=document.getElementById('pm-canvas');
+    if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'bar',data:{
+      labels,datasets:[{data:labels.map(l=>counts[l]),backgroundColor:palette[0],borderRadius:8,borderSkipped:false}]
+    },options:{responsive:true,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} of ${total} (${Math.round(ctx.parsed.y/total*100)}%)`}}
+    },scales:{
+      x:{ticks:{color:'rgba(255,255,255,.7)',font:{size:14,family:'Space Grotesk'}}},
+      y:{ticks:{color:'rgba(255,255,255,.35)',stepSize:1},grid:{color:'rgba(255,255,255,.05)'},max:Math.max(...Object.values(counts))+1}
+    }}});
+  },50);
 }
+
+// ── Quotes chart ───────────────────────────────────────────────────────────────
+function pmRenderQuotesChart(c,item,palette,typeOverride){
+  const {responses,field}=item;
+
+  if(typeOverride==='list'){
+    c.innerHTML='<div style="display:flex;flex-direction:column;gap:12px">'+
+      responses.map((r,i)=>{
+        const editKey='chart_'+r.subId+'_'+r.fieldId;
+        const displayText=pmEditValues[editKey]!==undefined?pmEditValues[editKey]:r.text;
+        return`<div style="display:flex;gap:16px;align-items:flex-start;padding:16px;background:rgba(255,255,255,.04);border-radius:10px;border-left:3px solid ${palette[i%palette.length]}">
+          <div style="flex:1;font-size:15px;color:#e8e0d5;line-height:1.65;cursor:pointer" onclick="pmStartEdit(this,'${editKey}')" class="pm-editable" data-key="${editKey}" title="Click to edit">${escHtml(displayText)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.3);white-space:nowrap;padding-top:3px;font-family:'Space Grotesk',sans-serif">${r.name}<br>${r.role}</div>
+        </div>`;
+      }).join('')+'</div>';
+    return;
+  }
+
+  // Default: cards
+  c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
+    ${responses.map((r,i)=>{
+      const editKey='chart_'+r.subId+'_'+r.fieldId;
+      const displayText=pmEditValues[editKey]!==undefined?pmEditValues[editKey]:r.text;
+      return`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:24px;border-top:2px solid ${palette[i%palette.length]}">
+        <div style="font-size:32px;color:${palette[i%palette.length]};line-height:1;margin-bottom:12px;font-family:'Playfair Display',serif">"</div>
+        <div class="pm-editable" data-key="${editKey}" onclick="pmStartEdit(this,'${editKey}')"
+          style="font-size:14px;color:#e8e0d5;line-height:1.7;margin-bottom:16px;cursor:pointer"
+          title="Click to edit">${escHtml(displayText)}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.35);font-weight:600;font-family:'Space Grotesk',sans-serif;text-transform:uppercase;letter-spacing:.06em">${r.name} · ${r.role}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// Add hover effect for editable elements (via CSS injection)
+(function(){
+  if(!document.getElementById('pm-edit-style')){
+    const s=document.createElement('style');
+    s.id='pm-edit-style';
+    s.textContent='.pm-editable:hover{background:rgba(191,87,0,.12)!important;border-color:rgba(191,87,0,.3)!important;}';
+    document.head.appendChild(s);
+  }
+})();
 
 
 function exportCSV(){
