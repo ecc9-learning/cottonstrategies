@@ -144,10 +144,14 @@ footer{
 
     <!-- REGISTER -->
     <div id="pane-register">
+      <!-- honeypot: tricks browser into filling this instead of real fields -->
+      <input type="text" style="display:none" aria-hidden="true">
+      <input type="email" style="display:none" aria-hidden="true">
+      <input type="password" style="display:none" aria-hidden="true">
       <div class="info-box">📋 You'll need the <strong>class access code</strong> from your instructor to register.</div>
       <div class="field"><label>Full name</label><input type="text" id="r-name" placeholder="First Last" autocomplete="name"></div>
       <div class="field"><label>Email address</label><input type="email" id="r-email" placeholder="you@utexas.edu" autocomplete="email"></div>
-      <div class="field"><label>Class access code</label><input type="text" id="r-code" placeholder="e.g. NEGLAW26" autocomplete="off" style="text-transform:uppercase"></div>
+      <div class="field"><label>Class access code</label><input type="text" id="r-code" placeholder="e.g. NEGLAW26" autocomplete="new-password" style="text-transform:uppercase" onfocus="this.removeAttribute('readonly')" readonly></div>
       <div class="field">
         <label>Choose a PIN</label>
         <input type="password" id="r-pin" placeholder="4+ characters" autocomplete="new-password">
