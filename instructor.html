@@ -3080,12 +3080,52 @@ async function changePassword(){
 }
 
 async function archiveSemester(){
-  const conf=prompt('Type RESET to archive this semester:');
+  const conf=prompt('Type RESET to archive this semester and clear all class data:');
   if(conf!=='RESET')return;
-  await dbPatch('students?is_archived=eq.false',{is_archived:true});
-  await dbPatch('simulations?is_active=eq.true',{is_active:false});
-  alert('Semester archived. Students will need to re-register.');
-  await loadAll();
+
+  // Show progress
+  const btn=document.querySelector('.btn-danger[onclick="archiveSemester()"]');
+  if(btn){btn.disabled=true;btn.textContent='Archiving…';}
+
+  try{
+    // 1. Get all current (non-archived) student IDs before archiving
+    const stuR=await dbGet('students?is_archived=eq.false&select=id');
+    const stuIds=(stuR.ok?stuR.data:[]).map(s=>s.id);
+
+    // 2. Archive all active students
+    await dbPatch('students?is_archived=eq.false',{is_archived:true});
+
+    // 3. Deactivate all simulations and close forms
+    await dbPatch('simulations?select=id',{is_active:false,submission_open:false});
+
+    // 4. Close all assessments
+    await dbPatch('assessment_assignments?select=id',{is_open:false});
+
+    // 5. Delete student data (submissions, assignments, reflections, self_assessments)
+    // These are tied to student_ids — deleting them clears the semester progress
+    // but the archived student records remain for future cross-class comparison
+    if(stuIds.length){
+      // Delete in batches if needed, but Supabase handles IN() fine for typical class sizes
+      const idList=stuIds.map(id=>'"'+id+'"').join(',');
+      await Promise.all([
+        api('submissions?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('assignments?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('reflections?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('self_assessments?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+      ]);
+    }
+
+    // 6. Clear local sim order so sidebar resets
+    localStorage.removeItem('sim_order');
+
+    await loadAll();
+    alert('Semester archived ✓\n\nStudent records are preserved for future comparison but all submissions, assignments, reflections, and assessments have been cleared. Students will need to re-register for next semester.');
+  }catch(e){
+    console.error('Archive error:',e);
+    alert('Something went wrong during archiving. Please check Supabase and try again.');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Archive semester & start fresh';}
+  }
 }
 
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
