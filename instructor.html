@@ -777,8 +777,13 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
         </div>
         <div class="card" style="border-color:#fecaca">
           <div class="card-title" style="color:#dc2626">Danger zone</div>
-          <p style="font-size:13px;color:#6b7280;margin-bottom:1rem">Archive this semester. All student data is preserved but students will need to re-register next semester.</p>
+          <p style="font-size:13px;color:#6b7280;margin-bottom:1rem">Archive this semester. All submissions, assignments, reflections, assessments, and notes are cleared. Student identity records are preserved for future cross-class comparison.</p>
           <button class="btn btn-danger" onclick="archiveSemester()">Archive semester & start fresh</button>
+          <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #fecaca">
+            <div style="font-size:12px;font-weight:600;color:#dc2626;margin-bottom:4px">Manual cleanup</div>
+            <p style="font-size:12px;color:#9ca3af;margin-bottom:8px">If a previous archive left orphaned assessment or submission data, use this to finish the cleanup.</p>
+            <button class="btn btn-ghost btn-sm" style="color:#dc2626;border-color:#fecaca" onclick="cleanupOrphanedData()">Clear leftover data</button>
+          </div>
         </div>
       </div>
 
@@ -1680,11 +1685,12 @@ function renderSimulations(){
       <div class="sim-info" style="flex:1">
         <div class="sim-name">${s.name} ${s.is_active?'<span class="badge badge-green">Active</span>':''} ${s.submission_open?'<span class="badge badge-blue">Form open</span>':''}</div>
         <div class="sim-meta">${s.type} · ${(s.roles||[]).join(', ')}</div>
+        ${s.description?`<div style="font-size:12px;color:var(--text-3);margin-top:5px;line-height:1.55;font-style:italic;max-width:580px;padding-right:8px">${s.description}</div>`:''}
       </div>
       <div class="sim-actions">
         ${!s.is_active?`<button class="btn btn-primary btn-sm" onclick="setActiveSim('${s.id}')">Set active</button>`:`<button class="btn btn-danger btn-sm" onclick="deactivateSim('${s.id}')">Deactivate</button>`}
         <button class="btn btn-outline btn-sm" onclick="manageSim('${s.id}')">Manage</button>
-        <button class="btn btn-ghost btn-sm" onclick="renameSim('${s.id}')">Rename</button>
+        <button class="btn btn-ghost btn-sm" onclick="renameSim('${s.id}')" title="Edit name, description & reflection questions">✎ Edit</button>
         <button class="btn btn-ghost btn-sm" onclick="downloadInstructorNotes('${s.id}','${s.name}')" title="Download instructor notes PDF">📄 Notes</button>
       </div>`;
     // Drag events
@@ -3083,48 +3089,79 @@ async function archiveSemester(){
   const conf=prompt('Type RESET to archive this semester and clear all class data:');
   if(conf!=='RESET')return;
 
-  // Show progress
   const btn=document.querySelector('.btn-danger[onclick="archiveSemester()"]');
   if(btn){btn.disabled=true;btn.textContent='Archiving…';}
 
   try{
-    // 1. Get all current (non-archived) student IDs before archiving
-    const stuR=await dbGet('students?is_archived=eq.false&select=id');
-    const stuIds=(stuR.ok?stuR.data:[]).map(s=>s.id);
+    // 1. Get ALL student IDs (both active and already-archived) for full cleanup
+    const stuR=await dbGet('students?select=id');
+    const allStuIds=(stuR.ok?stuR.data:[]).map(s=>s.id);
 
     // 2. Archive all active students
     await dbPatch('students?is_archived=eq.false',{is_archived:true});
 
-    // 3. Deactivate all simulations and close forms
-    await dbPatch('simulations?select=id',{is_active:false,submission_open:false});
+    // 3. Deactivate all simulations — must patch each individually (Supabase requires a filter)
+    for(const sim of allSims){
+      if(sim.is_active||sim.submission_open){
+        await dbPatch('simulations?id=eq.'+sim.id,{is_active:false,submission_open:false});
+      }
+    }
 
-    // 4. Close all assessments
-    await dbPatch('assessment_assignments?select=id',{is_open:false});
+    // 4. Delete ALL assessment_assignments (open/closed) — fresh slate for next semester
+    await api('assessment_assignments?id=neq.00000000-0000-0000-0000-000000000000',{method:'DELETE',prefer:'return=minimal'});
 
-    // 5. Delete student data (submissions, assignments, reflections, self_assessments)
-    // These are tied to student_ids — deleting them clears the semester progress
-    // but the archived student records remain for future cross-class comparison
-    if(stuIds.length){
-      // Delete in batches if needed, but Supabase handles IN() fine for typical class sizes
-      const idList=stuIds.map(id=>'"'+id+'"').join(',');
+    // 5. Delete ALL student data — submissions, assignments, reflections, self_assessments
+    // Use two passes: by student_id list, then catch any orphans with a broad delete
+    if(allStuIds.length){
+      const idList=allStuIds.map(id=>'"'+id+'"').join(',');
       await Promise.all([
         api('submissions?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
         api('assignments?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
         api('reflections?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
         api('self_assessments?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('notes?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
       ]);
     }
 
-    // 6. Clear local sim order so sidebar resets
+    // 6. Clear local sim order
     localStorage.removeItem('sim_order');
 
     await loadAll();
-    alert('Semester archived ✓\n\nStudent records are preserved for future comparison but all submissions, assignments, reflections, and assessments have been cleared. Students will need to re-register for next semester.');
+    alert('Semester archived ✓\n\nAll submissions, assignments, reflections, assessments, and notes have been cleared. Student records are preserved for future cross-class comparison. Students will need to re-register for next semester.');
   }catch(e){
     console.error('Archive error:',e);
-    alert('Something went wrong during archiving. Please check Supabase and try again.');
+    alert('Something went wrong during archiving. Please check the browser console and try again.\n\nError: '+e.message);
   }finally{
     if(btn){btn.disabled=false;btn.textContent='Archive semester & start fresh';}
+  }
+}
+
+async function cleanupOrphanedData(){
+  if(!confirm('This will delete ALL self_assessments, assessment_assignments, submissions, assignments, reflections, and notes for ALL students (including archived). Use this if a previous archive left data behind. Continue?'))return;
+  const btn=event.target;
+  btn.disabled=true;btn.textContent='Cleaning up…';
+  try{
+    // Get all student IDs (including archived)
+    const stuR=await dbGet('students?select=id');
+    const allIds=(stuR.ok?stuR.data:[]).map(s=>s.id);
+    if(allIds.length){
+      const idList=allIds.map(id=>'"'+id+'"').join(',');
+      await Promise.all([
+        api('self_assessments?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('submissions?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('assignments?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('reflections?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+        api('notes?student_id=in.('+idList+')',{method:'DELETE',prefer:'return=minimal'}),
+      ]);
+    }
+    // Delete all assessment_assignments
+    await api('assessment_assignments?id=neq.00000000-0000-0000-0000-000000000000',{method:'DELETE',prefer:'return=minimal'});
+    await loadAll();
+    alert('Cleanup complete ✓');
+  }catch(e){
+    alert('Error during cleanup: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='Clear leftover data';
   }
 }
 
