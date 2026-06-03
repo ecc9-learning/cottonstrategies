@@ -960,15 +960,18 @@ function getGroupOutcome(members, sim){
     return{outcome:'nodeal',label:'✗ No deal',color:'#ff8a80',borderColor:'#ff8a80'};
   }
 
-  // 3. Both submitted independently — check if answers match
+  // 3. Check individual deal radio fields — any No = no deal, takes priority
+  if(submitted.length>0&&df){
+    const dealVals=submitted.map(m=>m.sub.form_data?.[df.id]);
+    if(dealVals.some(v=>v==='No')){
+      return{outcome:'nodeal',label:'✗ No deal',color:'#ff8a80',borderColor:'#ff8a80'};
+    }
+  }
+
+  // 4. Both submitted independently — check if answers match
   if(submitted.length>=2&&submitted.length===members.length){
     const dealVals=df?submitted.map(m=>m.sub.form_data?.[df.id]):[];
     const allSayYes=dealVals.length>0&&dealVals.every(v=>v==='Yes');
-    const anySayNo=dealVals.some(v=>v==='No');
-
-    if(anySayNo){
-      return{outcome:'nodeal',label:'✗ No deal',color:'#ff8a80',borderColor:'#ff8a80'};
-    }
 
     if(allSayYes){
       // Check numeric fields for consistency
@@ -978,7 +981,7 @@ function getGroupOutcome(members, sim){
         const vals=submitted.map(m=>parseFloat(m.sub.form_data?.[f.id])).filter(v=>!isNaN(v));
         if(vals.length>=2){
           const min=Math.min(...vals),max=Math.max(...vals);
-          if(min>0&&(max-min)/min>0.05) mismatch=true; // >5% difference
+          if(min>0&&(max-min)/min>0.05) mismatch=true;
         }
       });
       if(mismatch){
