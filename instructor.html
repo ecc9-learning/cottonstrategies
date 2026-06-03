@@ -950,9 +950,12 @@ function getGroupOutcome(members, sim){
   const confirmed=submitted.filter(m=>m.sub.form_data?._confirmed);
   const disputed=submitted.filter(m=>m.sub.form_data?._disputed);
 
-  // 1. Any confirmation = deal
-  if(confirmed.length>0){
-    return{outcome:'deal',label:'✓ Deal',color:'#5ee0a8',borderColor:'#5ee0a8'};
+  // 1. Any No on deal radio = no deal immediately (highest priority)
+  if(submitted.length>0&&df){
+    const dealVals=submitted.map(m=>m.sub.form_data?.[df.id]);
+    if(dealVals.some(v=>v==='No')){
+      return{outcome:'nodeal',label:'✗ No deal',color:'#ff8a80',borderColor:'#ff8a80'};
+    }
   }
 
   // 2. Any dispute = no deal
@@ -960,12 +963,9 @@ function getGroupOutcome(members, sim){
     return{outcome:'nodeal',label:'✗ No deal',color:'#ff8a80',borderColor:'#ff8a80'};
   }
 
-  // 3. Check individual deal radio fields — any No = no deal, takes priority
-  if(submitted.length>0&&df){
-    const dealVals=submitted.map(m=>m.sub.form_data?.[df.id]);
-    if(dealVals.some(v=>v==='No')){
-      return{outcome:'nodeal',label:'✗ No deal',color:'#ff8a80',borderColor:'#ff8a80'};
-    }
+  // 3. Confirmed = deal (only meaningful if no one said No)
+  if(confirmed.length>0){
+    return{outcome:'deal',label:'✓ Deal',color:'#5ee0a8',borderColor:'#5ee0a8'};
   }
 
   // 4. Both submitted independently — check if answers match
