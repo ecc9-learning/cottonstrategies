@@ -359,18 +359,20 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
 }
 .detail-panel.show{display:block}
 .detail-header{
-  padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);
+  padding:1rem 1.25rem;border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;background:var(--surface);
   background:linear-gradient(135deg,var(--navy),var(--navy-3));
+  z-index:1;
 }
 .detail-header-title{font-size:14px;font-weight:700;color:#fff;font-family:'Playfair Display',serif}
 .detail-close{
   background:rgba(255,255,255,.15);border:none;color:#fff;
-  width:28px;height:28px;border-radius:50%;cursor:pointer;
-  font-size:16px;display:flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;cursor:pointer;
+  font-size:18px;display:flex;align-items:center;justify-content:center;
+  transition:background .15s;flex-shrink:0;
 }
-.detail-close:hover{background:rgba(255,255,255,.25)}
+.detail-close:hover{background:rgba(255,255,255,.3)}
 .detail-body{padding:1.5rem}
 .detail-field{margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #f3f6fb}
 .detail-field:last-child{border-bottom:none}
@@ -547,37 +549,88 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
 
 /* ── MOBILE ──────────────────────────────────────────────────── */
 @media(max-width:768px){
+  /* Layout */
   .app-body{flex-direction:column;height:auto;overflow:visible}
+
+  /* Sidebar → horizontal scrolling tab bar */
   .sidebar{
-    width:100%;height:auto;flex-direction:row;flex-wrap:wrap;
-    overflow-x:auto;border-right:none;
-    border-bottom:1px solid rgba(255,255,255,.08);
-    padding:.4rem;gap:.2rem;
+    width:100%;height:auto;flex-direction:row;flex-wrap:nowrap;
+    overflow-x:auto;overflow-y:hidden;
+    border-right:none;border-bottom:1px solid rgba(255,255,255,.1);
+    padding:.35rem .5rem;gap:.2rem;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
   }
+  .sidebar::-webkit-scrollbar{display:none}
   .sidebar-section,.sidebar-spacer,.sidebar-bottom{display:none}
-  .nav-item{margin:2px;padding:.45rem .7rem;font-size:11.5px;white-space:nowrap;border-left:none!important}
-  .nav-item.active{border-left:none;border-bottom:2px solid var(--accent);padding-left:.7rem}
+  .nav-item{
+    margin:0;padding:.45rem .85rem;font-size:11.5px;
+    white-space:nowrap;border-left:none!important;
+    flex-shrink:0;border-radius:6px;
+  }
+  .nav-item.active{
+    border-left:none!important;border-bottom:none;
+    background:rgba(191,87,0,.2);color:#ffab66;
+    padding-left:.85rem;
+  }
   .sim-quick-list{display:none}
-  .main-content{padding:.9rem;overflow-y:visible}
+
+  /* Main content */
+  .main-content{padding:.85rem;overflow-y:visible}
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .chart-grid{grid-template-columns:1fr}
   .section-title{font-size:16px;flex-direction:column;align-items:flex-start;gap:.5rem}
   .btn-row{flex-wrap:wrap}
-  .detail-panel{width:100%;top:0;height:100vh}
+
+  /* Detail panel: full screen overlay on mobile */
+  .detail-panel{
+    width:100%!important;
+    top:0!important;
+    height:100vh!important;
+    z-index:400;
+  }
+
+  /* Status bar */
   .status-bar{height:auto;min-height:52px;flex-wrap:wrap;padding:.5rem 1rem;gap:.5rem}
-  .status-right{flex-wrap:wrap;gap:.75rem}
+  .status-right{flex-wrap:wrap;gap:.6rem}
+  .status-stat-val{font-size:15px}
+
+  /* Tables */
   table{font-size:11.5px}
   th,td{padding:6px 8px}
-  .modal{padding:1.1rem;max-height:95vh}
+  .table-wrap{border-radius:6px}
+
+  /* Modal */
+  .modal{padding:1rem;max-height:95vh;border-radius:10px}
+
+  /* Sim list — stack vertically on mobile */
+  .sim-list-item{flex-wrap:wrap;gap:.6rem;padding:.85rem 1rem}
+  .sim-info{min-width:0;flex:1 1 100%;order:2}
+  .drag-handle{order:1}
+  .sim-actions{order:3;flex:1 1 100%;flex-wrap:wrap;gap:.4rem}
+  .sim-actions .btn{font-size:11px;padding:4px 10px}
+
+  /* Cards */
+  .card{padding:1rem}
+  .card-title{font-size:11px}
+
+  /* Group cards */
+  .group-card{padding:.85rem}
+  .group-num{font-size:10px}
+
+  /* Grids */
+  .grid2{grid-template-columns:1fr}
   .proj-stats-row{flex-wrap:wrap}
   .proj-stat{min-width:80px}
   .proj-group-grid{grid-template-columns:1fr}
-  .grid2{grid-template-columns:1fr}
 }
 @media(max-width:480px){
   .stats-row{grid-template-columns:1fr 1fr}
   .stat-val{font-size:20px}
   .section-title{font-size:15px}
+  .status-left{gap:.75rem}
+  .status-sim{display:none}
+  .status-pills{display:none}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -1681,6 +1734,7 @@ function renderSimulations(){
         <button class="btn btn-outline btn-sm" onclick="manageSim('${s.id}')">Manage</button>
         <button class="btn btn-ghost btn-sm" onclick="renameSim('${s.id}')" title="Edit name, description & reflection questions">✎ Edit</button>
         <button class="btn btn-ghost btn-sm" onclick="downloadInstructorNotes('${s.id}','${s.name}')" title="Download instructor notes PDF">📄 Notes</button>
+        <button class="btn btn-ghost btn-sm" onclick="showRoleBriefs('${s.id}','${s.name}')" title="Download role briefs">📋 Briefs</button>
       </div>`;
     // Drag events
     div.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',s.id);div.classList.add('dragging');});
@@ -3650,6 +3704,33 @@ function downloadInstructorNotes(simId, simName){
   a.href=url; a.target='_blank';
   a.download=simName.replace(/\s+/g,'_')+'_InstructorNotes.pdf';
   a.click();
+}
+
+function showRoleBriefs(simId, simName){
+  const sim=allSims.find(s=>s.id===simId);
+  if(!sim)return;
+  const roles=sim.roles||[];
+  const btns=roles.map(role=>{
+    const url=SUPA_URL+'/storage/v1/object/public/role-briefs/'+simId+'/'+encodeURIComponent(role)+'.pdf';
+    return`<a href="${url}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-size:13px;font-weight:500;transition:all .15s" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='var(--bg)'">
+      <span style="font-size:16px">📋</span>
+      <span style="flex:1">${role}</span>
+      <span style="font-size:11px;color:var(--text-4);font-family:'Space Grotesk',sans-serif">↗ Open PDF</span>
+    </a>`;
+  }).join('');
+  const instrUrl=SUPA_URL+'/storage/v1/object/public/role-briefs/'+simId+'/InstructorNotes.pdf';
+  showModal(`<div class="modal-title">Role Briefs — ${simName}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${btns}
+      <a href="${instrUrl}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(191,87,0,.07);border:1px solid var(--accent-border);border-radius:8px;text-decoration:none;color:var(--accent);font-size:13px;font-weight:500;transition:all .15s" onmouseover="this.style.background='rgba(191,87,0,.12)'" onmouseout="this.style.background='rgba(191,87,0,.07)'">
+        <span style="font-size:16px">📄</span>
+        <span style="flex:1">Instructor Notes</span>
+        <span style="font-size:11px;opacity:.7;font-family:'Space Grotesk',sans-serif">↗ Open PDF</span>
+      </a>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Close</button>
+    </div>`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

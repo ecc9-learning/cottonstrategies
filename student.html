@@ -411,14 +411,34 @@ main{flex:1;max-width:660px;width:100%;margin:0 auto;padding:28px 20px 60px}
 
 /* ── RESPONSIVE ── */
 @media(max-width:540px){
-  main{padding:16px 14px 48px}
-  .card-header{padding:16px 18px 0}
-  .card-body{padding:16px 18px 20px}
-  .assignment-role{font-size:26px}
-  .timeline{padding:16px 18px}
-  .readonly-label{min-width:100px;font-size:9.5px}
-  nav{padding:0 16px}
+  main{padding:14px 12px 48px}
+  .card-header{padding:14px 16px 0}
+  .card-body{padding:14px 16px 18px}
+  .card-title{font-size:15px}
+  .assignment-role{font-size:24px}
+  .assignment-block{padding:16px 18px}
+  .timeline{padding:14px 16px}
+  .readonly-label{min-width:90px;font-size:9.5px}
+  .readonly-value{font-size:13px}
+  nav{padding:0 14px}
+  .nav-logo{font-size:14px}
   .review-actions{flex-direction:column}
+  .btn{padding:9px 16px;font-size:12.5px}
+  .submit-btn{padding:13px;font-size:13.5px}
+  .radio-group{gap:6px}
+  .radio-option{padding:8px 12px;font-size:12.5px}
+  .assess-modal-body{padding:16px}
+  .assess-modal-footer{padding:12px 16px 20px;flex-wrap:wrap;gap:8px}
+  .assess-modal-footer .btn{flex:1;min-width:120px}
+  table{font-size:11px}
+  th,td{padding:5px 7px}
+}
+@media(max-width:380px){
+  main{padding:10px 10px 40px}
+  .card-header{padding:12px 14px 0}
+  .card-body{padding:12px 14px 16px}
+  .assignment-role{font-size:22px}
+  .stat-val{font-size:20px}
 }
 </style>
 </head>
@@ -566,11 +586,14 @@ function render(assignments,submissions,reflections,pSubs,pAsgs){
 
       const briefUrl=SUPA_URL+'/storage/v1/object/public/role-briefs/'+activeSim.id+'/'+encodeURIComponent(assignment.role)+'.pdf';
       const briefOpened=!!assignment.brief_opened_at;
-      html+=`<button class="btn btn-primary btn-block" id="brief-btn" onclick="downloadBrief('${briefUrl}','${assignment.id}')">
-        ${briefOpened?'📖 View role brief again':'↓ &nbsp;Download role brief'}
-      </button>`;
+      html+=`<div style="display:flex;gap:8px;margin-bottom:2px">
+        <button class="btn btn-primary" style="flex:1" onclick="downloadBrief('${briefUrl}','${assignment.id}')">
+          ${briefOpened?'📖 View brief again':'↓ Download role brief'}
+        </button>
+        <a href="${briefUrl}" target="_blank" class="btn btn-outline" style="flex-shrink:0;text-decoration:none" onclick="trackBriefOpen('${assignment.id}')" title="Open PDF in browser">↗</a>
+      </div>`;
       if(briefOpened){
-        html+=`<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:6px">
+        html+=`<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:5px">
           First opened ${new Date(assignment.brief_opened_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
         </div>`;
       }
@@ -604,6 +627,20 @@ function render(assignments,submissions,reflections,pSubs,pAsgs){
           html+=`<div class="banner banner-red" style="margin-bottom:16px">
             <span>⚠</span>
             <span>Disagreement flagged — your instructor will review both versions.</span>
+          </div>`;
+        }
+
+        // Contextual "what happens now" message
+        const partnerPending=!(pSubs||[]).length&&!confirmed&&!disputed;
+        const formStillOpen=activeSim.submission_open;
+        if(partnerPending&&formStillOpen){
+          html+=`<div style="background:var(--blue-light);border:1px solid rgba(26,86,219,.18);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:12px;font-size:13px;color:var(--blue)">
+            <strong>✓ Submitted.</strong> Waiting for your partner — this page checks automatically every 20 seconds.
+            <div style="margin-top:6px;font-size:12px;opacity:.8">💡 While you wait, jot some notes above about how the negotiation went.</div>
+          </div>`;
+        } else if(!partnerPending&&!confirmed&&!disputed&&(pSubs||[]).length){
+          html+=`<div style="background:var(--green-light);border:1px solid var(--green-border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:12px;font-size:13px;color:var(--green)">
+            <strong>Both sides have submitted.</strong> Review your partner's answers below, then confirm or flag a disagreement.
           </div>`;
         }
 
@@ -656,15 +693,25 @@ function render(assignments,submissions,reflections,pSubs,pAsgs){
         if(!(pSubs||[]).length){
           html+=`<div class="waiting-banner">
             <div class="spinner"></div>
-            <div style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:4px">Waiting for your partner…</div>
-            <div style="font-size:12px;color:#1e40af">This page will update automatically when they submit.</div>
+            <div style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:4px">Waiting for your partner to submit…</div>
+            <div style="font-size:12px;color:#1e40af;margin-bottom:8px">This page checks automatically every 20 seconds.</div>
+            <div style="font-size:12px;color:#1e40af;background:rgba(37,99,235,.08);border-radius:6px;padding:8px 12px;margin-top:4px">
+              💡 <strong>While you wait:</strong> Jot down your initial reaction in the notes section above — what went well, what surprised you.
+            </div>
           </div>`;
         }
+      } else if(submission&&!editMode&&(pSubs||[]).length){
+        // Both submitted — no action needed
       } else {
         // Form not yet open, no submission
         html+=`<div class="card"><div class="card-body">
-          <div style="text-align:center;padding:16px 0;color:var(--text-3);font-size:13px">
-            The results form isn't open yet. Your instructor will open it before or during class.
+          <div style="text-align:center;padding:20px 0">
+            <div style="font-size:22px;margin-bottom:10px">⏳</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Results form not open yet</div>
+            <div style="font-size:13px;color:var(--text-3);line-height:1.6;max-width:280px;margin:0 auto">
+              Your instructor will open it before or during class. 
+              ${assignment?'Use the notes area above to prep your strategy.':'Check back when pairings are released.'}
+            </div>
           </div>
         </div></div>`;
       }
@@ -983,7 +1030,10 @@ function updateProgress(){
 // ── BRIEF DOWNLOAD WITH TRACKING ─────────────────────────────────────────────
 async function downloadBrief(url,asgId){
   window.open(url,'_blank');
-  // Track first open — fire and forget, don't await
+  trackBriefOpen(asgId);
+}
+
+function trackBriefOpen(asgId){
   if(asgId&&assignment&&!assignment.brief_opened_at){
     sb('assignments?id=eq.'+asgId,{
       method:'PATCH',
@@ -1274,37 +1324,108 @@ function renderReadonly(fields,data){
     </div>`).join('');
 }
 
-// ── MY PROGRESS ───────────────────────────────────────────────────────────────
+// ── SEMESTER ARC NARRATIVE ───────────────────────────────────────────────────
 function renderMyProgress(submissions,assignments,reflections){
-  if(submissions.length<2)return'';
+  if(submissions.length<1)return'';
   const completedSims=submissions.map(sub=>{
     const sim=allSims.find(s=>s.id===sub.simulation_id);
     const asg=assignments.find(a=>a.simulation_id===sub.simulation_id);
     const refl=reflections.find(r=>r.simulation_id===sub.simulation_id);
     if(!sim)return null;
     const dealField=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'))?.id||'f4';
-    return{sim,asg,sub,refl,deal:sub.form_data?.[dealField]};
-  }).filter(Boolean);
+    const numFields=(sim?.fields||[]).filter(f=>f.type==='number');
+    const firstNum=numFields[0];
+    const numVal=firstNum?parseFloat(sub.form_data?.[firstNum.id]):null;
+    return{sim,asg,sub,refl,deal:sub.form_data?.[dealField],numVal,numLabel:firstNum?.label};
+  }).filter(Boolean).sort((a,b)=>(a.sim.sort_order||0)-(b.sim.sort_order||0));
+
+  if(!completedSims.length)return'';
+
+  const totalSims=allSims.length;
   const dealCount=completedSims.filter(s=>s.deal==='Yes').length;
-  return`<div class="card">
-    <div class="card-header"><div class="card-title">📈 My progress</div></div>
+  const dealRate=completedSims.length?Math.round(dealCount/completedSims.length*100):0;
+  const reflCount=reflections.length;
+  const pct=Math.round(completedSims.length/Math.max(totalSims,1)*100);
+
+  // Deal trend — running deal rate over time
+  const trendDots=completedSims.map((s,i)=>{
+    const runningDeals=completedSims.slice(0,i+1).filter(x=>x.deal==='Yes').length;
+    const rate=Math.round(runningDeals/(i+1)*100);
+    return rate;
+  });
+
+  // Collect recurring reflection themes (simple word frequency on mistakes)
+  const mistakeWords={};
+  reflections.forEach(r=>{
+    if(!r.mistake)return;
+    r.mistake.toLowerCase().split(/\W+/).filter(w=>w.length>4&&!['about','their','would','could','should','there','where','which','these','those','after','before','during'].includes(w)).forEach(w=>{
+      mistakeWords[w]=(mistakeWords[w]||0)+1;
+    });
+  });
+  const topThemes=Object.entries(mistakeWords).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([w])=>w);
+
+  return`<div class="card" style="border-top:2px solid var(--navy-3)">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📈 My semester arc</div>
+        <div class="card-sub" style="margin-top:3px">${completedSims.length} of ${totalSims} simulations complete</div>
+      </div>
+      ${completedSims.length>=totalSims?'<span class="pill pill-green">Semester complete</span>':''}
+    </div>
     <div class="card-body">
-      <div style="display:flex;gap:12px;margin-bottom:16px">
+
+      <!-- Progress bar -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:linear-gradient(90deg,var(--navy-3),var(--accent));border-radius:3px;width:${pct}%;transition:width .6s"></div>
+        </div>
+        <span style="font-size:12px;color:var(--text-3);flex-shrink:0;font-family:'Space Grotesk',sans-serif">${completedSims.length}/${totalSims}</span>
+      </div>
+
+      <!-- Key stats -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
         ${[
-          {v:completedSims.length,l:'Completed',c:'var(--accent)'},
-          {v:dealCount,l:'Deals',c:'var(--green)'},
-          {v:reflections.length,l:'Reflections',c:'var(--blue)'}
-        ].map(s=>`<div style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
-          <div style="font-size:22px;font-weight:800;color:${s.c}">${s.v}</div>
-          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">${s.l}</div>
+          {v:dealRate+'%',l:'Deal rate',c:'var(--navy-3)',sub:dealCount+' of '+completedSims.length},
+          {v:reflCount,l:'Reflections',c:'var(--blue)',sub:reflCount+' of '+completedSims.length+' sims'},
+          {v:completedSims.length,l:'Completed',c:'var(--accent)',sub:'of '+totalSims+' total'},
+        ].map(s=>`<div style="text-align:center;padding:14px 8px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <div style="font-size:24px;font-weight:800;color:${s.c};font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em">${s.v}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-top:3px">${s.l}</div>
+          <div style="font-size:10px;color:var(--text-4);margin-top:2px">${s.sub}</div>
         </div>`).join('')}
       </div>
+
+      <!-- Simulation timeline with outcomes -->
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:'Space Grotesk',sans-serif">Simulation outcomes</div>
+      <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+        ${completedSims.map((s,i)=>{
+          const color=s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--border)';
+          const bg=s.deal==='Yes'?'var(--green-light)':s.deal==='No'?'var(--red-light)':'var(--bg)';
+          return`<div title="${s.sim.name} · ${s.asg?.role||''} · ${s.deal==='Yes'?'Deal':'No deal'}" style="width:28px;height:28px;border-radius:6px;background:${bg};border:1.5px solid ${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${color};cursor:default">${i+1}</div>`;
+        }).join('')}
+        ${allSims.filter(s=>!completedSims.find(c=>c.sim.id===s.id)).map((_,i)=>`<div style="width:28px;height:28px;border-radius:6px;background:var(--bg);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--border);cursor:default">${completedSims.length+i+1}</div>`).join('')}
+      </div>
+
+      <!-- Simulation detail list -->
       ${completedSims.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg)">
-        <div style="width:8px;height:8px;border-radius:50%;background:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--border)'};flex-shrink:0"></div>
-        <div style="flex:1;font-size:13px">${s.sim.name}</div>
-        <div style="font-size:12px;color:var(--text-3)">${s.asg?.role||''}</div>
-        ${s.refl?'<span style="font-size:10px;color:var(--green)">✎</span>':''}
+        <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--border)'}"></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${s.sim.name}</div>
+          <div style="font-size:11px;color:var(--text-3)">${s.asg?.role||''}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--text-3)'}">${s.deal==='Yes'?'Deal':s.deal==='No'?'No deal':'—'}</span>
+        ${s.refl?'<span style="font-size:10px;color:var(--blue)" title="Reflected">✎</span>':''}
       </div>`).join('')}
+
+      <!-- Recurring themes from reflections -->
+      ${topThemes.length?`<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:'Space Grotesk',sans-serif">Themes in your reflections</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          ${topThemes.map(w=>`<span style="padding:4px 12px;background:var(--blue-light);color:var(--blue);border-radius:20px;font-size:12px;font-weight:600;border:1px solid rgba(26,86,219,.15)">${w}</span>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--text-4);margin-top:8px">Words that appear most in what you'd do differently.</div>
+      </div>`:''}
+
     </div>
   </div>`;
 }
