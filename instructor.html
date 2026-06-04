@@ -548,32 +548,57 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
 .text-muted{color:var(--text-4);font-size:11.5px}
 
 /* ── MOBILE ──────────────────────────────────────────────────── */
+/* Hamburger toggle — hidden on desktop */
+.mobile-nav-toggle{
+  display:none;
+  background:none;border:none;cursor:pointer;
+  width:32px;height:32px;
+  flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  padding:0;margin-right:4px;
+}
+.mobile-nav-toggle span{
+  display:block;width:20px;height:2px;
+  background:#fff;border-radius:2px;transition:all .25s ease;
+}
+.mobile-nav-toggle.open span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+.mobile-nav-toggle.open span:nth-child(2){opacity:0}
+.mobile-nav-toggle.open span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+
 @media(max-width:768px){
   /* Layout */
   .app-body{flex-direction:column;height:auto;overflow:visible}
 
-  /* Sidebar → horizontal scrolling tab bar */
+  /* Show hamburger */
+  .mobile-nav-toggle{display:flex}
+
+  /* Sidebar → slide-down overlay menu, hidden by default */
   .sidebar{
-    width:100%;height:auto;flex-direction:row;flex-wrap:nowrap;
-    overflow-x:auto;overflow-y:hidden;
-    border-right:none;border-bottom:1px solid rgba(255,255,255,.1);
-    padding:.35rem .5rem;gap:.2rem;
-    -webkit-overflow-scrolling:touch;
-    scrollbar-width:none;
+    position:fixed;
+    top:52px;left:0;right:0;bottom:0;
+    width:100%;height:calc(100vh - 52px);
+    flex-direction:column;flex-wrap:nowrap;
+    overflow-y:auto;
+    border-right:none;border-bottom:none;
+    padding:1rem .75rem;gap:2px;
+    background:var(--navy-2);
+    z-index:150;
+    transform:translateX(-100%);
+    transition:transform .28s ease;
   }
-  .sidebar::-webkit-scrollbar{display:none}
-  .sidebar-section,.sidebar-spacer,.sidebar-bottom{display:none}
+  .sidebar.mobile-open{transform:translateX(0)}
+  .sidebar-section{display:block;color:rgba(255,255,255,.3)}
+  .sidebar-spacer{display:block;flex:1}
+  .sidebar-bottom{display:block}
   .nav-item{
-    margin:0;padding:.45rem .85rem;font-size:11.5px;
-    white-space:nowrap;border-left:none!important;
-    flex-shrink:0;border-radius:6px;
+    margin:1px .25rem;padding:.7rem .9rem;font-size:14px;
+    white-space:nowrap;border-radius:8px;
+    border-left:2px solid transparent;
   }
   .nav-item.active{
-    border-left:none!important;border-bottom:none;
     background:rgba(191,87,0,.2);color:#ffab66;
-    padding-left:.85rem;
+    border-left:2px solid var(--accent);
   }
-  .sim-quick-list{display:none}
+  .sim-quick-list{display:block}
 
   /* Main content */
   .main-content{padding:.85rem;overflow-y:visible}
@@ -658,7 +683,10 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
   <!-- STATUS BAR -->
   <div class="status-bar">
     <div class="status-left">
-      <div class="status-logo"><a href="/" style="text-decoration:none;color:inherit">Cotton Strategies</a></div></a>
+      <button class="mobile-nav-toggle" id="mobileNavToggle" onclick="toggleMobileNav()" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="status-logo"><a href="/" style="text-decoration:none;color:inherit">Cotton Strategies</a></div>
       <div class="status-divider"></div>
       <div class="status-sim"><span>Active:</span><span id="sb-sim-name">None</span></div>
       <div class="status-pills" id="sb-pills"></div>
@@ -1172,6 +1200,25 @@ function showSection(name) {
   if(sec) sec.classList.add('active');
   if(nav) nav.classList.add('active');
   renderCurrentSection();
+  // Auto-close mobile nav after selection
+  closeMobileNav();
+}
+
+function toggleMobileNav(){
+  const sidebar=document.querySelector('.sidebar');
+  const toggle=document.getElementById('mobileNavToggle');
+  if(!sidebar)return;
+  const isOpen=sidebar.classList.toggle('mobile-open');
+  if(toggle)toggle.classList.toggle('open',isOpen);
+  document.body.style.overflow=isOpen?'hidden':'';
+}
+
+function closeMobileNav(){
+  const sidebar=document.querySelector('.sidebar');
+  const toggle=document.getElementById('mobileNavToggle');
+  if(sidebar)sidebar.classList.remove('mobile-open');
+  if(toggle)toggle.classList.remove('open');
+  document.body.style.overflow='';
 }
 
 function renderCurrentSection() {
