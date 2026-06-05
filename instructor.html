@@ -2394,6 +2394,13 @@ function pmBuildItems(){
     items.push({type:'chart',chartType:'deal',id:'chart-deal',label:'Deal outcomes',dealField,subs,groups,released});
   }
 
+  // STRUMR scatter — detect the two characteristic number fields
+  const totalField=fieldsToShow.find(f=>f.type==='number'&&/total.*stand/i.test(f.label||''));
+  const bandField=fieldsToShow.find(f=>f.type==='number'&&/band.?area.*stand|stand.*band/i.test(f.label||''));
+  if(totalField&&bandField&&subs.length){
+    items.push({type:'chart',chartType:'strumr',id:'chart-strumr',label:'Stands scatter',totalField,bandField,subs,groups,released});
+  }
+
   // Numeric fields
   fieldsToShow.filter(f=>f.type==='number').forEach(f=>{
     const vals=subs.map(s=>{
@@ -2700,12 +2707,14 @@ function pmRenderChart(el,item){
   el.appendChild(container);
 
   if(item.chartType==='deal') pmRenderDealChart(container,item,palette,typeOverride);
+  else if(item.chartType==='strumr') pmRenderStrumrChart(container,item,palette,typeOverride);
   else if(item.chartType==='number') pmRenderNumberChart(container,item,palette,typeOverride);
   else if(item.chartType==='radio') pmRenderRadioChart(container,item,palette,typeOverride);
   else if(item.chartType==='quotes') pmRenderQuotesChart(container,item,palette,typeOverride);
 }
 
 function pmGetTypeOptions(item){
+  if(item.chartType==='strumr') return [{v:null,label:'With results',default:true},{v:'lines',label:'Lines only'}];
   if(item.chartType==='number') return [{v:null,label:'Bar',default:true},{v:'donut',label:'Donut'},{v:'table',label:'Table'}];
   if(item.chartType==='radio') return [{v:null,label:'Bar',default:true},{v:'donut',label:'Donut'},{v:'table',label:'Table'}];
   if(item.chartType==='quotes') return [{v:null,label:'Cards',default:true},{v:'list',label:'List'}];
@@ -2772,6 +2781,163 @@ function pmRenderDealChart(c,item,palette,typeOverride){
       <div style="font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-top:4px">${s.l}</div>
     </div>`).join('')}
   </div>`;
+}
+
+// ── STRUMR scatter chart ──────────────────────────────────────────────────────
+function pmRenderStrumrChart(c,item,palette,typeOverride){
+  const{totalField,bandField,subs,groups,released}=item;
+  const showResults=typeOverride!=='lines';
+
+  // Gather group points — one point per group (both partners should agree)
+  const groupPoints=[];
+  Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
+    // Use the first submitted member's numbers (both should match after confirmation)
+    const withData=members.filter(m=>m.sub&&m.sub.form_data?.[totalField.id]&&m.sub.form_data?.[bandField.id]);
+    if(!withData.length)return;
+    const x=parseFloat(withData[0].sub.form_data[totalField.id]);
+    const y=parseFloat(withData[0].sub.form_data[bandField.id]);
+    if(isNaN(x)||isNaN(y))return;
+    groupPoints.push({gn:parseInt(gn),x,y});
+  });
+
+  // Merge groups at identical points → "Groups 1 & 2"
+  const merged={};
+  groupPoints.forEach(p=>{
+    const key=p.x+','+p.y;
+    if(!merged[key])merged[key]={x:p.x,y:p.y,groups:[]};
+    merged[key].groups.push(p.gn);
+  });
+  const mergedPoints=Object.values(merged).map(m=>({
+    x:m.x,y:m.y,
+    label:(m.groups.length>1?'Groups ':'Group ')+m.groups.sort((a,b)=>a-b).join(' & ')
+  }));
+
+  // Chart container with styling
+  const wrap=document.createElement('div');
+  wrap.style.cssText='background:rgba(255,255,255,.03);border-radius:14px;padding:24px;height:480px;position:relative';
+  c.appendChild(wrap);
+  const canvas=document.createElement('canvas');
+  wrap.appendChild(canvas);
+
+  // Build datasets
+  const datasets=[];
+
+  // Constraint lines (always shown)
+  // Jean's 50% Limit — diagonal y = x/2, from (8,4) to (19,9.5)
+  datasets.push({
+    type:'line',label:"Jean 50% Limit",
+    data:[{x:8,y:4},{x:19,y:9.5}],
+    borderColor:'#4a90d9',borderWidth:2.5,borderDash:[8,5],
+    pointRadius:0,fill:false,tension:0
+  });
+  // Jean's Ideal Min — vertical at x=13
+  datasets.push({
+    type:'line',label:"Jean's Ideal Min",
+    data:[{x:13,y:4},{x:13,y:10}],
+    borderColor:'#4a90d9',borderWidth:1.5,borderDash:[2,3],
+    pointRadius:0,fill:false
+  });
+  // Alex's Ideal Max — vertical at x=8
+  datasets.push({
+    type:'line',label:"Alex's Ideal Max",
+    data:[{x:8,y:4},{x:8,y:10}],
+    borderColor:'#ff8a80',borderWidth:1.5,borderDash:[2,3],
+    pointRadius:0,fill:false
+  });
+  // Alex's Absolute Max — vertical at x=15
+  datasets.push({
+    type:'line',label:"Alex's Absolute Max",
+    data:[{x:15,y:4},{x:15,y:10}],
+    borderColor:'#ff8a80',borderWidth:2.5,borderDash:[8,5],
+    pointRadius:0,fill:false
+  });
+
+  // Group result points (only in results view)
+  if(showResults&&mergedPoints.length){
+    datasets.push({
+      type:'scatter',label:'Class outcomes',
+      data:mergedPoints.map(p=>({x:p.x,y:p.y})),
+      backgroundColor:palette[0],
+      borderColor:'#fff',borderWidth:2,
+      pointRadius:9,pointHoverRadius:11,
+      pointStyle:'rect'
+    });
+  }
+
+  // Custom plugin to draw group labels next to points
+  const labelPlugin={
+    id:'strumrLabels',
+    afterDatasetsDraw(chart){
+      if(!showResults)return;
+      const{ctx,scales:{x,y}}=chart;
+      ctx.save();
+      ctx.font="700 13px 'Space Grotesk', sans-serif";
+      ctx.fillStyle='#fff';
+      mergedPoints.forEach(p=>{
+        const px=x.getPixelForValue(p.x);
+        const py=y.getPixelForValue(p.y);
+        ctx.textAlign='left';
+        ctx.textBaseline='middle';
+        // offset label to the right of the point
+        ctx.fillText(p.label, px+14, py);
+      });
+      ctx.restore();
+    }
+  };
+
+  setTimeout(()=>{
+    if(typeof Chart==='undefined')return;
+    pmActiveCharts['strumr']=new Chart(canvas,{
+      data:{datasets},
+      plugins:[labelPlugin],
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        layout:{padding:{top:20,right:80,bottom:10,left:10}},
+        scales:{
+          x:{
+            type:'linear',position:'bottom',
+            min:7,max:19,
+            title:{display:true,text:'Total Number of Vending Stands',color:'rgba(255,255,255,.6)',font:{size:13,family:'Space Grotesk'}},
+            ticks:{color:'rgba(255,255,255,.45)',stepSize:1,font:{family:'Space Grotesk'}},
+            grid:{color:'rgba(255,255,255,.07)'}
+          },
+          y:{
+            type:'linear',
+            min:4,max:10,
+            title:{display:true,text:'Total Vending Stands in Band Area',color:'rgba(255,255,255,.6)',font:{size:13,family:'Space Grotesk'}},
+            ticks:{color:'rgba(255,255,255,.45)',stepSize:1,font:{family:'Space Grotesk'}},
+            grid:{color:'rgba(255,255,255,.07)'}
+          }
+        },
+        plugins:{
+          legend:{
+            display:true,position:'bottom',
+            labels:{color:'rgba(255,255,255,.6)',font:{size:12,family:'Space Grotesk'},usePointStyle:true,padding:14,
+              filter:(legendItem)=>showResults||legendItem.text!=='Class outcomes'}
+          },
+          tooltip:{
+            callbacks:{
+              label:(ctx)=>{
+                if(ctx.dataset.label==='Class outcomes'){
+                  const pt=mergedPoints[ctx.dataIndex];
+                  return pt?pt.label+': '+ctx.parsed.x+' total, '+ctx.parsed.y+' in band':'';
+                }
+                return ctx.dataset.label;
+              }
+            }
+          }
+        }
+      }
+    });
+  },60);
+
+  // Insight caption below
+  const caption=document.createElement('div');
+  caption.style.cssText='margin-top:16px;font-size:13px;color:rgba(255,255,255,.4);text-align:center;line-height:1.6;font-family:DM Sans,sans-serif';
+  caption.innerHTML=showResults
+    ? 'Each square is a group\'s agreed outcome. The diagonal is Jean\'s 50% line; vertical lines mark Alex\'s and Jean\'s key thresholds.'
+    : 'The scoring geometry: band-area placement (vertical) drives value; total stands past 8 (Alex\'s ideal max) erode it.';
+  c.appendChild(caption);
 }
 
 // ── Number chart ──────────────────────────────────────────────────────────────
