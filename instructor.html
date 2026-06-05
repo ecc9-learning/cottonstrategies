@@ -604,6 +604,9 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
   .main-content{padding:.85rem;overflow-y:visible}
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .chart-grid{grid-template-columns:1fr}
+  /* Force inline two-column grids to stack on mobile */
+  .main-content [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  .main-content [style*="repeat(5,1fr)"]{grid-template-columns:repeat(auto-fit,minmax(80px,1fr))!important}
   .section-title{font-size:16px;flex-direction:column;align-items:flex-start;gap:.5rem}
   .btn-row{flex-wrap:wrap}
 
@@ -1284,7 +1287,7 @@ function renderGameDayOverview(subs, released) {
           <button class="btn btn-sm" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.15)" onclick="enterPresentMode()">✦ Present</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.6rem">
         ${[
           {v: totalGroups, l: 'Groups', c: '#fff'},
           {v: bothSubmitted, l: 'Both submitted', c: '#4ade80'},
