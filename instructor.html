@@ -4125,7 +4125,49 @@ async function generateAISummary(){
     const stu=allStudents.find(s=>s.id===r.student_id);
     return(stu?.name||'Student')+': mistake="'+(r.mistake||'—')+'" | differently="'+(r.do_differently||'—')+'"';
   }).join('\n')||'No reflections yet.';
-  const prompt=`You are helping a law school negotiation professor prepare a debrief brief for the "${activeSim.name}" simulation.\n\nSIMULATION: ${activeSim.name}\nROLES: ${(activeSim.roles||[]).join(' vs ')}\nSTUDENTS: ${allStudents.length} | GROUPS: ${groupCount} | SUBMISSIONS: ${subs.length}\n${dealField?'DEAL RATE: '+groupDealCount+'/'+groupCount+' groups':''}\n\nGROUP RESULTS:\n${groupSummaryText}\n\nREFLECTIONS:\n${reflText}\n\nWrite a concise debrief brief with: 1) Quick stats (2-3 sentences), 2) Key patterns worth highlighting (3-5 bullets), 3) Interesting groups to spotlight and why, 4) Themes from reflections, 5) 4-5 discussion questions. Be specific to this class's data. Keep it practical — this is a prep doc for a law professor.`;
+  const prompt=`You are an expert negotiation coach and law professor assistant helping Professor Eliot Cotton at the University of Texas School of Law prepare for a class debrief of the "${activeSim.name}" simulation.
+
+CONTEXT:
+- Simulation: ${activeSim.name}
+- Roles: ${(activeSim.roles||[]).join(' vs ')}
+- Students: ${allStudents.length} | Groups: ${groupCount} | Submissions: ${subs.length}
+${dealField?'- Deal rate: '+groupDealCount+' of '+groupCount+' groups reached a deal ('+Math.round(groupDealCount/Math.max(groupCount,1)*100)+'%)':''}
+${numStats.length?'- Numeric outcomes: '+numStats.map(s=>s.label+': avg '+s.avg+' (range '+s.min+'–'+s.max+')').join('; '):''}
+${radioStats.length?'- Response breakdowns: '+radioStats.map(s=>s.label+': '+Object.entries(s.counts).map(([k,v])=>k+' '+v).join(', ')).join('; '):''}
+${confirmed>0?'- '+confirmed+' submissions confirmed by both parties':''}
+${disputed>0?'- ⚠ '+disputed+' disputed submissions — review carefully':''}
+
+GROUP-BY-GROUP RESULTS:
+${groupSummaryText}
+
+STUDENT REFLECTIONS (${reflections.length} submitted):
+${reflText}
+
+---
+
+Write a rigorous, insight-rich debrief brief structured exactly as follows. Be direct, analytical, and specific to this class's actual data. Avoid generic negotiation platitudes. This is a confidential prep document for an experienced professor — not a student summary.
+
+## 1. SNAPSHOT
+2-3 sentences summarizing what happened across the class. Mention the deal rate, any striking patterns, and the overall tenor of the negotiation (e.g. were students aggressive, overly accommodating, creative, did they leave value on the table?).
+
+## 2. DEAL PATTERNS
+Analyze why some groups reached deals and others didn't. Look for structural patterns — role asymmetry, anchoring effects, information sharing or withholding, BATNA awareness, concession timing. Be specific to this class's actual numbers and outcomes. If all groups dealt, analyze the variation in terms. If no one dealt, diagnose why.
+
+## 3. GROUP SPOTLIGHTS
+Identify 2-3 groups worth discussing in class. For each: name the group number, describe what happened, and state the specific teaching point it illustrates. Choose at least one group that did something effective, one that made an instructive mistake, and one that is interesting for any other reason (unusual terms, a surprising outcome, a near-miss, a creative solution). Be concrete — what exactly did they do and why does it matter?
+
+## 4. WHAT STUDENTS THINK THEY DID WRONG
+Synthesize the reflection data honestly. What mistakes are students identifying? Are they diagnosing their problems correctly, or are they missing the real issue? Flag any blind spots — cases where a student thinks they failed for one reason but the outcome data suggests another. Note if students are being too hard or too easy on themselves.
+
+## 5. BEHAVIORAL PATTERNS
+Based on the outcomes and reflections as a whole, what does this cohort's data reveal about their default negotiation tendencies? Are they leaving value on the table? Caving too early? Anchoring poorly? Avoiding difficult conversations? Over-relying on one tactic? Be direct and specific — this is for a professor who knows these students and will use this in class.
+
+## 6. DISCUSSION QUESTIONS
+Write 5 Socratic discussion questions designed to draw out the key lessons from THIS class's specific results — not generic negotiation questions. Each question should create productive tension or surface a non-obvious insight. After each question, add a brief italicized note on what you're hoping it surfaces and which groups or data points to reference when asking it.
+
+## 7. WATCH FOR IN CLASS
+2-3 specific things to pay attention to during the live debrief — moments that might get heated, students who may be defensive about their result, dynamics worth probing carefully, or data points that could spark useful disagreement. Be candid.`;
+
 
   const lines=[];
 
@@ -4230,7 +4272,7 @@ async function generateAISummary(){
         },
         body:JSON.stringify({
           model:'claude-haiku-4-5-20251001',
-          max_tokens:1500,
+          max_tokens:3000,
           messages:[{role:'user',content:prompt}]
         })
       });
@@ -4248,7 +4290,7 @@ async function generateAISummary(){
         },
         body:JSON.stringify({
           model:'llama-3.3-70b-versatile',
-          max_tokens:1500,
+          max_tokens:3000,
           messages:[{role:'user',content:prompt}]
         })
       });
