@@ -929,8 +929,8 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
 <script>
 const SUPA_URL='https://wqrdutahoszmptebeupl.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcmR1dGFob3N6bXB0ZWJldXBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzczNjAsImV4cCI6MjA5NTM1MzM2MH0.dFszAs72clNF43dMm0U8erdK76JgQnGEKo8HnjVaweg';
-const GROQ_KEY='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';
-const ANTHROPIC_KEY='';
+// AI keys are server-side only — handled by functions/ai.js
+
 
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path, opts={}) {
@@ -4259,46 +4259,16 @@ Write 5 Socratic discussion questions designed to draw out the key lessons from 
     btn.disabled=false; btn.textContent='↺ Regenerate';
   }
 
-// Try Anthropic first, fall back to Groq
+  // Call our own Cloudflare Function — key never touches the browser
   async function callAI(prompt){
-    try{
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key':ANTHROPIC_KEY,
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
-        body:JSON.stringify({
-          model:'claude-haiku-4-5-20251001',
-          max_tokens:3000,
-          messages:[{role:'user',content:prompt}]
-        })
-      });
-      const data=await resp.json();
-      const aiText=data?.content?.[0]?.text||'';
-      if(aiText) return aiText;
-      throw new Error('No text in Anthropic response');
-    }catch(e){
-      console.warn('Anthropic failed, trying Groq:',e);
-      const resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer '+GROQ_KEY
-        },
-        body:JSON.stringify({
-          model:'llama-3.3-70b-versatile',
-          max_tokens:3000,
-          messages:[{role:'user',content:prompt}]
-        })
-      });
-      const data=await resp.json();
-      const aiText=data?.choices?.[0]?.message?.content||'';
-      if(aiText) return aiText;
-      throw new Error('Both AI providers failed');
-    }
+    const resp=await fetch('/api/ai',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt})
+    });
+    const data=await resp.json();
+    if(data?.text) return data.text;
+    throw new Error(data?.error||'AI function returned no text');
   }
 
   try{
