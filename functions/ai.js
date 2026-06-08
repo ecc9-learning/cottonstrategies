@@ -1,67 +1,68 @@
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      }
-    });
-  }
+  // CORS headers — allow requests from your own domain
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json',
+  };
 
   try {
-    const body = await request.json();
-    const apiKey = env.GEMINI_API_KEY;
+    const { prompt } = await request.json();
 
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: 'No prompt provided' }), {
+        status: 400, headers: corsHeaders
       });
     }
 
-    // gemini-2.5-flash is the current free-tier model as of 2026
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const groqKey = env.GROQ_KEY;
+    if (!groqKey) {
+      return new Response(JSON.stringify({ error: 'GROQ_KEY not configured' }), {
+        status: 500, headers: corsHeaders
+      });
+    }
 
-    const geminiBody = {
-      contents: [{
-        parts: [{ text: body.prompt }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1500,
-      }
-    };
-
-    const resp = await fetch(geminiUrl, {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiBody)
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + groqKey,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
     });
 
     const data = await resp.json();
 
     if (!resp.ok) {
-      return new Response(JSON.stringify({ error: JSON.stringify(data.error || data) }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      return new Response(JSON.stringify({ error: data }), {
+        status: resp.status, headers: corsHeaders
       });
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data?.choices?.[0]?.message?.content || '';
+    return new Response(JSON.stringify({ text }), { headers: corsHeaders });
 
-    return new Response(JSON.stringify({
-      content: [{ type: 'text', text }]
-    }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500, headers: corsHeaders
     });
   }
+}
+
+// Handle preflight OPTIONS request
+export async function onRequestOptions() {
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+  });
 }
