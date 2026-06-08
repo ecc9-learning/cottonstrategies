@@ -4261,7 +4261,7 @@ Write 5 Socratic discussion questions designed to draw out the key lessons from 
 
   // Call our own Cloudflare Function — key never touches the browser
   async function callAI(prompt){
-    const resp=await fetch('/api/ai',{
+    const resp=await fetch('/ai',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prompt})
