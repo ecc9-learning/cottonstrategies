@@ -2204,7 +2204,7 @@ function renderResults(){
         ${privateFields.length?`<span style="font-size:11px;color:#9ca3af">🔒 ${privateFields.length} private field${privateFields.length>1?'s':''} visible to instructor only</span>`:''}
       </div>
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>Group</th><th>Student</th>${publicFields.map(f=>`<th style="min-width:100px">${(f.label||'').substring(0,20)}</th>`).join('')}${privateFields.map(f=>`<th style="min-width:90px;color:#9ca3af;font-size:11px">🔒 ${(f.label||'').substring(0,16)}</th>`).join('')}<th>Status</th></tr></thead>
+        <thead><tr><th>Group</th><th>Student</th>${publicFields.map(f=>`<th style="min-width:100px">${(f.label||'').substring(0,20)}</th>`).join('')}${privateFields.map(f=>`<th style="min-width:90px;color:#9ca3af;font-size:11px">🔒 ${(f.label||'').substring(0,16)}</th>`).join('')}<th title="Outcome determined by comparing both partners' answers">Group outcome</th><th title="Submitted = normal submission | Partner-verified = partner reviewed &amp; confirmed | Disputed = partner flagged disagreement">Submission status ⓘ</th></tr></thead>
         <tbody>${subs.slice().sort((a,b)=>{
           const ga=allAssignments.find(x=>x.student_id===a.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
           const gb=allAssignments.find(x=>x.student_id===b.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
@@ -2214,7 +2214,20 @@ function renderResults(){
           const asg=allAssignments.find(a=>a.student_id===row.student_id&&a.simulation_id===activeSim?.id);
           const groupNum=asg?.group_number||'—';
           const fd=row.form_data||{};
-          const status=fd._disputed?'<span class="badge badge-red">Disputed</span>':fd._confirmed?'<span class="badge badge-green">Confirmed</span>':'<span class="badge badge-gray">Submitted</span>';
+          // Group outcome for this submission's group
+          const _statusAsg=allAssignments.find(a=>a.student_id===row.student_id&&a.simulation_id===activeSim?.id);
+          const _statusGrpNum=_statusAsg?.group_number;
+          const _statusGrpMembers=_statusGrpNum?released.filter(a=>a.group_number===_statusGrpNum).map(a=>({sub:subs.find(s=>s.student_id===a.student_id),asg:a})):[];
+          const _grpOutcome=_statusGrpMembers.length?getGroupOutcome(_statusGrpMembers,activeSim).outcome:'pending';
+          const _grpOutcomeBadge=_grpOutcome==='deal'?'<span class="badge badge-green" title="Both parties agree">Group: Deal</span>':
+            _grpOutcome==='nodeal'?'<span class="badge badge-red" title="No deal reached">Group: No deal</span>':
+            _grpOutcome==='review'?'<span class="badge badge-yellow" title="Submitted values don\'t match — review needed">Group: Review ⚠</span>':
+            '<span class="badge badge-gray">Group: Pending</span>';
+          const status=fd._disputed
+            ?'<span class="badge badge-red" title="This student flagged a disagreement with their partner\'s version">⚠ Disputed</span>'
+            :fd._confirmed
+            ?'<span class="badge badge-green" title="This student reviewed their partner\'s submission and confirmed it matches">✓ Partner-verified</span>'
+            :'<span class="badge badge-gray" title="Submitted normally — partner has not yet confirmed">Submitted</span>';
           const cells=[...publicFields,...privateFields].map(f=>{
             const v=fd[f.id]||'—';
             const style=f.private?'color:#9ca3af;font-size:12px;':'';
@@ -2226,7 +2239,7 @@ function renderResults(){
             if(String(v).length>30){return`<td title="${v}" style="cursor:help;${style}">${String(v).substring(0,30)+'…'}</td>`;}
             return`<td style="${style}">${v}</td>`;
           }).join('');
-          return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')"><td style="font-weight:700;color:#bf5700;white-space:nowrap">Grp ${groupNum}</td><td><strong>${st?.name||'Unknown'}</strong></td>${cells}<td>${status}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSubmission('${row.id}')">Edit</button></td></tr>`;
+          return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')"><td style="font-weight:700;color:#bf5700;white-space:nowrap">Grp ${groupNum}</td><td><strong>${st?.name||'Unknown'}</strong></td>${cells}<td>${_grpOutcomeBadge}</td><td>${status}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSubmission('${row.id}')">Edit</button></td></tr>`;
         }).join('')}</tbody>
       </table></div>`;
     el.appendChild(tcard);
@@ -2300,29 +2313,124 @@ function buildCharts(sim,subs,container){
   const COLORS=['#1e3a6e','#0d7c4b','#bf5700','#c0392b','#7c3aed','#0891b2','#546a8f','#9a6800'];
   const fields=sim.fields||[];
 
-  // Deal pie
-  const _dealFld=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
-  // Use group outcomes for pie — not raw radio answers
-  const _releasedForPie=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
-  const _groupsForPie={};
-  _releasedForPie.forEach(a=>{if(!_groupsForPie[a.group_number])_groupsForPie[a.group_number]=[];const s=subs.find(x=>x.student_id===a.student_id);_groupsForPie[a.group_number].push({sub:s,asg:a});});
-  const _pieVals=Object.values(_groupsForPie).map(m=>{
+  // Build group-outcome map for use in charts
+  const released=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
+  const groupMap={};
+  released.forEach(a=>{
+    if(!groupMap[a.group_number])groupMap[a.group_number]=[];
+    const sub=subs.find(s=>s.student_id===a.student_id);
+    groupMap[a.group_number].push({sub,asg:a});
+  });
+  const groupOutcomeMap={}; // gn -> outcome string
+  Object.entries(groupMap).forEach(([gn,members])=>{
+    groupOutcomeMap[parseInt(gn)]=getGroupOutcome(members,sim).outcome;
+  });
+
+  // Deal outcomes pie (group-based)
+  const _releasedForPie=released;
+  const _pieVals=Object.values(groupMap).map(m=>{
     const o=getGroupOutcome(m,sim).outcome;
     return o==='deal'?'Deal':o==='nodeal'?'No deal':o==='review'?'Needs review':null;
   }).filter(Boolean);
-  buildPie(container,'deal-'+Date.now(),'Deal outcomes by group',_pieVals,['#5ee0a8','#ff8a80','#fbbf24']);
+  if(_pieVals.length) buildPie(container,'deal-'+Date.now(),'Deal outcomes by group',_pieVals,['#5ee0a8','#ff8a80','#fbbf24']);
 
-  // Numeric histograms
+  // Numeric fields — split horizontal bar charts: deals vs no-deals
   fields.filter(f=>f.type==='number').forEach(field=>{
-    const vals=subs.map(s=>parseFloat(s.form_data?.[field.id])).filter(v=>!isNaN(v)&&v>0);
-    if(vals.length>=2) buildHist(container,field.id+'-'+Date.now(),(field.label||''),vals,COLORS[0]);
+    buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim);
   });
 
-  // Radio pies (skip role field f2 and f4 already done)
-  fields.filter(f=>f.type==='radio'&&f.id!=='f2'&&f.id!=='f4').slice(0,4).forEach(field=>{
+  // Radio pies (skip role field f2 and deal field)
+  const dealFldId=fields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
+  fields.filter(f=>f.type==='radio'&&f.id!=='f2'&&f.id!==dealFldId).slice(0,4).forEach(field=>{
     const vals=subs.map(s=>s.form_data?.[field.id]).filter(Boolean);
-    if(vals.length) buildPie(container,field.id+'-'+Date.now(),(field.label||''),subs.map(s=>s.form_data?.[field.id]),COLORS);
+    if(vals.length) buildPie(container,field.id+'-'+Date.now(),(field.label||''),vals,COLORS);
   });
+}
+
+// Group-aware horizontal bar chart for numeric fields
+// Shows one bar per group, split into deal groups and no-deal/review groups
+function buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim){
+  // Build one data point per group
+  const groupPoints=[];
+  Object.entries(groupMap).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
+    const submitted=members.filter(m=>m.sub);
+    if(!submitted.length) return;
+    const vals=submitted.map(m=>parseFloat(m.sub.form_data?.[field.id])).filter(v=>!isNaN(v)&&v>0);
+    if(!vals.length) return;
+    const outcome=groupOutcomeMap[parseInt(gn)]||'pending';
+    const mismatch=vals.length>1&&new Set(vals).size>1;
+    const displayVal=mismatch?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):vals[0];
+    groupPoints.push({gn:parseInt(gn),val:displayVal,outcome,mismatch,rawVals:vals});
+  });
+  if(!groupPoints.length) return;
+
+  const dealPoints=groupPoints.filter(g=>g.outcome==='deal');
+  const otherPoints=groupPoints.filter(g=>g.outcome!=='deal');
+  const allVals=groupPoints.map(g=>g.val);
+  const mn=Math.min(...allVals),mx=Math.max(...allVals);
+  const padding=(mx-mn)*0.15||mn*0.1||100;
+  const xMin=Math.max(0,mn-padding), xMax=mx+padding;
+
+  // Create one chart card showing all groups
+  const chartId='grpbar-'+field.id+'-'+Date.now();
+  const card=document.createElement('div');
+  card.className='chart-card';
+  const chartHeight=Math.max(120,groupPoints.length*44+60);
+  card.innerHTML=`
+    <div class="chart-title" style="margin-bottom:4px">${field.label}</div>
+    <div style="display:flex;gap:12px;font-size:10px;color:#9ca3af;margin-bottom:10px;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#5ee0a8;border-radius:2px;margin-right:4px"></span>Deal</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#fbbf24;border-radius:2px;margin-right:4px"></span>Needs review (avg)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#ff8a80;border-radius:2px;margin-right:4px"></span>No deal</span>
+    </div>
+    <div style="height:${chartHeight}px"><canvas id="${chartId}"></canvas></div>
+    <div style="font-size:10px;color:#9ca3af;text-align:right;margin-top:4px">← ${field.label}</div>`;
+  container.appendChild(card);
+
+  setTimeout(()=>{
+    const ctx=document.getElementById(chartId);
+    if(!ctx)return;
+    const colorMap={deal:'#5ee0a8',nodeal:'#ff8a80',review:'#fbbf24',pending:'#8fa3c0'};
+    activeCharts[chartId]=new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:groupPoints.map(g=>'Group '+g.gn+(g.mismatch?' ⚠':'')+(g.outcome==='deal'?' ✓':'')+(g.outcome==='nodeal'?' ✗':'')+(g.outcome==='review'?' ?':'')),
+        datasets:[{
+          data:groupPoints.map(g=>g.val),
+          backgroundColor:groupPoints.map(g=>colorMap[g.outcome]||'#8fa3c0'),
+          borderRadius:5,
+          borderSkipped:false
+        }]
+      },
+      options:{
+        indexAxis:'y',
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{
+            label:ctx=>{
+              const g=groupPoints[ctx.dataIndex];
+              if(g.mismatch) return g.rawVals.map((v,i)=>'Party '+(i+1)+': '+v.toLocaleString()).join(' | ')+' (avg shown)';
+              return ctx.parsed.x.toLocaleString();
+            }
+          }}
+        },
+        scales:{
+          x:{
+            min:xMin,max:xMax,
+            title:{display:true,text:field.label,color:'#6b7280',font:{size:11}},
+            ticks:{color:'#9ca3af',callback:v=>v.toLocaleString()},
+            grid:{color:'#f3f4f6'}
+          },
+          y:{
+            title:{display:true,text:'Group',color:'#6b7280',font:{size:11}},
+            ticks:{color:'#374151',font:{size:12,weight:'600'}},
+            grid:{display:false}
+          }
+        }
+      }
+    });
+  },50);
 }
 
 function buildPie(container,id,title,values,colors){
@@ -2418,16 +2526,14 @@ function pmBuildItems(){
     items.push({type:'chart',chartType:'strumr',id:'chart-strumr',label:'Stands scatter',totalField,bandField,subs,groups,released});
   }
 
-  // Numeric fields — enrich with group number and outcome for combined group view
+  // Numeric fields
   fieldsToShow.filter(f=>f.type==='number').forEach(f=>{
     const vals=subs.map(s=>{
       const asg=released.find(a=>a.student_id===s.student_id);
       const v=parseFloat(s.form_data?.[f.id]);
-      if(isNaN(v)) return null;
-      const groupNum=asg?.group_number||null;
-      return{v,role:asg?.role||'',name:allStudents.find(x=>x.id===s.student_id)?.name||'?',subId:s.id,groupNum};
+      return isNaN(v)?null:{v,role:asg?.role||'',name:allStudents.find(x=>x.id===s.student_id)?.name||'?',subId:s.id};
     }).filter(Boolean);
-    if(vals.length) items.push({type:'chart',chartType:'number',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,vals,subs,released,groups,private:f.private});
+    if(vals.length) items.push({type:'chart',chartType:'number',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,vals,subs,released,private:f.private});
   });
 
   // Radio fields (skip deal field)
@@ -2462,21 +2568,13 @@ function enterPresentMode(){
   pmIndex=0;
 
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
-  // Use group outcomes for accurate header counts
-  const _pmReleased=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
-  const _pmGroups={};
-  _pmReleased.forEach(a=>{if(!_pmGroups[a.group_number])_pmGroups[a.group_number]=[];const s=subs.find(x=>x.student_id===a.student_id);_pmGroups[a.group_number].push({sub:s,asg:a});});
-  const _pmOutcomes=Object.values(_pmGroups).map(m=>getGroupOutcome(m,activeSim).outcome);
-  const _pmDeals=_pmOutcomes.filter(o=>o==='deal').length;
-  const _pmReviews=_pmOutcomes.filter(o=>o==='review').length;
-  const _pmNoDeals=_pmOutcomes.filter(o=>o==='nodeal').length;
-  const _pmHeaderParts=[subs.length+' submissions',_pmDeals+' deal'+(_pmDeals!==1?'s':'')];
-  if(_pmReviews>0)_pmHeaderParts.push(_pmReviews+' needs review');
-  if(_pmNoDeals>0)_pmHeaderParts.push(_pmNoDeals+' no deal');
-  _pmHeaderParts.push(allStudents.length+' students');
+  const deals=subs.filter(s=>{
+    const df=(activeSim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'));
+    return df&&s.form_data?.[df.id]==='Yes';
+  }).length;
 
   document.getElementById('pm-title').textContent=activeSim.name;
-  document.getElementById('pm-sub').textContent=_pmHeaderParts.join(' · ').toUpperCase();
+  document.getElementById('pm-sub').textContent=(subs.length+' SUBMISSIONS · '+deals+' DEALS · '+allStudents.length+' STUDENTS').toUpperCase();
 
   pmRenderNav();
   pmRenderItem();
@@ -2536,10 +2634,11 @@ function pmRenderNav(){
       // Show group outcome in nav
       const members=item.members;
       const df=(activeSim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'));
-      const allSub=members.every(m=>m.sub);
-      const deal=df&&members.filter(m=>m.sub).length>0&&members.filter(m=>m.sub).every(m=>m.sub.form_data?.[df.id]==='Yes');
-      const noDeal=df&&members.some(m=>m.sub&&m.sub.form_data?.[df.id]==='No');
-      const dot=deal?'<span style="color:#5ee0a8">●</span>':noDeal?'<span style="color:#ff8a80">●</span>':'<span style="color:#555">●</span>';
+      const _navOutcome=getGroupOutcome(members.map(m=>({sub:m.sub,asg:m.asg})),activeSim).outcome;
+      const dot=_navOutcome==='deal'?'<span style="color:#5ee0a8">●</span>'
+        :_navOutcome==='nodeal'?'<span style="color:#ff8a80">●</span>'
+        :_navOutcome==='review'?'<span style="color:#fbbf24">●</span>'
+        :'<span style="color:#555">●</span>';
       html+=`<div onclick="pmJump(${i})" style="display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;transition:all .15s;border-left:2px solid ${isActive?'#bf5700':'transparent'};background:${isActive?'rgba(191,87,0,.1)':'transparent'}">
         <span style="font-size:10px">${dot}</span>
         <div>
@@ -2618,7 +2717,39 @@ function pmRenderGroup(el,item){
     </div>
   </div>`;
 
-  // Side-by-side member cards
+  // If group reached a deal and private mode is off, show a single merged card.
+  // Side-by-side only for disagreements/review or when private mode is on (to compare BATNA etc.)
+  const showSideBySide = pmShowPrivate || outcome !== 'deal';
+
+  if(!showSideBySide){
+    // Merged single card — use first submitted member's values (they should all match)
+    const refMember=members.find(m=>m.sub)||members[0];
+    const fd=refMember?.sub?.form_data||{};
+    html+=`<div style="background:rgba(94,224,168,.06);border:1.5px solid rgba(94,224,168,.3);border-radius:14px;padding:28px;max-width:600px">`;
+    html+=`<div style="font-size:11px;font-weight:700;color:rgba(94,224,168,.7);text-transform:uppercase;letter-spacing:.12em;margin-bottom:16px;font-family:'Space Grotesk',sans-serif">Agreed terms</div>`;
+    publicFields.forEach(f=>{
+      if(f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No')) return; // skip deal field
+      const rawVal=fd[f.id];
+      const displayVal=rawVal||'—';
+      const isEmpty=!rawVal||rawVal==='—';
+      if(f.type==='number'){
+        html+=`<div style="margin-bottom:18px"><div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;font-family:'Space Grotesk',sans-serif">${f.label}</div><div style="font-size:30px;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif">${isEmpty?'—':parseFloat(displayVal).toLocaleString()}</div></div>`;
+      } else if(f.type==='textarea'||f.type==='text'){
+        html+=`<div style="margin-bottom:18px"><div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;font-family:'Space Grotesk',sans-serif">${f.label}</div><div style="font-size:14px;color:#e8e0d5;line-height:1.65">${isEmpty?'—':escHtml(displayVal)}</div></div>`;
+      } else {
+        html+=`<div style="margin-bottom:18px"><div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;font-family:'Space Grotesk',sans-serif">${f.label}</div><div style="font-size:16px;font-weight:600;color:${isEmpty?'rgba(255,255,255,.2)':'#bf5700'}">${displayVal}</div></div>`;
+      }
+    });
+    html+=`<div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(94,224,168,.2);display:flex;gap:16px;flex-wrap:wrap">`;
+    members.forEach(m=>html+=`<span style="font-size:12px;color:rgba(255,255,255,.45);font-family:'Space Grotesk',sans-serif">${m.stu?.name||'?'} <span style="color:rgba(255,255,255,.2)">·</span> ${m.asg.role}</span>`);
+    html+=`</div>`;
+    html+=`<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.3);font-style:italic">Enable 🔒 Private to see individual cards with role-specific answers</div>`;
+    html+=`</div>`;
+    el.innerHTML=html;
+    return;
+  }
+
+  // Side-by-side member cards (disagreements, needs review, or private mode on)
   html+=`<div style="display:grid;grid-template-columns:repeat(${members.length},1fr);gap:20px;margin-bottom:20px">`;
 
   members.forEach(m=>{
@@ -2742,7 +2873,7 @@ function pmRenderChart(el,item){
 
 function pmGetTypeOptions(item){
   if(item.chartType==='strumr') return [{v:null,label:'With results',default:true},{v:'lines',label:'Lines only'}];
-  if(item.chartType==='number') return [{v:null,label:'By group',default:true},{v:'byrole',label:'By person'},{v:'table',label:'Table'}];
+  if(item.chartType==='number') return [{v:null,label:'Bar',default:true},{v:'donut',label:'Donut'},{v:'table',label:'Table'}];
   if(item.chartType==='radio') return [{v:null,label:'Bar',default:true},{v:'donut',label:'Donut'},{v:'table',label:'Table'}];
   if(item.chartType==='quotes') return [{v:null,label:'Cards',default:true},{v:'list',label:'List'}];
   return [];
@@ -2785,32 +2916,26 @@ function pmRenderDealChart(c,item,palette,typeOverride){
     return;
   }
 
-  // Default: group cards — use getGroupOutcome() for accurate outcome per card
-  const totalGroups=groupEntries.length;
-  const trueRate=totalGroups?Math.round(deals/totalGroups*100):0;
-  c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:28px">
+  // Default: group cards grid
+  c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px">
     ${groupEntries.map(([gn,members])=>{
-      const {outcome:gOutcome,label:gLabel,color:gColor}=getGroupOutcome(members.map(x=>({sub:x.sub,asg:x.asg})),activeSim);
-      const borderColor=gOutcome==='deal'?'rgba(94,224,168,.5)':gOutcome==='nodeal'?'rgba(255,138,128,.5)':gOutcome==='review'?'rgba(251,191,36,.5)':'rgba(255,255,255,.12)';
-      const bg=gOutcome==='deal'?'rgba(94,224,168,.06)':gOutcome==='nodeal'?'rgba(255,138,128,.06)':gOutcome==='review'?'rgba(251,191,36,.06)':'rgba(255,255,255,.03)';
-      return`<div style="background:${bg};border:1.5px solid ${borderColor};border-radius:12px;padding:20px">
+      const deal=members.filter(m=>m.sub).length>0&&members.filter(m=>m.sub).every(m=>m.sub.form_data?.[dealField.id]==='Yes');
+      const noDeal=members.filter(m=>m.sub).length>0&&members.filter(m=>m.sub).every(m=>m.sub.form_data?.[dealField.id]==='No');
+      const borderColor=deal?'#5ee0a8':noDeal?'#ff8a80':'rgba(255,255,255,.15)';
+      const outcomeColor=deal?'#5ee0a8':noDeal?'#ff8a80':'rgba(255,255,255,.3)';
+      return`<div style="background:rgba(255,255,255,.04);border:1.5px solid ${borderColor};border-radius:12px;padding:20px">
         <div style="font-size:11px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;font-family:'Space Grotesk',sans-serif">Group ${gn}</div>
         ${members.map(m=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
           <div style="font-size:14px;font-weight:600;color:#fff">${m.stu?.name||'?'}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.3)">${m.asg.role}</div>
         </div>`).join('')}
-        <div style="margin-top:14px;font-size:16px;font-weight:800;color:${gColor};font-family:'Space Grotesk',sans-serif">${gLabel}</div>
+        <div style="margin-top:12px;font-size:17px;font-weight:800;color:${outcomeColor};font-family:'Space Grotesk',sans-serif">${deal?'✓ Deal':noDeal?'✗ No deal':'Pending'}</div>
       </div>`;
     }).join('')}
   </div>
-  <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap">
-    ${[
-      {v:deals,l:'Deals',c:'#5ee0a8'},
-      {v:noDeals,l:'No deal',c:'#ff8a80'},
-      ...(reviews>0?[{v:reviews,l:'Needs review',c:'#fbbf24'}]:[]),
-      {v:trueRate+'%',l:'Deal rate',c:'#fff'}
-    ].map(s=>`<div style="text-align:center;padding:16px 24px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.07)">
-      <div style="font-size:38px;font-weight:800;color:${s.c};font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em">${s.v}</div>
+  <div style="display:flex;gap:24px;justify-content:center">
+    ${[{v:deals,l:'Deals',c:'#5ee0a8'},{v:noDeals,l:'No deal',c:'#ff8a80'},{v:deals+noDeals?Math.round(deals/(deals+noDeals)*100):0,l:'Deal rate',c:'#fff',s:'%'}].map(s=>`<div style="text-align:center;padding:16px 24px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:38px;font-weight:800;color:${s.c};font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em">${s.v}${s.s||''}</div>
       <div style="font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-top:4px">${s.l}</div>
     </div>`).join('')}
   </div>`;
@@ -2974,136 +3099,68 @@ function pmRenderStrumrChart(c,item,palette,typeOverride){
 }
 
 // ── Number chart ──────────────────────────────────────────────────────────────
-// Shows one bar per GROUP by default (the meaningful unit in a negotiation).
-// "By person" shows individual bars colored by role.
-// "Table" shows both partners side-by-side and flags any mismatch.
 function pmRenderNumberChart(c,item,palette,typeOverride){
-  const {vals,field,groups,released,subs}=item;
+  const {vals,field}=item;
+  const avg=Math.round(vals.reduce((a,b)=>a+b.v,0)/vals.length);
   const roles=[...new Set(vals.map(v=>v.role))];
   const colorMap={};roles.forEach((r,i)=>colorMap[r]=palette[i%palette.length]);
 
-  // Build per-group summary: {gn, members:[{name,role,v,subId}], outcome, agreedVal, mismatch}
-  const groupSummaries=[];
-  if(groups){
-    Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
-      const memberVals=members.map(m=>{
-        const v=vals.find(x=>x.groupNum===parseInt(gn)&&x.subId===m.sub?.id);
-        return v?{name:m.stu?.name||'?',role:m.asg.role,v:v.v,subId:v.subId}:null;
-      }).filter(Boolean);
-      if(!memberVals.length) return;
-      const outcome=getGroupOutcome(members.map(x=>({sub:x.sub,asg:x.asg})),activeSim).outcome;
-      const numVals=memberVals.map(x=>x.v);
-      const mismatch=numVals.length>=2&&new Set(numVals).size>1;
-      const agreedVal=mismatch?null:numVals[0];
-      const avgVal=Math.round(numVals.reduce((a,b)=>a+b,0)/numVals.length);
-      groupSummaries.push({gn:parseInt(gn),memberVals,outcome,agreedVal,avgVal,mismatch,numVals});
-    });
-  }
-
-  const overallAvg=vals.length?Math.round(vals.reduce((a,b)=>a+b.v,0)/vals.length):0;
-
-  // ── TABLE view: side-by-side partner values, mismatch flagged ──────────────
   if(typeOverride==='table'){
-    const rows=groupSummaries.map(g=>{
-      const valCells=g.memberVals.map(mv=>`<td style="padding:10px 14px;border:1px solid rgba(255,255,255,.05);font-weight:700;color:${colorMap[mv.role]||palette[0]};font-size:18px;font-family:'Space Grotesk',sans-serif">${mv.v.toLocaleString()}<div style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">${mv.role} · ${mv.name.split(' ')[0]}</div></td>`).join('');
-      const outcomeColors={deal:'#5ee0a8',nodeal:'#ff8a80',review:'#fbbf24',pending:'rgba(255,255,255,.3)'};
-      const {label:oLabel,color:oColor}=getGroupOutcome(groups[g.gn].map(x=>({sub:x.sub,asg:x.asg})),activeSim);
-      return`<tr>
-        <td style="padding:10px 14px;border:1px solid rgba(255,255,255,.05);color:#fff;font-weight:700">Group ${g.gn}</td>
-        ${valCells}
-        <td style="padding:10px 14px;border:1px solid rgba(255,255,255,.05);text-align:center;font-weight:700;color:${oColor}">${oLabel}${g.mismatch?' ⚠':''}</td>
-      </tr>`;
-    }).join('');
-    const maxMembers=Math.max(...groupSummaries.map(g=>g.memberVals.length),2);
-    const valHeaders=Array.from({length:maxMembers},(_,i)=>`<th style="padding:10px 14px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">Party ${i+1}</th>`).join('');
+    const sorted=[...vals].sort((a,b)=>b.v-a.v);
     c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:rgba(255,255,255,.06)">
-        <th style="padding:10px 14px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">Group</th>
-        ${valHeaders}
-        <th style="padding:10px 14px;text-align:center;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">Outcome</th>
+        ${['Student','Role',field.label].map(h=>`<th style="padding:12px 16px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">${h}</th>`).join('')}
       </tr></thead>
-      <tbody>${rows}</tbody>
+      <tbody>${sorted.map((v,i)=>`<tr>
+        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:#fff;font-weight:600">${v.name}</td>
+        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.45);font-size:12px">${v.role}</td>
+        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05)">
+          <span class="pm-editable" data-key="chart_${v.subId}_${field.id}" onclick="pmStartEdit(this,'chart_${v.subId}_${field.id}')"
+            style="font-size:20px;font-weight:700;color:${colorMap[v.role]||palette[0]};cursor:pointer;font-family:'Space Grotesk',sans-serif"
+            title="Click to edit">${parseFloat(pmEditValues['chart_'+v.subId+'_'+field.id]||v.v).toLocaleString()}</span>
+        </td>
+      </tr>`).join('')}</tbody>
     </table></div>
-    <div style="margin-top:16px;text-align:center;font-size:14px;color:rgba(255,255,255,.4)">
-      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif">${overallAvg.toLocaleString()}</span>
-      ${groupSummaries.some(g=>g.mismatch)?'<div style="font-size:12px;color:#fbbf24;margin-top:6px">⚠ Groups with mismatched values need review</div>':''}
+    <div style="margin-top:20px;text-align:center;font-size:14px;color:rgba(255,255,255,.4)">
+      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif"> ${avg.toLocaleString()}</span>
     </div>`;
     return;
   }
 
-  // ── BY PERSON view: individual bars colored by role ─────────────────────────
-  if(typeOverride==='byrole'){
-    c.innerHTML=`<div style="max-width:740px;margin:0 auto">
-      <canvas id="pm-canvas" style="max-height:360px"></canvas>
-      <div style="text-align:center;margin-top:16px;font-size:14px;color:rgba(255,255,255,.4)">
-        Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif">${overallAvg.toLocaleString()}</span>
-      </div>
-      <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;flex-wrap:wrap">
-        ${roles.map(r=>`<span style="font-size:12px;color:rgba(255,255,255,.5);font-family:'Space Grotesk',sans-serif"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:5px"></span>${r}</span>`).join('')}
-      </div>
-    </div>`;
+  if(typeOverride==='donut'){
+    const mn=Math.min(...vals.map(v=>v.v)),mx=Math.max(...vals.map(v=>v.v));
+    const bk=Math.min(5,vals.length),bs=(mx-mn)/bk||1;
+    const counts={};
+    vals.forEach(v=>{const b=Math.min(Math.floor((v.v-mn)/bs),bk-1);const lbl=Math.round(mn+b*bs).toLocaleString()+'–'+Math.round(mn+(b+1)*bs).toLocaleString();counts[lbl]=(counts[lbl]||0)+1;});
+    c.innerHTML='<canvas id="pm-canvas" style="max-width:420px;max-height:320px;margin:0 auto;display:block"></canvas>';
     setTimeout(()=>{
       const ctx=document.getElementById('pm-canvas');
-      if(!ctx) return;
-      // Sort by group then role for clean display
-      const sorted=[...vals].sort((a,b)=>a.groupNum-b.groupNum||a.role.localeCompare(b.role));
-      pmActiveCharts['main']=new Chart(ctx,{type:'bar',data:{
-        labels:sorted.map(v=>'Grp '+v.groupNum+' '+v.name.split(' ')[0]),
-        datasets:[{data:sorted.map(v=>parseFloat(pmEditValues['chart_'+v.subId+'_'+field.id]||v.v)),backgroundColor:sorted.map(v=>colorMap[v.role]||palette[0]),borderRadius:6,borderSkipped:false}]
-      },options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString()} (${sorted[ctx.dataIndex]?.role})`}}},scales:{
-        x:{ticks:{color:'rgba(255,255,255,.55)',font:{size:11,family:'Space Grotesk'}}},
-        y:{ticks:{color:'rgba(255,255,255,.35)',callback:v=>v.toLocaleString()},grid:{color:'rgba(255,255,255,.05)'}}
-      }}});
+      if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(counts),datasets:[{data:Object.values(counts),backgroundColor:palette.slice(0,Object.keys(counts).length),borderWidth:0}]},options:{plugins:{legend:{labels:{color:'rgba(255,255,255,.7)',font:{size:14,family:'Space Grotesk'}}}},cutout:'55%'}});
     },50);
     return;
   }
 
-  // ── DEFAULT: one bar per GROUP, colored by outcome ──────────────────────────
-  // Agreed groups show their agreed value. Mismatched groups show avg with warning.
-  if(!groupSummaries.length){
-    c.innerHTML='<div style="text-align:center;padding:40px;color:rgba(255,255,255,.3)">No group data available</div>';
-    return;
-  }
-  const groupLabels=groupSummaries.map(g=>'Group '+g.gn+(g.mismatch?' ⚠':''));
-  const groupValues=groupSummaries.map(g=>g.agreedVal!==null?g.agreedVal:g.avgVal);
-  const groupColors=groupSummaries.map(g=>
-    g.outcome==='deal'?'rgba(94,224,168,.8)':
-    g.outcome==='nodeal'?'rgba(255,138,128,.8)':
-    g.outcome==='review'?'rgba(251,191,36,.8)':
-    'rgba(255,255,255,.3)'
-  );
-  c.innerHTML=`<div style="max-width:640px;margin:0 auto">
-    <canvas id="pm-canvas" style="max-height:360px"></canvas>
+  // Default: bar by name, colored by role
+  c.innerHTML=`<div style="max-width:700px;margin:0 auto">
+    <canvas id="pm-canvas" style="max-height:340px"></canvas>
     <div style="text-align:center;margin-top:16px;font-size:14px;color:rgba(255,255,255,.4)">
-      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif">${overallAvg.toLocaleString()}</span>
+      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif"> ${avg.toLocaleString()}</span>
     </div>
-    <div style="display:flex;gap:14px;justify-content:center;margin-top:10px;flex-wrap:wrap">
-      <span style="font-size:11px;color:rgba(255,255,255,.4)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(94,224,168,.8);margin-right:4px"></span>Deal</span>
-      <span style="font-size:11px;color:rgba(255,255,255,.4)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(251,191,36,.8);margin-right:4px"></span>Needs review (avg shown)</span>
-      <span style="font-size:11px;color:rgba(255,255,255,.4)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,138,128,.8);margin-right:4px"></span>No deal</span>
-    </div>
-    ${groupSummaries.some(g=>g.mismatch)?'<div style="font-size:12px;color:#fbbf24;text-align:center;margin-top:8px">⚠ Mismatched groups show average — use Table view to see both values</div>':''}
+    ${roles.length>1?`<div style="display:flex;gap:16px;justify-content:center;margin-top:10px">
+      ${roles.map(r=>`<span style="font-size:12px;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:5px"></span>${r}</span>`).join('')}
+    </div>`:''}
   </div>`;
   setTimeout(()=>{
     const ctx=document.getElementById('pm-canvas');
-    if(!ctx) return;
-    pmActiveCharts['main']=new Chart(ctx,{type:'bar',data:{
-      labels:groupLabels,
-      datasets:[{data:groupValues,backgroundColor:groupColors,borderRadius:8,borderSkipped:false}]
-    },options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{
-      label:ctx=>{
-        const g=groupSummaries[ctx.dataIndex];
-        if(g.mismatch) return g.memberVals.map(mv=>`${mv.role}: ${mv.v.toLocaleString()}`);
-        return ctx.parsed.y.toLocaleString();
-      }
-    }}},scales:{
-      x:{ticks:{color:'rgba(255,255,255,.7)',font:{size:14,family:'Space Grotesk'}}},
-      y:{ticks:{color:'rgba(255,255,255,.35)',callback:v=>v.toLocaleString()},grid:{color:'rgba(255,255,255,.05)'}}
+    if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'bar',data:{
+      labels:vals.map(v=>v.name.split(' ')[0]),
+      datasets:[{data:vals.map(v=>parseFloat(pmEditValues['chart_'+v.subId+'_'+field.id]||v.v)),backgroundColor:vals.map(v=>colorMap[v.role]||palette[0]),borderRadius:8,borderSkipped:false}]
+    },options:{responsive:true,plugins:{legend:{display:false}},scales:{
+      x:{ticks:{color:'rgba(255,255,255,.6)',font:{size:13,family:'Space Grotesk'}}},
+      y:{ticks:{color:'rgba(255,255,255,.35)'},grid:{color:'rgba(255,255,255,.05)'}}
     }}});
   },50);
 }
-
-
 
 // ── Radio chart ───────────────────────────────────────────────────────────────
 function pmRenderRadioChart(c,item,palette,typeOverride){
