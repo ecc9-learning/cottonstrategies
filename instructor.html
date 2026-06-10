@@ -2113,7 +2113,7 @@ function renderResults(){
   const totalGroups=Object.keys(groups_r).length||1;
   const statsHtml=[
     {v:subs.length,l:'Submissions'},
-    {v:deals,l:'Confirmed deals'},
+    {v:deals,l:'Deals'},
     {v:totalGroups?Math.round(deals/totalGroups*100)+'%':'—',l:'Deal rate'},
     {v:notSub.length,l:'Not submitted'},
     {v:reviewCount>0?reviewCount:disputed,l:reviewCount>0?'Needs review':'Disputed'},
@@ -2302,7 +2302,16 @@ function buildCharts(sim,subs,container){
 
   // Deal pie
   const _dealFld=(sim?.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
-  buildPie(container,'deal-'+Date.now(),'Deal / no deal',subs.map(s=>s.form_data?.[_dealFld]),COLORS);
+  // Build deal pie from GROUP outcomes, not raw radio answers.
+  // This ensures needs-review groups (mismatched numbers) don't show as 'Yes'.
+  const _releasedForPie=allAssignments.filter(a=>a.simulation_id===sim.id&&a.released);
+  const _groupsForPie={};
+  _releasedForPie.forEach(a=>{if(!_groupsForPie[a.group_number])_groupsForPie[a.group_number]=[];const s=subs.find(x=>x.student_id===a.student_id);_groupsForPie[a.group_number].push({sub:s,asg:a});});
+  const _pieVals=Object.values(_groupsForPie).map(m=>{
+    const o=getGroupOutcome(m,sim).outcome;
+    return o==='deal'?'Deal':o==='nodeal'?'No deal':o==='review'?'Needs review':'Pending';
+  }).filter(v=>v!=='Pending');
+  buildPie(container,'deal-'+Date.now(),'Deal outcomes by group',_pieVals,['#5ee0a8','#ff8a80','#fbbf24','#8fa3c0']);
 
   // Numeric histograms
   fields.filter(f=>f.type==='number').forEach(field=>{
