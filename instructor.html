@@ -1013,7 +1013,7 @@ function getGroupOutcome(members, sim){
         const vals=submitted.map(m=>parseFloat(m.sub.form_data?.[f.id])).filter(v=>!isNaN(v));
         if(vals.length>=2){
           const min=Math.min(...vals),max=Math.max(...vals);
-          if(min>0&&(max-min)/min>0.05) mismatch=true;
+          if(max!==min) mismatch=true;
         }
       });
       if(mismatch){
@@ -2331,10 +2331,18 @@ function buildPie(container,id,title,values,colors){
 }
 
 function buildHist(container,id,title,vals,color){
-  const mn=Math.min(...vals),mx=Math.max(...vals),bk=Math.min(8,Math.max(3,Math.ceil(vals.length/2))),bs=(mx-mn)/bk||1;
-  const bins=Array(bk).fill(0),labels=[];
-  for(let i=0;i<bk;i++)labels.push((mn+i*bs).toFixed(1));
-  vals.forEach(v=>bins[Math.min(Math.floor((v-mn)/bs),bk-1)]++);
+  const mn=Math.min(...vals),mx=Math.max(...vals);
+  const uniqueVals=[...new Set(vals)].sort((a,b)=>a-b);
+  let labels,bins;
+  if(uniqueVals.length<=12){
+    labels=uniqueVals.map(v=>Number.isInteger(v)?v.toLocaleString():parseFloat(v.toFixed(2)).toLocaleString());
+    bins=uniqueVals.map(v=>vals.filter(x=>x===v).length);
+  } else {
+    const bk=Math.min(8,Math.max(3,Math.ceil(vals.length/2))),bs=(mx-mn)/bk||1;
+    bins=Array(bk).fill(0);labels=[];
+    for(let i=0;i<bk;i++)labels.push(Math.round(mn+i*bs).toLocaleString());
+    vals.forEach(v=>bins[Math.min(Math.floor((v-mn)/bs),bk-1)]++);
+  }
   const card=document.createElement('div'); card.className='chart-card';
   card.innerHTML=`<div class="chart-title">${title}</div><div class="chart-wrap"><canvas id="${id}"></canvas></div>`;
   container.appendChild(card);
