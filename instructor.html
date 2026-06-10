@@ -2568,13 +2568,20 @@ function enterPresentMode(){
   pmIndex=0;
 
   const subs=allSubmissions.filter(s=>s.simulation_id===activeSim.id);
-  const deals=subs.filter(s=>{
-    const df=(activeSim.fields||[]).find(f=>f.type==='radio'&&(f.options||[]).includes('Yes'));
-    return df&&s.form_data?.[df.id]==='Yes';
-  }).length;
+  const _pmReleased=allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released);
+  const _pmGroups={};
+  _pmReleased.forEach(a=>{if(!_pmGroups[a.group_number])_pmGroups[a.group_number]=[];const s=subs.find(x=>x.student_id===a.student_id);_pmGroups[a.group_number].push({sub:s,asg:a});});
+  const _pmOutcomes=Object.values(_pmGroups).map(m=>getGroupOutcome(m,activeSim).outcome);
+  const _pmDeals=_pmOutcomes.filter(o=>o==='deal').length;
+  const _pmReviews=_pmOutcomes.filter(o=>o==='review').length;
+  const _pmNoDeals=_pmOutcomes.filter(o=>o==='nodeal').length;
+  const _pmHeaderParts=[subs.length+' submissions',_pmDeals+' deal'+(_pmDeals!==1?'s':'')];
+  if(_pmReviews>0)_pmHeaderParts.push(_pmReviews+' needs review');
+  if(_pmNoDeals>0)_pmHeaderParts.push(_pmNoDeals+' no deal');
+  _pmHeaderParts.push(allStudents.length+' students');
 
   document.getElementById('pm-title').textContent=activeSim.name;
-  document.getElementById('pm-sub').textContent=(subs.length+' SUBMISSIONS · '+deals+' DEALS · '+allStudents.length+' STUDENTS').toUpperCase();
+  document.getElementById('pm-sub').textContent=_pmHeaderParts.join(' · ').toUpperCase();
 
   pmRenderNav();
   pmRenderItem();
@@ -2916,26 +2923,32 @@ function pmRenderDealChart(c,item,palette,typeOverride){
     return;
   }
 
-  // Default: group cards grid
-  c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+  // Default: group cards — use getGroupOutcome() for accurate per-card outcome
+  const totalGroups=groupEntries.length;
+  const trueRate=totalGroups?Math.round(deals/totalGroups*100):0;
+  c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:28px">
     ${groupEntries.map(([gn,members])=>{
-      const deal=members.filter(m=>m.sub).length>0&&members.filter(m=>m.sub).every(m=>m.sub.form_data?.[dealField.id]==='Yes');
-      const noDeal=members.filter(m=>m.sub).length>0&&members.filter(m=>m.sub).every(m=>m.sub.form_data?.[dealField.id]==='No');
-      const borderColor=deal?'#5ee0a8':noDeal?'#ff8a80':'rgba(255,255,255,.15)';
-      const outcomeColor=deal?'#5ee0a8':noDeal?'#ff8a80':'rgba(255,255,255,.3)';
-      return`<div style="background:rgba(255,255,255,.04);border:1.5px solid ${borderColor};border-radius:12px;padding:20px">
+      const {outcome:gOutcome,label:gLabel,color:gColor}=getGroupOutcome(members.map(x=>({sub:x.sub,asg:x.asg})),activeSim);
+      const borderColor=gOutcome==='deal'?'rgba(94,224,168,.5)':gOutcome==='nodeal'?'rgba(255,138,128,.5)':gOutcome==='review'?'rgba(251,191,36,.5)':'rgba(255,255,255,.12)';
+      const bg=gOutcome==='deal'?'rgba(94,224,168,.06)':gOutcome==='nodeal'?'rgba(255,138,128,.06)':gOutcome==='review'?'rgba(251,191,36,.06)':'rgba(255,255,255,.03)';
+      return`<div style="background:${bg};border:1.5px solid ${borderColor};border-radius:12px;padding:20px">
         <div style="font-size:11px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;font-family:'Space Grotesk',sans-serif">Group ${gn}</div>
         ${members.map(m=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
           <div style="font-size:14px;font-weight:600;color:#fff">${m.stu?.name||'?'}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.3)">${m.asg.role}</div>
         </div>`).join('')}
-        <div style="margin-top:12px;font-size:17px;font-weight:800;color:${outcomeColor};font-family:'Space Grotesk',sans-serif">${deal?'✓ Deal':noDeal?'✗ No deal':'Pending'}</div>
+        <div style="margin-top:14px;font-size:16px;font-weight:800;color:${gColor};font-family:'Space Grotesk',sans-serif">${gLabel}</div>
       </div>`;
     }).join('')}
   </div>
-  <div style="display:flex;gap:24px;justify-content:center">
-    ${[{v:deals,l:'Deals',c:'#5ee0a8'},{v:noDeals,l:'No deal',c:'#ff8a80'},{v:deals+noDeals?Math.round(deals/(deals+noDeals)*100):0,l:'Deal rate',c:'#fff',s:'%'}].map(s=>`<div style="text-align:center;padding:16px 24px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.07)">
-      <div style="font-size:38px;font-weight:800;color:${s.c};font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em">${s.v}${s.s||''}</div>
+  <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap">
+    ${[
+      {v:deals,l:'Deals',c:'#5ee0a8'},
+      {v:noDeals,l:'No deal',c:'#ff8a80'},
+      ...(reviews>0?[{v:reviews,l:'Needs review',c:'#fbbf24'}]:[]),
+      {v:trueRate+'%',l:'Deal rate',c:'#fff'}
+    ].map(s=>`<div style="text-align:center;padding:16px 24px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:38px;font-weight:800;color:${s.c};font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em">${s.v}</div>
       <div style="font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;margin-top:4px">${s.l}</div>
     </div>`).join('')}
   </div>`;
