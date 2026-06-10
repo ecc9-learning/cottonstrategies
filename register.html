@@ -44,10 +44,12 @@ nav{
   display:flex;align-items:center;justify-content:space-between;
   position:relative;z-index:1;
 }
+/* FIX-R1: nav-logo is now an <a> tag — styles handle both div and a */
 .nav-logo{
   font-family:'Playfair Display',serif;
   font-size:15px;font-weight:600;color:#fff;letter-spacing:.01em;
   display:flex;align-items:center;gap:7px;
+  text-decoration:none;
 }
 .nav-logo::before{content:'';width:5px;height:5px;border-radius:50%;background:#bf5700;display:inline-block}
 .nav-logo span{color:#ffab66;font-style:italic}
@@ -130,7 +132,8 @@ footer{
 </head>
 <body>
 <nav>
-  <div class="nav-logo">Cotton <span>Strategies</span></div>
+  <!-- FIX-R1: logo is now a link back to the main page -->
+  <a href="/" class="nav-logo">Cotton <span>Strategies</span></a>
   <div class="nav-sub">Negotiation for Transactional Lawyers</div>
 </nav>
 <main>

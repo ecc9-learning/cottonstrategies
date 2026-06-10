@@ -656,7 +656,8 @@ function render(assignments,submissions,reflections,pSubs,pAsgs){
           </div>
         </div>`;
 
-        // Reflection
+        // FIX-S1: Reflection card — identified by class "reflection-card" so doReflect()
+        // can swap it in-place without re-rendering the whole page
         const hasRefl=reflections.find(r=>r.simulation_id===activeSim.id);
         if(!hasRefl) html+=renderReflectionForm();
         else html+=`<div class="card"><div class="card-body"><div class="banner banner-green" style="margin-bottom:0">✓ Reflection submitted</div></div></div>`;
@@ -884,7 +885,6 @@ function renderPartnerOfferCard(pSubs,pAsgs){
     if(!v)return'';
     return`<div class="review-item"><div class="review-item-lbl">${f.label}</div><div>${v}</div></div>`;
   }).filter(Boolean).join('');
-  // Store partner sub in module scope for accept/counter
   window._pendingPartnerSub=ps;
 
   return`<div class="card" style="border-left:3px solid var(--green)">
@@ -934,7 +934,6 @@ function renderReviewCard(pendingReviews,pAsgs){
     </div>`;
   }).join('');
 
-  // Pre-build the dispute form HTML using dispute-specific prefix 'dff'
   const disputeFormHtml=renderForm(activeSim.fields,submission?submission.form_data:{},'dff');
 
   return`<div class="review-card">
@@ -957,8 +956,7 @@ function renderReviewCard(pendingReviews,pAsgs){
   </div>`;
 }
 
-// ── FORM RENDERER (accepts id prefix to avoid duplicate IDs) ─────────────────
-// prefix='ff' for main form, 'dff' for dispute form, 'cff' for counter form
+// ── FORM RENDERER ─────────────────────────────────────────────────────────────
 function renderForm(fields,values,prefix){
   prefix=prefix||'ff';
   return (fields||[]).filter(f=>!['_confirmed','_disputed','_dispute_note','_original_answers'].includes(f.id)&&!f.id.startsWith('_')).map(f=>{
@@ -991,7 +989,6 @@ function renderForm(fields,values,prefix){
   }).join('');
 }
 
-// ── FORM VALUE TRACKING ───────────────────────────────────────────────────────
 function updateFormValue(prefix,fid,val){
   if(prefix==='ff'){formValues[fid]=val;updateProgress();}
   else if(prefix==='dff'){disputeValues[fid]=val;}
@@ -1000,7 +997,6 @@ function updateFormValue(prefix,fid,val){
 
 function selectRadio(prefix,fid,val,el){
   updateFormValue(prefix,fid,val);
-  // Only deselect radios with same prefix+fid name
   document.querySelectorAll(`.radio-option input[name="${prefix}_${fid}"]`).forEach(inp=>{
     inp.parentElement.classList.remove('selected');
   });
@@ -1027,7 +1023,6 @@ function updateProgress(){
   if(bar)bar.style.width=pct+'%';
 }
 
-// ── BRIEF DOWNLOAD WITH TRACKING ─────────────────────────────────────────────
 async function downloadBrief(url,asgId){
   window.open(url,'_blank');
   trackBriefOpen(asgId);
@@ -1045,7 +1040,6 @@ function trackBriefOpen(asgId){
   }
 }
 
-// ── AUTOSAVE ──────────────────────────────────────────────────────────────────
 function startAutosave(){
   clearInterval(window._autosave);
   window._autosave=setInterval(saveDraft,30000);
@@ -1101,7 +1095,6 @@ function canEdit(){return !!(submission&&activeSim?.submission_open);}
 function enterEdit(){editMode=true;load();}
 function cancelEdit(){editMode=false;formValues={};load();}
 
-// ── ACCEPT PARTNER TERMS ──────────────────────────────────────────────────────
 async function acceptPartnerTerms(){
   const ps=window._pendingPartnerSub;
   if(!ps||!activeSim||!student)return;
@@ -1128,34 +1121,28 @@ async function acceptPartnerTerms(){
   }
 }
 
-// ── SHOW COUNTER FORM ─────────────────────────────────────────────────────────
 function showCounterForm(){
   const wrap=document.getElementById('counter-form-wrap');
   if(!wrap||!activeSim)return;
   const ps=window._pendingPartnerSub;
-  // Pre-fill with partner's answers as starting point
   const prefill={};
   if(ps){
     (activeSim.fields||[]).filter(f=>!f.id.startsWith('_')).forEach(f=>{
       prefill[f.id]=ps.form_data?.[f.id]||'';
     });
   }
-  // Use cff prefix for counter form to avoid ID collisions
   document.getElementById('counter-form-fields').innerHTML=renderForm(activeSim.fields,prefill,'cff');
-  // Copy prefill into formValues so progress bar and submit work
   formValues={...prefill};
   updateProgress();
   restoreRadios('cff');
   wrap.style.display='block';
   wrap.scrollIntoView({behavior:'smooth',block:'start'});
-  // Hide the action buttons since form is now showing
   const disputeBtn=document.querySelector('.btn-dispute');
   const confirmBtn=document.querySelector('.btn-confirm');
   if(disputeBtn)disputeBtn.style.display='none';
   if(confirmBtn)confirmBtn.style.display='none';
 }
 
-// ── SUBMIT FROM COUNTER FORM ──────────────────────────────────────────────────
 async function doCounterSubmit(){
   if(!activeSim||!student)return;
   const missing=(activeSim.fields||[]).filter(f=>f.required&&!f.id.startsWith('_')&&!formValues[f.id]);
@@ -1178,7 +1165,6 @@ async function doCounterSubmit(){
   }
 }
 
-// ── MAIN FORM SUBMIT ──────────────────────────────────────────────────────────
 async function doSubmit(){
   if(!activeSim)return;
   const missing=(activeSim.fields||[]).filter(f=>f.required&&!f.id.startsWith('_')&&!formValues[f.id]);
@@ -1204,7 +1190,6 @@ async function doSubmit(){
   }
 }
 
-// ── CONFIRM PARTNER ANSWERS ───────────────────────────────────────────────────
 async function doConfirm(){
   if(!submission)return;
   const btn=document.querySelector('.btn-confirm');
@@ -1218,16 +1203,13 @@ async function doConfirm(){
   else{if(btn){btn.disabled=false;btn.textContent='✓ Confirmed — we agree';}alert('Could not confirm. Please try again.');}
 }
 
-// ── SHOW DISPUTE FORM ─────────────────────────────────────────────────────────
 function showDisputeForm(){
   const form=document.getElementById('dispute-form');
   if(!form)return;
-  // Initialize disputeValues from current submission (strip flags)
   disputeValues={};
   Object.entries(submission?.form_data||{}).forEach(([k,v])=>{
     if(!k.startsWith('_'))disputeValues[k]=v;
   });
-  // Re-render dispute form fields with dff prefix and current values
   const fieldsDiv=document.getElementById('dispute-form-fields');
   if(fieldsDiv&&activeSim){
     fieldsDiv.innerHTML=renderForm(activeSim.fields,disputeValues,'dff');
@@ -1235,15 +1217,12 @@ function showDisputeForm(){
   form.classList.add('show');
   restoreRadios('dff');
   form.scrollIntoView({behavior:'smooth',block:'start'});
-  // Hide the action buttons
   const btns=document.querySelector('.review-actions');
   if(btns)btns.style.display='none';
 }
 
-// ── SUBMIT DISPUTE ────────────────────────────────────────────────────────────
 async function doDispute(){
   if(!submission||!activeSim)return;
-  // Collect text/number values from dispute form (radios already in disputeValues via selectRadio)
   const fields=(activeSim.fields||[]).filter(f=>!f.id.startsWith('_'));
   fields.forEach(f=>{
     if(f.type!=='radio'){
@@ -1295,6 +1274,9 @@ function renderReflectionForm(){
   </div>`;
 }
 
+// FIX-S1: doReflect no longer calls load() on success.
+// Instead it swaps only the reflection card in-place, preserving any other
+// in-progress typing on the page (notes, form fields, etc.).
 async function doReflect(){
   if(!activeSim||!student)return;
   const mistake=document.getElementById('ref-mistake')?.value||'';
@@ -1311,11 +1293,22 @@ async function doReflect(){
     student_id:student.id,simulation_id:activeSim.id,
     mistake,do_differently:different,custom_response:customAnswers.join(' ||| ')
   }),prefer:'return=minimal'});
-  if(r.ok){await load();}
-  else{if(btn){btn.disabled=false;btn.textContent='Submit reflection';}alert('Could not save. Please try again.');}
+  if(r.ok){
+    // Swap only the reflection card — do NOT call load() which re-renders
+    // the whole page and would wipe any notes or other in-progress text.
+    const reflCard=document.querySelector('.reflection-card');
+    if(reflCard){
+      const wrapper=document.createElement('div');
+      wrapper.className='card';
+      wrapper.innerHTML='<div class="card-body"><div class="banner banner-green" style="margin-bottom:0">✓ Reflection submitted — thanks!</div></div>';
+      reflCard.replaceWith(wrapper);
+    }
+  } else {
+    if(btn){btn.disabled=false;btn.textContent='Submit reflection';}
+    alert('Could not save. Please try again.');
+  }
 }
 
-// ── READONLY ──────────────────────────────────────────────────────────────────
 function renderReadonly(fields,data){
   return(fields||[]).filter(f=>!f.id.startsWith('_')).map(f=>`
     <div class="readonly-row">
@@ -1324,7 +1317,6 @@ function renderReadonly(fields,data){
     </div>`).join('');
 }
 
-// ── SEMESTER ARC NARRATIVE ───────────────────────────────────────────────────
 function renderMyProgress(submissions,assignments,reflections){
   if(submissions.length<1)return'';
   const completedSims=submissions.map(sub=>{
@@ -1347,14 +1339,6 @@ function renderMyProgress(submissions,assignments,reflections){
   const reflCount=reflections.length;
   const pct=Math.round(completedSims.length/Math.max(totalSims,1)*100);
 
-  // Deal trend — running deal rate over time
-  const trendDots=completedSims.map((s,i)=>{
-    const runningDeals=completedSims.slice(0,i+1).filter(x=>x.deal==='Yes').length;
-    const rate=Math.round(runningDeals/(i+1)*100);
-    return rate;
-  });
-
-  // Collect recurring reflection themes (simple word frequency on mistakes)
   const mistakeWords={};
   reflections.forEach(r=>{
     if(!r.mistake)return;
@@ -1373,16 +1357,12 @@ function renderMyProgress(submissions,assignments,reflections){
       ${completedSims.length>=totalSims?'<span class="pill pill-green">Semester complete</span>':''}
     </div>
     <div class="card-body">
-
-      <!-- Progress bar -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
         <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
           <div style="height:100%;background:linear-gradient(90deg,var(--navy-3),var(--accent));border-radius:3px;width:${pct}%;transition:width .6s"></div>
         </div>
         <span style="font-size:12px;color:var(--text-3);flex-shrink:0;font-family:'Space Grotesk',sans-serif">${completedSims.length}/${totalSims}</span>
       </div>
-
-      <!-- Key stats -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
         ${[
           {v:dealRate+'%',l:'Deal rate',c:'var(--navy-3)',sub:dealCount+' of '+completedSims.length},
@@ -1394,8 +1374,6 @@ function renderMyProgress(submissions,assignments,reflections){
           <div style="font-size:10px;color:var(--text-4);margin-top:2px">${s.sub}</div>
         </div>`).join('')}
       </div>
-
-      <!-- Simulation timeline with outcomes -->
       <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:'Space Grotesk',sans-serif">Simulation outcomes</div>
       <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
         ${completedSims.map((s,i)=>{
@@ -1405,8 +1383,6 @@ function renderMyProgress(submissions,assignments,reflections){
         }).join('')}
         ${allSims.filter(s=>!completedSims.find(c=>c.sim.id===s.id)).map((_,i)=>`<div style="width:28px;height:28px;border-radius:6px;background:var(--bg);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--border);cursor:default">${completedSims.length+i+1}</div>`).join('')}
       </div>
-
-      <!-- Simulation detail list -->
       ${completedSims.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg)">
         <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--border)'}"></div>
         <div style="flex:1">
@@ -1416,8 +1392,6 @@ function renderMyProgress(submissions,assignments,reflections){
         <span style="font-size:11px;font-weight:700;color:${s.deal==='Yes'?'var(--green)':s.deal==='No'?'var(--red)':'var(--text-3)'}">${s.deal==='Yes'?'Deal':s.deal==='No'?'No deal':'—'}</span>
         ${s.refl?'<span style="font-size:10px;color:var(--blue)" title="Reflected">✎</span>':''}
       </div>`).join('')}
-
-      <!-- Recurring themes from reflections -->
       ${topThemes.length?`<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
         <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:'Space Grotesk',sans-serif">Themes in your reflections</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap">
@@ -1425,7 +1399,6 @@ function renderMyProgress(submissions,assignments,reflections){
         </div>
         <div style="font-size:11px;color:var(--text-4);margin-top:8px">Words that appear most in what you'd do differently.</div>
       </div>`:''}
-
     </div>
   </div>`;
 }
