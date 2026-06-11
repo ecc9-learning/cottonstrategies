@@ -1184,8 +1184,6 @@ function updateTotal() {
   el.textContent = t + '%';
   el.className = 'itotal-num ' + (t===100 ? 'ok' : 'over');
   document.getElementById('total-badge').textContent = t !== 100 ? (100-t > 0 ? (100-t)+'% remaining' : Math.abs(100-t)+'% over') : '';
-  const sendBtn = document.getElementById('btn-send');
-  if (sendBtn) sendBtn.disabled = t !== 100;
   saveAllocations();
 }
 
@@ -1295,9 +1293,8 @@ async function buildPDF() {
 
 function getFilename() {
   const f = getInvoiceFields();
-  const m = parseInt(document.getElementById('period-month').value);
-  const y = parseInt(document.getElementById('period-year').value);
-  return 'Invoice_'+f.number+'_'+MONTHS[m]+'_'+y+'_CottonStrategies.pdf';
+  const due = fmtDate(f.dueDate).replace(/,/g,'').replace(/ /g,'_');
+  return 'Invoice_#'+f.number+'_-_Cotton_Strategies_-_Breakwall_Capital_-_Period_'+f.period.replace(/ /g,'_')+'_-_Due_'+due+'.pdf';
 }
 
 async function generateAndSend() {
@@ -1310,7 +1307,8 @@ async function generateAndSend() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=getFilename(); a.click();
     hideIStatus('send-status');
-    btn.innerHTML = '✓ Downloaded';
+    btn.disabled = false;
+    btn.innerHTML = '✓ Downloaded — click to regenerate';
   } catch(e) {
     showIStatus('send-status', 'PDF generation failed: ' + e.message, 'error');
     btn.disabled = false;
