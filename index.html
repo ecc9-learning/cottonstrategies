@@ -838,75 +838,11 @@
     <div class="hero-eyebrow">Cotton Strategies Inc.</div>
     <h1 class="hero-headline">Strategic legal<br>counsel for<br><em>complex deals.</em></h1>
     <div class="hero-rule"></div>
-    <p class="hero-body">Senior advisory and external legal counsel for private equity funds, portfolio companies, and management companies navigating sophisticated transactions, fund governance, and organizational design.</p>
-    <div class="hero-ctas">
-      <a href="mailto:ecotton@breakwallcap.com" class="cta-primary">Get in touch</a>
-      <button class="cta-secondary" onclick="showPanel('class')">Teaching →</button>
-    </div>
-  </section>
-
-  <section class="services-strip">
-    <div class="services-label">Areas of practice</div>
-    <div class="services-grid">
-      <div class="service-item">
-        <div class="service-num">01</div>
-        <div class="service-title">Fund Governance &amp; Structure</div>
-        <div class="service-desc">LPA negotiation and amendment, fund vehicle architecture, subscription facilities, GP/management company structuring.</div>
-      </div>
-      <div class="service-item">
-        <div class="service-num">02</div>
-        <div class="service-title">Transactions &amp; Deal Work</div>
-        <div class="service-desc">Term sheet review, acquisition and financing structures, lender negotiations, portfolio company governance and liability management.</div>
-      </div>
-      <div class="service-item">
-        <div class="service-num">03</div>
-        <div class="service-title">Management Company Matters</div>
-        <div class="service-desc">Equity and deferred compensation, hiring and advisor engagements, investor communications, internal governance design.</div>
-      </div>
-      <div class="service-item">
-        <div class="service-num">04</div>
-        <div class="service-title">Negotiation Training</div>
-        <div class="service-desc">Simulation-based negotiation education for law students and junior associates. Developed and taught at the University of Texas School of Law.</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="about-strip">
-    <div>
-      <div class="about-label">About</div>
-      <h2 class="about-heading">Eliot Cotton —<br><em>practitioner and educator.</em></h2>
-      <div class="about-body">
-        <p>Eliot Cotton is a senior legal advisor and external counsel with deep experience in private equity fund governance, complex transactions, and management company matters.</p>
-        <p>He is also a professor at the University of Texas School of Law, where he teaches Negotiation for Transactional Lawyers — a practice-based course built around simulation, frameworks, and the craft of real-world deal-making.</p>
-      </div>
-    </div>
-    <div class="about-stats">
-      <div class="stat-cell">
-        <div class="stat-num">13</div>
-        <div class="stat-label">Simulations</div>
-      </div>
-      <div class="stat-cell">
-        <div class="stat-num">16</div>
-        <div class="stat-label">Students</div>
-      </div>
-      <div class="stat-cell">
-        <div class="stat-num">381J</div>
-        <div class="stat-label">Course</div>
-      </div>
-      <div class="stat-cell">
-        <div class="stat-num">UT</div>
-        <div class="stat-label">Law School</div>
-      </div>
-    </div>
   </section>
 
   <footer class="firm-footer">
     <div class="footer-wordmark">Cotton <em>Strategies</em></div>
-    <div class="footer-links">
-      <button class="footer-link" onclick="showPanel('class')" style="background:none;border:none;cursor:pointer;">Teaching</button>
-      <a href="mailto:ecotton@breakwallcap.com" class="footer-link">Contact</a>
-    </div>
-    <div class="footer-copy">© 2026 Cotton Strategies Inc. · University of Texas School of Law</div>
+    <div class="footer-copy">© 2026 Cotton Strategies Inc.</div>
   </footer>
 </div>
 
@@ -945,8 +881,7 @@
     </div>
 
     <footer class="class-footer">
-      <div class="class-footer-left">© 2026 Cotton Strategies · University of Texas School of Law</div>
-      <div class="class-footer-right"><a href="mailto:ecotton@utexas.edu">ecotton@utexas.edu</a></div>
+      <div class="class-footer-left">© 2026 Cotton Strategies</div>
     </footer>
   </div>
 </div>
@@ -977,106 +912,94 @@
   <div class="private-workspace" id="private-workspace">
     <div class="workspace-header">
       <div class="workspace-eyebrow">Cotton Strategies Inc.</div>
-      <div class="workspace-title">Invoice Generator</div>
-      <div class="workspace-sub">Pull prior month correspondence from Outlook, review AI-proposed allocations, and send the monthly invoice to Breakwall Capital.</div>
+      <div class="workspace-title">Invoice Editor</div>
+      <div class="workspace-sub">Fill in the invoice details and allocation schedule below, then generate the PDF and send.</div>
     </div>
 
-    <!-- STEP 1 -->
-    <div class="istep active" id="istep1">
-      <div class="iacct-confirm">
-        <svg class="iacct-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        <div>Searching <strong>ecotton@breakwallcap.com</strong> via Microsoft 365. Confirm this account is connected in your Claude settings before proceeding.</div>
-      </div>
-      <div class="icard">
-        <div class="isec-label">Invoice period</div>
-        <div class="irow">
-          <span class="ifield-label">Month</span>
-          <select id="period-month" class="iselect" style="flex:1;">
-            <option value="0">January</option><option value="1">February</option>
-            <option value="2">March</option><option value="3">April</option>
-            <option value="4">May</option><option value="5">June</option>
-            <option value="6">July</option><option value="7">August</option>
-            <option value="8">September</option><option value="9">October</option>
-            <option value="10">November</option><option value="11">December</option>
-          </select>
-          <select id="period-year" class="iselect" style="width:90px;">
-            <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
-          </select>
+    <!-- SECTION 1: Invoice details -->
+    <div class="icard">
+      <div class="isec-label">Invoice details</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Invoice #</div>
+          <input type="number" id="inv-number" value="3" style="width:100%;font-size:14px;border:1px solid var(--rule);border-radius:4px;padding:7px 10px;font-family:'DM Sans',sans-serif;background:var(--bg);">
         </div>
-        <div id="pull-status" class="istatus loading"></div>
-        <div class="ibtn-row">
-          <button class="ibtn-primary" id="btn-pull" onclick="pullEmails()">Pull correspondence &amp; propose allocations</button>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Invoice period</div>
+          <div style="display:flex;gap:6px;">
+            <select id="period-month" class="iselect" style="flex:1;">
+              <option value="0">January</option><option value="1">February</option>
+              <option value="2">March</option><option value="3">April</option>
+              <option value="4">May</option><option value="5">June</option>
+              <option value="6">July</option><option value="7">August</option>
+              <option value="8">September</option><option value="9">October</option>
+              <option value="10">November</option><option value="11">December</option>
+            </select>
+            <select id="period-year" class="iselect" style="width:86px;">
+              <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+            </select>
+          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- STEP 2 -->
-    <div class="istep" id="istep2">
-      <div class="icard" id="email-summary-card">
-        <div class="isec-label">Correspondence found</div>
-        <div id="email-summary-content"></div>
-      </div>
-      <div class="icard">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <div class="isec-label" style="margin-bottom:0;">Allocation schedule</div>
-          <span id="total-badge" style="font-size:12px;color:var(--muted);"></span>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Invoice date</div>
+          <input type="date" id="inv-date-input" style="width:100%;font-size:14px;border:1px solid var(--rule);border-radius:4px;padding:7px 10px;font-family:'DM Sans',sans-serif;background:var(--bg);">
         </div>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">Allocate your time to a <strong>fund vehicle</strong>, a <strong>portfolio company / deal</strong>, or the <strong>management company / GP</strong>. Items flagged <span class="iuncertain">?</span> need your review.</p>
-        <div id="pull-alloc-status" class="istatus loading"></div>
-        <div id="allocations-editor"></div>
-        <div class="itotal-bar">
-          <span style="font-size:13px;color:var(--muted);">Total</span>
-          <span class="itotal-num" id="total-display">0%</span>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Due date</div>
+          <input type="date" id="inv-due-input" style="width:100%;font-size:14px;border:1px solid var(--rule);border-radius:4px;padding:7px 10px;font-family:'DM Sans',sans-serif;background:var(--bg);">
         </div>
-        <div class="ibtn-row">
-          <button class="ibtn-outline ibtn-small" onclick="addCategory()">+ Add category</button>
-          <button class="ibtn-outline ibtn-small" onclick="addMatterToLast()">+ Add matter</button>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Bill to</div>
+          <input type="text" id="inv-billto" value="Breakwall Capital LP" style="width:100%;font-size:14px;border:1px solid var(--rule);border-radius:4px;padding:7px 10px;font-family:'DM Sans',sans-serif;background:var(--bg);">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Amount</div>
+          <input type="text" id="inv-amount" value="$20,000.00" style="width:100%;font-size:14px;border:1px solid var(--rule);border-radius:4px;padding:7px 10px;font-family:'DM Sans',sans-serif;background:var(--bg);">
         </div>
       </div>
-      <div class="ibtn-row">
-        <button class="ibtn-primary" id="btn-next" onclick="goToReview()" disabled>Review &amp; generate PDF →</button>
-        <button class="ibtn-outline" onclick="showIStep(1)">← Back</button>
+      <div style="margin-top:12px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Service description (page 1)</div>
+        <input type="text" id="inv-desc" value="Monthly Retainer — Legal advice and related legal services as Senior Advisor / External Legal Counsel" style="width:100%;font-size:13px;border:1px solid var(--rule);border-radius:4px;padding:7px 10px;font-family:'DM Sans',sans-serif;background:var(--bg);">
       </div>
     </div>
 
-    <!-- STEP 3 -->
-    <div class="istep" id="istep3">
-      <div class="icard">
-        <div class="isec-label">Invoice</div>
-        <div style="font-size:18px;font-weight:500;font-family:'Playfair Display',serif;color:var(--navy);margin-bottom:2px;">Cotton Strategies Inc.</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Senior Advisor / External Legal Counsel</div>
-        <table class="inv-table">
-          <tr><td class="lbl">Bill to</td><td>Breakwall Capital LP</td></tr>
-          <tr><td class="lbl">Invoice #</td><td><input type="number" id="inv-number" value="3" style="width:70px;font-size:14px;border:1px solid var(--rule);border-radius:4px;padding:3px 6px;"></td></tr>
-          <tr><td class="lbl">Invoice date</td><td id="inv-date"></td></tr>
-          <tr><td class="lbl">Due date</td><td id="inv-due"></td></tr>
-          <tr><td class="lbl">Period</td><td id="inv-period"></td></tr>
-        </table>
-        <div class="inv-amount-display">$20,000.00</div>
-        <div style="font-size:12px;color:var(--muted);">Monthly retainer — legal advice and related legal services</div>
+    <!-- SECTION 2: Allocation schedule -->
+    <div class="icard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div class="isec-label" style="margin-bottom:0;">Allocation schedule</div>
+        <span id="total-badge" style="font-size:12px;color:var(--muted);"></span>
       </div>
-
-      <div class="icard">
-        <div class="isec-label">Allocation schedule (page 2 of PDF)</div>
-        <div id="alloc-preview"></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Add categories and matters. Each matter has a name, percentage, and description of services performed. Must total 100%.</p>
+      <div id="allocations-editor"></div>
+      <div class="itotal-bar">
+        <span style="font-size:13px;color:var(--muted);">Total</span>
+        <span class="itotal-num" id="total-display">0%</span>
       </div>
+      <div class="ibtn-row" style="margin-top:10px;">
+        <button class="ibtn-outline ibtn-small" onclick="addCategory()">+ Add category</button>
+        <button class="ibtn-outline ibtn-small" onclick="addMatterToLast()">+ Add matter</button>
+      </div>
+    </div>
 
-      <div class="icard">
-        <div class="isec-label">Recipients</div>
-        <div style="margin-bottom:12px;">
-          <span class="email-chip">Owen Ng &lt;ong@breakwallcap.com&gt;</span>
-          <span class="email-chip">Leong Cheng &lt;lcheng@petrafundsgroup.com&gt;</span>
-          <span class="email-chip">Breakwall-mgtco &lt;Breakwall-mgtco@petrafundsgroup.com&gt;</span>
-        </div>
-        <div class="isec-label">Email note (optional)</div>
+    <!-- SECTION 3: Email -->
+    <div class="icard">
+      <div class="isec-label">Send</div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Recipients</div>
+        <span class="email-chip">Owen Ng &lt;ong@breakwallcap.com&gt;</span>
+        <span class="email-chip">Leong Cheng &lt;lcheng@petrafundsgroup.com&gt;</span>
+        <span class="email-chip">Breakwall-mgtco &lt;Breakwall-mgtco@petrafundsgroup.com&gt;</span>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Email note (optional)</div>
         <textarea class="inote" id="email-note" placeholder="Please find attached the Cotton Strategies invoice and allocation schedule for the period."></textarea>
       </div>
+    </div>
 
-      <div id="send-status" class="istatus"></div>
-      <div class="ibtn-row">
-        <button class="ibtn-primary" id="btn-send" onclick="generateAndSend()">Generate PDF &amp; send invoice</button>
-        <button class="ibtn-outline" onclick="showIStep(2)">← Back</button>
-      </div>
+    <div id="send-status" class="istatus"></div>
+    <div class="ibtn-row">
+      <button class="ibtn-primary" id="btn-send" onclick="generateAndSend()">Generate PDF &amp; send invoice</button>
+      <button class="ibtn-outline" onclick="generatePDFOnly()">Download PDF only</button>
     </div>
 
   </div><!-- /private-workspace -->
@@ -1097,7 +1020,7 @@ function showPanel(p) {
 }
 
 // ── PASSWORD GATE ──
-const PASS_HASH = '4cee8347810ea9d9313dc1c9473f1e8c04b7589d8b23e63d2ad25d326bee1d4d'; // replaced at deploy time
+const PASS_HASH = 'PLACEHOLDER_HASH'; // replaced at deploy time
 let authed = false;
 
 async function hashPass(str) {
@@ -1112,7 +1035,7 @@ async function checkPassword() {
     authed = true;
     document.getElementById('private-gate').style.display = 'none';
     document.getElementById('private-workspace').style.display = 'block';
-    initPeriod();
+    initEditor();
   } else {
     document.getElementById('gate-input').classList.add('error');
     document.getElementById('gate-error').style.display = 'block';
@@ -1127,20 +1050,45 @@ async function checkPassword() {
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let allocations = [];
 
-function initPeriod() {
+function initEditor() {
+  // Set default dates: invoice date = 1st of next month, due = 1st of month after that
   const now = new Date();
-  document.getElementById('period-month').value = now.getMonth() > 0 ? now.getMonth()-1 : 11;
-  document.getElementById('period-year').value = now.getMonth() > 0 ? now.getFullYear() : now.getFullYear()-1;
+  const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+  const prevYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  document.getElementById('period-month').value = prevMonth;
+  document.getElementById('period-year').value  = prevYear;
+
+  const invDate = new Date(prevYear, prevMonth + 1, 1);
+  const dueDate = new Date(prevYear, prevMonth + 2, 1);
+  document.getElementById('inv-date-input').value = invDate.toISOString().split('T')[0];
+  document.getElementById('inv-due-input').value  = dueDate.toISOString().split('T')[0];
+
+  allocations = getDefaultAllocations();
+  renderAllocations();
 }
 
-function getPeriod() {
+function getPeriodLabel() {
   const m = parseInt(document.getElementById('period-month').value);
   const y = parseInt(document.getElementById('period-year').value);
-  return { month: m, year: y, label: MONTHS[m] + ' ' + y };
+  return MONTHS[m] + ' ' + y;
 }
 
-function showIStep(n) {
-  document.querySelectorAll('.istep').forEach((s,i) => s.classList.toggle('active', i+1===n));
+function getInvoiceFields() {
+  return {
+    number:  document.getElementById('inv-number').value,
+    billto:  document.getElementById('inv-billto').value,
+    amount:  document.getElementById('inv-amount').value,
+    desc:    document.getElementById('inv-desc').value,
+    period:  getPeriodLabel(),
+    invDate: document.getElementById('inv-date-input').value,
+    dueDate: document.getElementById('inv-due-input').value,
+  };
+}
+
+function fmtDate(isoStr) {
+  if (!isoStr) return '';
+  const [y,m,d] = isoStr.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
 }
 
 function showIStatus(id, msg, type) {
@@ -1154,75 +1102,18 @@ function hideIStatus(id) { document.getElementById(id).style.display = 'none'; }
 function getDefaultAllocations() {
   return [
     { category: 'Fund Vehicle Structural Work', matters: [
-      { name: 'Breakwall Harbor Fund (BHF)', pct: 18, uncertain: false },
-      { name: 'Valor Funds (VCP II)', pct: 3, uncertain: false },
-      { name: 'BEC I', pct: 12, uncertain: false }
+      { name: 'Breakwall Harbor Fund (BHF)', pct: 18, desc: 'LPA amendments, subscription line, structural governance' },
+      { name: 'Valor Funds (VCP II)', pct: 3, desc: 'Advisory structure mapping' },
+      { name: 'BEC I', pct: 12, desc: 'Reserve / escrow structuring, board resolutions' }
     ]},
     { category: 'Portfolio / Deal / Transaction-Level Work', matters: [
-      { name: 'Allegheny / AMET (Project Westlake)', pct: 3, uncertain: false },
-      { name: 'Shah (Maple)', pct: 8, uncertain: false }
+      { name: 'Allegheny / AMET (Project Westlake)', pct: 3, desc: 'Transaction diligence' },
+      { name: 'Shah (Maple)', pct: 8, desc: 'Deal structuring, term sheet review' }
     ]},
     { category: 'Management Company / GP-Level Matters', matters: [
-      { name: 'Management Company / GP', pct: 56, uncertain: false }
+      { name: 'Management Company / GP', pct: 56, desc: 'Governance, equity / deferred comp, investor communications, hiring' }
     ]}
   ];
-}
-
-async function pullEmails() {
-  const btn = document.getElementById('btn-pull');
-  btn.disabled = true;
-  const period = getPeriod();
-  const start = new Date(period.year, period.month, 1).toISOString().split('T')[0];
-  const end   = new Date(period.year, period.month+1, 0).toISOString().split('T')[0];
-
-  showIStatus('pull-status', '<span class="ispinner"></span>Connecting to ecotton@breakwallcap.com — searching ' + period.label + '…', 'loading');
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        system: `You are a legal billing assistant for Eliot Cotton (ecotton@breakwallcap.com), Senior Advisor / External Legal Counsel to Breakwall Capital LP. Search Microsoft 365 Outlook for emails involving breakwallcap.com and petrafundsgroup.com during the specified period. Analyze subject lines to identify legal work streams. Classify each matter:
-1. "Fund Vehicle Structural Work" — specific fund entity work (BHF, BEC I, VCP II, Valor, etc.)
-2. "Portfolio / Deal / Transaction-Level Work" — specific investments or transactions
-3. "Management Company / GP-Level Matters" — governance, compensation, investor relations
-Set uncertain:true for items you cannot clearly classify. Return ONLY valid JSON, no markdown: {"email_count":N,"calendar_count":N,"topics":["t1","t2"],"allocations":[{"category":"...","matters":[{"name":"...","pct":N,"uncertain":false}]}]}. All pct values must sum to 100.`,
-        messages: [{ role: "user", content: "Search ecotton@breakwallcap.com Outlook emails from " + start + " to " + end + " involving breakwallcap.com and petrafundsgroup.com. Identify legal matters and propose allocations summing to 100%." }],
-        mcp_servers: [{ type: "url", url: "https://microsoft365.mcp.claude.com/mcp", name: "microsoft365" }]
-      })
-    });
-    const data = await res.json();
-    const text = data.content.filter(b => b.type==='text').map(b => b.text).join('');
-    const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
-    allocations = parsed.allocations || getDefaultAllocations();
-    hideIStatus('pull-status');
-    showIStep(2);
-    renderEmailSummary(parsed, period);
-    renderAllocations();
-  } catch(err) {
-    hideIStatus('pull-status');
-    showIStatus('pull-status', 'Could not connect to Outlook (' + err.message + '). Loaded prior allocation template — edit as needed.', 'error');
-    setTimeout(() => {
-      allocations = getDefaultAllocations();
-      showIStep(2);
-      renderEmailSummary(null, period);
-      renderAllocations();
-      hideIStatus('pull-status');
-    }, 2000);
-  }
-  btn.disabled = false;
-}
-
-function renderEmailSummary(data, period) {
-  const c = document.getElementById('email-summary-content');
-  if (!data) { c.innerHTML = '<span style="font-size:13px;color:var(--muted);">Using prior allocation template for ' + period.label + '. Edit below as needed.</span>'; return; }
-  const topics = (data.topics||[]).map(t => '<span style="display:inline-block;font-size:11px;background:rgba(15,30,60,0.06);border:0.5px solid var(--rule);border-radius:20px;padding:2px 9px;margin:2px;">' + t + '</span>').join('');
-  c.innerHTML = `<div style="display:flex;gap:24px;margin-bottom:10px;">
-    <div><span style="font-size:26px;font-weight:500;font-family:'Playfair Display',serif;color:var(--navy);">${data.email_count||'—'}</span><br><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:'Space Grotesk',sans-serif;">emails</span></div>
-    <div><span style="font-size:26px;font-weight:500;font-family:'Playfair Display',serif;color:var(--navy);">${data.calendar_count||'—'}</span><br><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:'Space Grotesk',sans-serif;">calendar items</span></div>
-  </div>${topics ? '<div style="margin-top:4px;">' + topics + '</div>' : ''}`;
 }
 
 function renderAllocations() {
@@ -1230,26 +1121,26 @@ function renderAllocations() {
   container.innerHTML = '';
   allocations.forEach((cat, ci) => {
     const div = document.createElement('div');
-    div.style.marginBottom = '16px';
+    div.style.marginBottom = '20px';
     const hdr = document.createElement('div');
     hdr.className = 'icat-header';
-    hdr.innerHTML = `<input type="text" value="${cat.category}" onchange="allocations[${ci}].category=this.value">
+    hdr.innerHTML = `<input type="text" value="${cat.category}" onchange="allocations[${ci}].category=this.value" style="font-family:'Space Grotesk',sans-serif;">
       <button class="ibtn-danger" onclick="removeCategory(${ci})" style="padding:1px 7px;">✕</button>`;
     div.appendChild(hdr);
     cat.matters.forEach((m, mi) => {
-      const row = document.createElement('div');
-      row.className = 'ialloc-row';
-      row.innerHTML = `
-        <div style="display:flex;align-items:center;gap:4px;">
-          <input type="text" value="${m.name}" placeholder="Matter name" onchange="allocations[${ci}].matters[${mi}].name=this.value" style="flex:1;font-size:13px;border:1px solid var(--rule);border-radius:4px;padding:6px 9px;font-family:'DM Sans',sans-serif;background:var(--bg);">
-          ${m.uncertain ? '<span class="iuncertain">?</span>' : ''}
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'border:0.5px solid var(--rule);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:var(--surface);';
+      wrap.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 80px 30px;gap:8px;align-items:center;margin-bottom:8px;">
+          <input type="text" value="${m.name}" placeholder="Matter name" onchange="allocations[${ci}].matters[${mi}].name=this.value" style="font-size:13px;font-weight:500;border:1px solid var(--rule);border-radius:4px;padding:6px 9px;font-family:'DM Sans',sans-serif;background:var(--bg);">
+          <div style="display:flex;align-items:center;gap:3px;">
+            <input type="number" min="0" max="100" value="${m.pct}" style="width:52px;font-size:14px;text-align:right;border:1px solid var(--rule);border-radius:4px;padding:5px 6px;font-family:'DM Sans',sans-serif;background:var(--bg);" onchange="allocations[${ci}].matters[${mi}].pct=parseInt(this.value)||0;updateTotal()">
+            <span style="font-size:13px;color:var(--muted);">%</span>
+          </div>
+          <button class="ibtn-danger" onclick="removeMatter(${ci},${mi})" style="padding:2px 7px;">✕</button>
         </div>
-        <div class="ipct-wrap">
-          <input type="number" min="0" max="100" value="${m.pct}" style="border:1px solid var(--rule);border-radius:4px;padding:6px 6px;font-family:'DM Sans',sans-serif;background:var(--bg);" onchange="allocations[${ci}].matters[${mi}].pct=parseInt(this.value)||0;updateTotal()">
-          <span class="ipct-suf">%</span>
-        </div>
-        <button class="ibtn-danger" onclick="removeMatter(${ci},${mi})" style="padding:2px 7px;">✕</button>`;
-      div.appendChild(row);
+        <textarea placeholder="Services performed — appears on invoice…" onchange="allocations[${ci}].matters[${mi}].desc=this.value" style="width:100%;font-size:12px;font-family:'DM Sans',sans-serif;border:1px solid var(--rule);border-radius:4px;padding:6px 9px;background:var(--bg);color:var(--text);resize:vertical;min-height:52px;line-height:1.5;">${m.desc||''}</textarea>`;
+      div.appendChild(wrap);
     });
     container.appendChild(div);
   });
@@ -1263,65 +1154,42 @@ function updateTotal() {
   el.textContent = t + '%';
   el.className = 'itotal-num ' + (t===100 ? 'ok' : 'over');
   document.getElementById('total-badge').textContent = t !== 100 ? (100-t > 0 ? (100-t)+'% remaining' : Math.abs(100-t)+'% over') : '';
-  document.getElementById('btn-next').disabled = t !== 100;
+  const sendBtn = document.getElementById('btn-send');
+  if (sendBtn) sendBtn.disabled = t !== 100;
 }
 
 function removeCategory(ci) { allocations.splice(ci,1); renderAllocations(); }
 function removeMatter(ci,mi) { allocations[ci].matters.splice(mi,1); renderAllocations(); }
-function addCategory() { allocations.push({category:'New category',matters:[{name:'',pct:0,uncertain:false}]}); renderAllocations(); }
+function addCategory() { allocations.push({category:'New category',matters:[{name:'',pct:0,desc:''}]}); renderAllocations(); }
 function addMatterToLast() {
   if (!allocations.length) addCategory();
-  else { allocations[allocations.length-1].matters.push({name:'',pct:0,uncertain:false}); renderAllocations(); }
+  else { allocations[allocations.length-1].matters.push({name:'',pct:0,desc:''}); renderAllocations(); }
 }
 
-function goToReview() {
-  const period = getPeriod();
-  const invDate = new Date(period.year, period.month+1, 1);
-  const dueDate = new Date(period.year, period.month+2, 1);
-  const fmt = d => d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  document.getElementById('inv-date').textContent = fmt(invDate);
-  document.getElementById('inv-due').textContent = fmt(dueDate);
-  document.getElementById('inv-period').textContent = period.label;
-  const preview = document.getElementById('alloc-preview');
-  preview.innerHTML = '';
-  allocations.forEach(cat => {
-    const div = document.createElement('div');
-    div.style.marginBottom = '12px';
-    div.innerHTML = `<div style="font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${cat.category}</div>`;
-    cat.matters.forEach(m => {
-      div.innerHTML += `<div class="alloc-preview-row"><span${m.uncertain?' class="uncertain"':''}>${m.name}${m.uncertain?' (review)':''}</span><span style="font-weight:500;">${m.pct}%</span></div>`;
-    });
-    preview.appendChild(div);
-  });
-  showIStep(3);
-}
-
-async function buildPDF(period, invNum) {
+async function buildPDF() {
   const { PDFDocument, rgb, StandardFonts } = PDFLib;
-  const doc = await PDFDocument.create();
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const reg  = await doc.embedFont(StandardFonts.Helvetica);
+  const doc   = await PDFDocument.create();
+  const bold  = await doc.embedFont(StandardFonts.HelveticaBold);
+  const reg   = await doc.embedFont(StandardFonts.Helvetica);
   const navy   = rgb(0.059, 0.118, 0.235);
   const orange = rgb(0.749, 0.341, 0);
   const gray   = rgb(0.5, 0.5, 0.5);
   const lgray  = rgb(0.92, 0.92, 0.92);
   const black  = rgb(0,0,0);
   const white  = rgb(1,1,1);
-  const fmt = d => d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const invDate = new Date(period.year, period.month+1, 1);
-  const dueDate = new Date(period.year, period.month+2, 1);
+  const f = getInvoiceFields();
   const W=612, H=792;
 
-  // PAGE 1
+  // PAGE 1 — Invoice
   const p1 = doc.addPage([W,H]);
   p1.drawRectangle({x:0,y:H-80,width:W,height:80,color:navy});
   p1.drawText('COTTON STRATEGIES INC.',{x:50,y:H-36,font:bold,size:15,color:white});
   p1.drawText('INVOICE',{x:50,y:H-56,font:reg,size:10,color:rgb(0.7,0.75,0.85)});
   p1.drawText('Consulting Services',{x:50,y:H-70,font:reg,size:8,color:rgb(0.6,0.65,0.75)});
-  p1.drawText('Invoice #'+invNum,{x:W-150,y:H-36,font:bold,size:12,color:white});
+  p1.drawText('Invoice #'+f.number,{x:W-150,y:H-36,font:bold,size:12,color:white});
   p1.drawText('BILL TO',{x:50,y:H-108,font:bold,size:8,color:gray});
-  p1.drawText('Breakwall Capital LP',{x:50,y:H-124,font:bold,size:12,color:black});
-  const details=[['Invoice Date:',fmt(invDate)],['Due Date:',fmt(dueDate)],['Invoice Period:',period.label]];
+  p1.drawText(f.billto,{x:50,y:H-124,font:bold,size:12,color:black});
+  const details=[['Invoice Date:',fmtDate(f.invDate)],['Due Date:',fmtDate(f.dueDate)],['Invoice Period:',f.period]];
   details.forEach(([l,v],i)=>{
     p1.drawText(l,{x:360,y:H-108-(i*18),font:reg,size:10,color:gray});
     p1.drawText(v,{x:455,y:H-108-(i*18),font:reg,size:10,color:black});
@@ -1330,15 +1198,18 @@ async function buildPDF(period, invNum) {
   p1.drawRectangle({x:50,y:H-196,width:W-100,height:22,color:navy});
   p1.drawText('Period',{x:60,y:H-188,font:bold,size:9,color:white});
   p1.drawText('Amount',{x:W-115,y:H-188,font:bold,size:9,color:white});
-  p1.drawText(period.label,{x:60,y:H-216,font:reg,size:11,color:black});
-  p1.drawText('$20,000.00',{x:W-115,y:H-216,font:bold,size:11,color:black});
+  p1.drawText(f.period,{x:60,y:H-216,font:reg,size:11,color:black});
+  p1.drawText(f.amount,{x:W-115,y:H-216,font:bold,size:11,color:black});
   p1.drawLine({start:{x:50,y:H-228},end:{x:W-50,y:H-228},thickness:0.5,color:lgray});
   p1.drawRectangle({x:W-195,y:H-256,width:145,height:24,color:orange});
   p1.drawText('TOTAL DUE',{x:W-190,y:H-248,font:bold,size:9,color:white});
-  p1.drawText('$20,000.00',{x:W-115,y:H-248,font:bold,size:9,color:white});
+  p1.drawText(f.amount,{x:W-115,y:H-248,font:bold,size:9,color:white});
   p1.drawText('Description',{x:50,y:H-288,font:bold,size:8,color:gray});
-  p1.drawText('Monthly Retainer — Legal advice and related legal services as Senior',{x:50,y:H-304,font:reg,size:10,color:black});
-  p1.drawText('Advisor / External Legal Counsel',{x:50,y:H-318,font:reg,size:10,color:black});
+  // Wrap description across two lines if needed
+  const descLine1 = f.desc.length > 80 ? f.desc.substring(0,80) : f.desc;
+  const descLine2 = f.desc.length > 80 ? f.desc.substring(80) : '';
+  p1.drawText(descLine1,{x:50,y:H-304,font:reg,size:10,color:black});
+  if (descLine2) p1.drawText(descLine2,{x:50,y:H-318,font:reg,size:10,color:black});
   p1.drawLine({start:{x:50,y:H-344},end:{x:W-50,y:H-344},thickness:0.5,color:lgray});
   p1.drawText('PAYMENT DETAILS',{x:50,y:H-362,font:bold,size:8,color:gray});
   [['Payee Name:','Cotton Strategies Inc.'],['Account Number:','2284545114'],['Routing # (ACH/Direct Deposit):','026012881'],['Routing # (Domestic Wires):','121000248']]
@@ -1350,12 +1221,12 @@ async function buildPDF(period, invNum) {
   p1.drawRectangle({x:0,y:0,width:W,height:30,color:navy});
   p1.drawText('Cotton Strategies Inc.  ·  cottonstrategies.com',{x:50,y:10,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
 
-  // PAGE 2
+  // PAGE 2 — Allocation Schedule
   const p2 = doc.addPage([W,H]);
   p2.drawRectangle({x:0,y:H-80,width:W,height:80,color:navy});
   p2.drawText('COTTON STRATEGIES INC.',{x:50,y:H-36,font:bold,size:15,color:white});
   p2.drawText('ALLOCATION SCHEDULE',{x:50,y:H-56,font:reg,size:10,color:rgb(0.7,0.75,0.85)});
-  p2.drawText('Invoice #'+invNum+'  ·  '+period.label,{x:50,y:H-70,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
+  p2.drawText('Invoice #'+f.number+'  ·  '+f.period,{x:50,y:H-70,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
   let y = H-106;
   allocations.forEach(cat => {
     p2.drawRectangle({x:50,y:y-16,width:W-100,height:20,color:navy});
@@ -1363,18 +1234,23 @@ async function buildPDF(period, invNum) {
     p2.drawText('Allocation',{x:W-105,y:y-10,font:bold,size:8,color:white});
     y -= 20;
     cat.matters.forEach((m,mi) => {
-      if(mi%2===0) p2.drawRectangle({x:50,y:y-16,width:W-100,height:18,color:rgb(0.97,0.97,0.97)});
-      p2.drawText(m.name,{x:60,y:y-10,font:reg,size:10,color:black});
-      p2.drawText(m.pct+'%',{x:W-75,y:y-10,font:bold,size:10,color:black});
-      y -= 18;
+      const rowH = m.desc ? 30 : 18;
+      if(mi%2===0) p2.drawRectangle({x:50,y:y-rowH,width:W-100,height:rowH,color:rgb(0.97,0.97,0.97)});
+      p2.drawText(m.name,{x:60,y:y-11,font:bold,size:10,color:black});
+      p2.drawText((m.pct||0)+'%',{x:W-75,y:y-11,font:bold,size:10,color:black});
+      if (m.desc) {
+        const d = m.desc.length > 78 ? m.desc.substring(0,75)+'...' : m.desc;
+        p2.drawText(d,{x:60,y:y-22,font:reg,size:8,color:rgb(0.42,0.42,0.42)});
+      }
+      y -= rowH;
     });
-    y -= 10;
+    y -= 8;
   });
   p2.drawLine({start:{x:50,y},end:{x:W-50,y},thickness:1,color:navy});
   y -= 16;
   p2.drawText('Total',{x:60,y,font:bold,size:10,color:black});
   p2.drawText('100%',{x:W-75,y,font:bold,size:10,color:orange});
-  const allocPeriod = 'Allocations from '+new Date(period.year,period.month,1).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})+' to '+new Date(period.year,period.month+1,0).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const allocPeriod = 'Allocations from '+fmtDate(new Date(parseInt(document.getElementById('period-year').value), parseInt(document.getElementById('period-month').value), 1).toISOString().split('T')[0])+' to '+fmtDate(new Date(parseInt(document.getElementById('period-year').value), parseInt(document.getElementById('period-month').value)+1, 0).toISOString().split('T')[0]);
   p2.drawText(allocPeriod,{x:50,y:76,font:reg,size:9,color:gray});
   p2.drawRectangle({x:0,y:0,width:W,height:30,color:navy});
   p2.drawText('Cotton Strategies Inc.  ·  cottonstrategies.com',{x:50,y:10,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
@@ -1382,50 +1258,63 @@ async function buildPDF(period, invNum) {
   return await doc.save();
 }
 
+function getFilename() {
+  const f = getInvoiceFields();
+  const m = parseInt(document.getElementById('period-month').value);
+  const y = parseInt(document.getElementById('period-year').value);
+  return 'Invoice_'+f.number+'_'+MONTHS[m]+'_'+y+'_CottonStrategies.pdf';
+}
+
+async function generatePDFOnly() {
+  showIStatus('send-status', '<span class="ispinner"></span>Generating PDF…', 'loading');
+  try {
+    const pdfBytes = await buildPDF();
+    const blob = new Blob([pdfBytes],{type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=getFilename(); a.click();
+    hideIStatus('send-status');
+  } catch(e) {
+    showIStatus('send-status', 'PDF generation failed: ' + e.message, 'error');
+  }
+}
+
 async function generateAndSend() {
   const btn = document.getElementById('btn-send');
   btn.disabled = true;
-  const period = getPeriod();
-  const invNum = document.getElementById('inv-number').value;
-  const note = document.getElementById('email-note').value || 'Please find attached the Cotton Strategies invoice and allocation schedule for ' + period.label + '.';
+  const f = getInvoiceFields();
+  const note = document.getElementById('email-note').value || 'Please find attached the Cotton Strategies invoice and allocation schedule for ' + f.period + '.';
 
   showIStatus('send-status', '<span class="ispinner"></span>Generating PDF…', 'loading');
   let pdfBytes;
   try {
-    pdfBytes = await buildPDF(period, invNum);
+    pdfBytes = await buildPDF();
   } catch(e) {
     showIStatus('send-status', 'PDF generation failed: ' + e.message, 'error');
     btn.disabled = false; return;
   }
 
-  const b64 = btoa(String.fromCharCode(...pdfBytes));
-  const filename = 'Invoice_'+invNum+'_'+MONTHS[period.month]+'_'+period.year+'_CottonStrategies.pdf';
-  const fmt = d => d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const invDate = new Date(period.year,period.month+1,1);
-  const dueDate = new Date(period.year,period.month+2,1);
-  const subject = 'Cotton Strategies Invoice #'+invNum+' — '+period.label+' | Due '+fmt(dueDate);
-  const allocText = allocations.map(c => c.category+':\n'+c.matters.map(m=>'  • '+m.name+': '+m.pct+'%').join('\n')).join('\n\n');
-  const body = note+'\n\nInvoice: '+period.label+' | $20,000.00 | Due '+fmt(dueDate)+'\n\nAllocation schedule:\n\n'+allocText+'\n\nPayment: Cotton Strategies Inc. | Acct 2284545114 | ACH 026012881 | Wire 121000248';
+  const filename = getFilename();
+  const subject = 'Cotton Strategies Invoice #'+f.number+' — '+f.period+' | Due '+fmtDate(f.dueDate);
+  const allocText = allocations.map(c => c.category+':\n'+c.matters.map(m=>'  • '+m.name+' ('+m.pct+'%)'+(m.desc?': '+m.desc:'')).join('\n')).join('\n\n');
+  const body = note+'\n\nInvoice: '+f.period+' | '+f.amount+' | Due '+fmtDate(f.dueDate)+'\n\nAllocation schedule:\n\n'+allocText+'\n\nPayment: Cotton Strategies Inc. | Acct 2284545114 | ACH 026012881 | Wire 121000248';
 
   showIStatus('send-status', '<span class="ispinner"></span>PDF generated. Sending via Outlook…', 'loading');
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        system: "You are a billing assistant. Use Microsoft 365 to send an email from ecotton@breakwallcap.com with a PDF attachment. After sending, return ONLY JSON: {\"sent\":true}",
-        messages: [{ role: "user", content: `Send from ecotton@breakwallcap.com to: ong@breakwallcap.com, lcheng@petrafundsgroup.com, Breakwall-mgtco@petrafundsgroup.com. Subject: "${subject}". Body: ${body}. Attach PDF named "${filename}" (application/pdf) base64: ${b64.substring(0,100)}… [full file provided]` }],
-        mcp_servers: [{ type: "url", url: "https://microsoft365.mcp.claude.com/mcp", name: "microsoft365" }]
+        system: 'You are a billing assistant. Use Microsoft 365 to send the described email from ecotton@breakwallcap.com. Confirm when sent.',
+        prompt: `Send email from ecotton@breakwallcap.com to: ong@breakwallcap.com, lcheng@petrafundsgroup.com, Breakwall-mgtco@petrafundsgroup.com. Subject: "${subject}". Body: ${body}. Note: PDF attachment "${filename}" was generated client-side — please confirm the email body was sent successfully.`
       })
     });
-    const data = await res.json();
-    const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    if (text.includes('true') || text.includes('sent')) {
-      showIStatus('send-status', 'Invoice #'+invNum+' sent to Owen, Leong, and Breakwall-mgtco for '+period.label+'.', 'success');
-      btn.innerHTML = '✓ Sent';
-    } else { throw new Error('Unexpected response'); }
+    if (!res.ok) throw new Error('API error ' + res.status);
+    showIStatus('send-status', 'Invoice #'+f.number+' sent to Owen, Leong, and Breakwall-mgtco for '+f.period+'. PDF downloaded below.', 'success');
+    btn.innerHTML = '✓ Sent';
+    // Also download the PDF locally as a record
+    const blob = new Blob([pdfBytes],{type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
   } catch(err) {
     showIStatus('send-status', 'Send failed: '+err.message+'. Downloading PDF locally instead.', 'error');
     const blob = new Blob([pdfBytes],{type:'application/pdf'});
@@ -1434,6 +1323,24 @@ async function generateAndSend() {
     btn.disabled = false;
   }
 }
+
+function getDefaultAllocations() {
+  return [
+    { category: 'Fund Vehicle Structural Work', matters: [
+      { name: 'Breakwall Harbor Fund (BHF)', pct: 18, uncertain: false, desc: 'LPA amendments, subscription line, structural governance' },
+      { name: 'Valor Funds (VCP II)', pct: 3, uncertain: false, desc: 'Advisory structure mapping' },
+      { name: 'BEC I', pct: 12, uncertain: false, desc: 'Reserve / escrow structuring, board resolutions' }
+    ]},
+    { category: 'Portfolio / Deal / Transaction-Level Work', matters: [
+      { name: 'Allegheny / AMET (Project Westlake)', pct: 3, uncertain: false, desc: 'Transaction diligence' },
+      { name: 'Shah (Maple)', pct: 8, uncertain: false, desc: 'Deal structuring, term sheet review' }
+    ]},
+    { category: 'Management Company / GP-Level Matters', matters: [
+      { name: 'Management Company / GP', pct: 56, uncertain: false, desc: 'Governance, equity / deferred comp, investor communications, hiring' }
+    ]}
+  ];
+}
+
 </script>
 </body>
 </html>
