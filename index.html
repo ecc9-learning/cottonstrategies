@@ -748,10 +748,13 @@
       display: flex; justify-content: space-between; align-items: center; gap: 8px;
     }
     .icat-header input {
-      font-size: 10px; font-weight: 500; flex: 1; border: none; background: transparent;
-      color: var(--muted); font-family: 'Space Grotesk', sans-serif; padding: 0;
-      text-transform: uppercase; letter-spacing: 0.08em;
+      font-size: 10px; font-weight: 500; flex: 1; border: 1px dashed transparent;
+      background: transparent; color: var(--muted); font-family: 'Space Grotesk', sans-serif;
+      padding: 2px 5px; text-transform: uppercase; letter-spacing: 0.08em;
+      border-radius: 3px; outline: none; transition: border-color 0.15s;
     }
+    .icat-header input:hover { border-color: var(--rule); }
+    .icat-header input:focus { border-color: var(--navy); background: var(--surface); color: var(--text); }
     .iuncertain {
       font-size: 10px; background: rgba(202,138,4,0.12); color: #92400e;
       border-radius: 4px; padding: 1px 6px; margin-left: 4px;
@@ -1059,15 +1062,27 @@ async function checkPassword() {
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let allocations = [];
 
+const LS_KEY = 'cs_invoice_allocations';
+
+function saveAllocations() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(allocations)); } catch(e) {}
+}
+
+function loadAllocations() {
+  try {
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return null;
+}
+
 function initEditor() {
-  // Set default dates: invoice date = 1st of next month, due = 1st of month after that
   const now = new Date();
   const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
   const prevYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
   document.getElementById('period-month').value = prevMonth;
   document.getElementById('period-year').value  = prevYear;
 
-  // Allocation period = one month behind invoice period
   const allocMonth = prevMonth === 0 ? 11 : prevMonth - 1;
   const allocYear  = prevMonth === 0 ? prevYear - 1 : prevYear;
   document.getElementById('alloc-month').value = allocMonth;
@@ -1078,7 +1093,7 @@ function initEditor() {
   document.getElementById('inv-date-input').value = invDate.toISOString().split('T')[0];
   document.getElementById('inv-due-input').value  = dueDate.toISOString().split('T')[0];
 
-  allocations = getDefaultAllocations();
+  allocations = loadAllocations() || getDefaultAllocations();
   renderAllocations();
 }
 
@@ -1139,7 +1154,7 @@ function renderAllocations() {
     div.style.marginBottom = '20px';
     const hdr = document.createElement('div');
     hdr.className = 'icat-header';
-    hdr.innerHTML = `<input type="text" value="${cat.category}" onchange="allocations[${ci}].category=this.value" style="font-family:'Space Grotesk',sans-serif;">
+    hdr.innerHTML = `<input type="text" value="${cat.category}" onchange="allocations[${ci}].category=this.value;saveAllocations()" style="font-family:'Space Grotesk',sans-serif;">
       <button class="ibtn-danger" onclick="removeCategory(${ci})" style="padding:1px 7px;">✕</button>`;
     div.appendChild(hdr);
     cat.matters.forEach((m, mi) => {
@@ -1147,14 +1162,14 @@ function renderAllocations() {
       wrap.style.cssText = 'border:0.5px solid var(--rule);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:var(--surface);';
       wrap.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 80px 30px;gap:8px;align-items:center;margin-bottom:8px;">
-          <input type="text" value="${m.name}" placeholder="Matter name" onchange="allocations[${ci}].matters[${mi}].name=this.value" style="font-size:13px;font-weight:500;border:1px solid var(--rule);border-radius:4px;padding:6px 9px;font-family:'DM Sans',sans-serif;background:var(--bg);">
+          <input type="text" value="${m.name}" placeholder="Matter name" onchange="allocations[${ci}].matters[${mi}].name=this.value;saveAllocations()" style="font-size:13px;font-weight:500;border:1px solid var(--rule);border-radius:4px;padding:6px 9px;font-family:'DM Sans',sans-serif;background:var(--bg);">
           <div style="display:flex;align-items:center;gap:3px;">
             <input type="number" min="0" max="100" value="${m.pct}" style="width:52px;font-size:14px;text-align:right;border:1px solid var(--rule);border-radius:4px;padding:5px 6px;font-family:'DM Sans',sans-serif;background:var(--bg);" onchange="allocations[${ci}].matters[${mi}].pct=parseInt(this.value)||0;updateTotal()">
             <span style="font-size:13px;color:var(--muted);">%</span>
           </div>
           <button class="ibtn-danger" onclick="removeMatter(${ci},${mi})" style="padding:2px 7px;">✕</button>
         </div>
-        <textarea placeholder="Services performed — appears on invoice…" onchange="allocations[${ci}].matters[${mi}].desc=this.value" style="width:100%;font-size:12px;font-family:'DM Sans',sans-serif;border:1px solid var(--rule);border-radius:4px;padding:6px 9px;background:var(--bg);color:var(--text);resize:vertical;min-height:52px;line-height:1.5;">${m.desc||''}</textarea>`;
+        <textarea placeholder="Services performed — appears on invoice…" onchange="allocations[${ci}].matters[${mi}].desc=this.value;saveAllocations()" style="width:100%;font-size:12px;font-family:'DM Sans',sans-serif;border:1px solid var(--rule);border-radius:4px;padding:6px 9px;background:var(--bg);color:var(--text);resize:vertical;min-height:52px;line-height:1.5;">${m.desc||''}</textarea>`;
       div.appendChild(wrap);
     });
     container.appendChild(div);
@@ -1171,15 +1186,17 @@ function updateTotal() {
   document.getElementById('total-badge').textContent = t !== 100 ? (100-t > 0 ? (100-t)+'% remaining' : Math.abs(100-t)+'% over') : '';
   const sendBtn = document.getElementById('btn-send');
   if (sendBtn) sendBtn.disabled = t !== 100;
+  saveAllocations();
 }
 
-function removeCategory(ci) { allocations.splice(ci,1); renderAllocations(); }
-function removeMatter(ci,mi) { allocations[ci].matters.splice(mi,1); renderAllocations(); }
-function addCategory() { allocations.push({category:'New category',matters:[]}); renderAllocations(); }
+function removeCategory(ci) { allocations.splice(ci,1); renderAllocations(); saveAllocations(); }
+function removeMatter(ci,mi) { allocations[ci].matters.splice(mi,1); renderAllocations(); saveAllocations(); }
+function addCategory() { allocations.push({category:'New category',matters:[]}); renderAllocations(); saveAllocations(); }
 function addMatterToLast() {
   if (!allocations.length) addCategory();
   allocations[allocations.length-1].matters.push({name:'',pct:0,desc:''});
   renderAllocations();
+  saveAllocations();
 }
 
 async function buildPDF() {
