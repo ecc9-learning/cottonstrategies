@@ -1106,6 +1106,11 @@ async function launchApp() {
   document.getElementById('login-screen').style.display='none';
   const app=document.getElementById('main-app'); app.style.display='flex';
   await loadAll();
+  // Honor any initial hash (e.g. user refreshed on #results)
+  const initial=(location.hash||'').replace('#','');
+  if(initial && document.getElementById('section-'+initial)){
+    showSection(initial, true);
+  }
 }
 
 // ── DATA LOADING ─────────────────────────────────────────────────────────────
@@ -1195,7 +1200,7 @@ function buildSimSidebar() {
 
 // ── NAVIGATION ───────────────────────────────────────────────────────────────
 let currentSection = 'overview';
-function showSection(name) {
+function showSection(name, fromPopState) {
   currentSection = name;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1206,7 +1211,23 @@ function showSection(name) {
   renderCurrentSection();
   // Auto-close mobile nav after selection
   closeMobileNav();
+  // Push hash so the browser back button returns to prior section
+  if(!fromPopState){
+    try{
+      const newHash='#'+name;
+      if(location.hash!==newHash) history.pushState({section:name},'',newHash);
+    }catch(e){}
+  }
 }
+
+// Browser back button → previous section
+window.addEventListener('popstate', function(e){
+  const name = (location.hash||'#overview').replace('#','') || 'overview';
+  // Only navigate if we're past login and the section exists
+  if(document.getElementById('section-'+name)){
+    showSection(name, true);
+  }
+});
 
 function toggleMobileNav(){
   const sidebar=document.querySelector('.sidebar');
@@ -2193,57 +2214,125 @@ function renderResults(){
     setTimeout(()=>buildCharts(activeSim,subs,cg),100);
   }
 
-  // Full table
+  // Full table — one row per GROUP, with Buyer/Seller side-by-side
   if(subs.length){
     const simFields=(activeSim.fields||[]).filter(f=>f&&f.id&&!['_confirmed','_disputed','_dispute_note'].includes(f.id)&&!f.id.startsWith('_'));
-    const publicFields=simFields.filter(f=>!f.private);
-    const privateFields=simFields.filter(f=>f.private);
+    // Exclude the deal field from per-cell display — it's superseded by Group outcome column
+    const dealFldId=simFields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id;
+    const showFields=simFields.filter(f=>f.id!==dealFldId&&f.id!=='f2'&&f.id!=='f3'); // skip role + partner name
+    const publicFields=showFields.filter(f=>!f.private);
+    const privateFields=showFields.filter(f=>f.private);
+
+    // Group submissions by group_number
+    const groupRows={};
+    subs.forEach(sub=>{
+      const asg=allAssignments.find(a=>a.student_id===sub.student_id&&a.simulation_id===activeSim.id);
+      const gn=asg?.group_number;
+      if(gn==null) return;
+      if(!groupRows[gn]) groupRows[gn]={gn,members:[]};
+      const stu=allStudents.find(s=>s.id===sub.student_id);
+      groupRows[gn].members.push({sub,asg,stu});
+    });
+
+    // Compute outcome + sort: deals first, no-deals next, review/pending last
+    const rows=Object.values(groupRows).map(g=>{
+      const memForOutcome=released.filter(a=>a.group_number===g.gn).map(a=>({sub:subs.find(s=>s.student_id===a.student_id),asg:a}));
+      const oc=getGroupOutcome(memForOutcome,activeSim);
+      return {...g, outcome:oc.outcome};
+    }).sort((a,b)=>{
+      const order={deal:0,review:1,nodeal:2,pending:3};
+      return (order[a.outcome]??9)-(order[b.outcome]??9) || a.gn-b.gn;
+    });
+
     const tcard=document.createElement('div'); tcard.className='card'; tcard.style.padding='0';
+    // Each public field becomes TWO columns (one per role). We'll determine the two roles from sim.roles or fall back to inferred.
+    const simRoles=(activeSim.roles&&activeSim.roles.length>=2)?activeSim.roles.slice(0,2):null;
+
+    // Build header — for each field, show two sub-columns labeled by role
+    const headerCells=showFields.map(f=>{
+      const lbl=(f.label||'').substring(0,24);
+      const priv=f.private?'color:#9ca3af;font-size:11px':'';
+      return `<th colspan="2" style="text-align:center;border-bottom:1px solid #f3f4f6;${priv}">${f.private?'🔒 ':''}${lbl}</th>`;
+    }).join('');
+    const subHeaderCells=showFields.map(()=>{
+      return `<th style="font-size:10px;color:#9ca3af;font-weight:500;text-transform:uppercase;letter-spacing:.06em" class="role-a">A</th><th style="font-size:10px;color:#9ca3af;font-weight:500;text-transform:uppercase;letter-spacing:.06em" class="role-b">B</th>`;
+    }).join('');
+
     tcard.innerHTML=`<div style="padding:1rem 1.25rem;font-size:13px;font-weight:600;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between">
-        <span>All submissions (${subs.length}) <span style="font-size:11px;color:#9ca3af;font-weight:400">— click a row for full detail</span></span>
+        <span>All groups (${rows.length}) <span style="font-size:11px;color:#9ca3af;font-weight:400">— click a row for full detail · sorted deals → impasses</span></span>
         ${privateFields.length?`<span style="font-size:11px;color:#9ca3af">🔒 ${privateFields.length} private field${privateFields.length>1?'s':''} visible to instructor only</span>`:''}
       </div>
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>Group</th><th>Student</th>${publicFields.map(f=>`<th style="min-width:100px">${(f.label||'').substring(0,20)}</th>`).join('')}${privateFields.map(f=>`<th style="min-width:90px;color:#9ca3af;font-size:11px">🔒 ${(f.label||'').substring(0,16)}</th>`).join('')}<th title="Outcome determined by comparing both partners' answers">Group outcome</th><th title="Submitted = normal submission | Partner-verified = partner reviewed &amp; confirmed | Disputed = partner flagged disagreement">Submission status ⓘ</th></tr></thead>
-        <tbody>${subs.slice().sort((a,b)=>{
-          const ga=allAssignments.find(x=>x.student_id===a.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
-          const gb=allAssignments.find(x=>x.student_id===b.student_id&&x.simulation_id===activeSim?.id)?.group_number||99;
-          return ga-gb;
-        }).map((row,ri)=>{
-          const st=allStudents.find(s=>s.id===row.student_id);
-          const asg=allAssignments.find(a=>a.student_id===row.student_id&&a.simulation_id===activeSim?.id);
-          const groupNum=asg?.group_number||'—';
-          const fd=row.form_data||{};
-          // Group outcome for this submission's group
-          const _statusAsg=allAssignments.find(a=>a.student_id===row.student_id&&a.simulation_id===activeSim?.id);
-          const _statusGrpNum=_statusAsg?.group_number;
-          const _statusGrpMembers=_statusGrpNum?released.filter(a=>a.group_number===_statusGrpNum).map(a=>({sub:subs.find(s=>s.student_id===a.student_id),asg:a})):[];
-          const _grpOutcome=_statusGrpMembers.length?getGroupOutcome(_statusGrpMembers,activeSim).outcome:'pending';
-          const _grpOutcomeBadge=_grpOutcome==='deal'?'<span class="badge badge-green" title="Both parties agree">Group: Deal</span>':
-            _grpOutcome==='nodeal'?'<span class="badge badge-red" title="No deal reached">Group: No deal</span>':
-            _grpOutcome==='review'?'<span class="badge badge-yellow" title="Submitted values don\'t match — review needed">Group: Review ⚠</span>':
-            '<span class="badge badge-gray">Group: Pending</span>';
-          const status=fd._disputed
-            ?'<span class="badge badge-red" title="This student flagged a disagreement with their partner\'s version">⚠ Disputed</span>'
-            :fd._confirmed
-            ?'<span class="badge badge-green" title="This student reviewed their partner\'s submission and confirmed it matches">✓ Partner-verified</span>'
-            :'<span class="badge badge-gray" title="Submitted normally — partner has not yet confirmed">Submitted</span>';
-          const cells=[...publicFields,...privateFields].map(f=>{
-            const v=fd[f.id]||'—';
-            const style=f.private?'color:#9ca3af;font-size:12px;':'';
-            if(f.id==='f4'||(!f.private&&f.type==='radio'&&(f.options||[]).includes('Yes'))){
-              const cls=v==='Yes'?'badge-green':v==='No'?'badge-red':'badge-gray';
-              return`<td><span class="badge ${cls}">${v}</span></td>`;
-            }
-            if(f.type==='textarea'){return`<td style="white-space:pre-wrap;word-break:break-word;min-width:180px;max-width:300px;font-size:12px;color:#555;${style}">${v}</td>`;}
-            if(String(v).length>30){return`<td title="${v}" style="cursor:help;${style}">${String(v).substring(0,30)+'…'}</td>`;}
-            return`<td style="${style}">${v}</td>`;
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:middle">Group</th>
+            <th rowspan="2" style="vertical-align:middle">Parties</th>
+            ${headerCells}
+            <th rowspan="2" style="vertical-align:middle" title="Outcome determined by comparing both partners' answers">Outcome</th>
+            <th rowspan="2" style="vertical-align:middle" title="Submission status (both parties)">Status</th>
+          </tr>
+          <tr>${subHeaderCells}</tr>
+        </thead>
+        <tbody>${rows.map((row,ri)=>{
+          // Order members: try to match simRoles order; otherwise alphabetical by role
+          let members=row.members.slice();
+          if(simRoles){
+            members.sort((a,b)=>{
+              const ai=simRoles.indexOf(a.asg?.role); const bi=simRoles.indexOf(b.asg?.role);
+              return (ai<0?99:ai)-(bi<0?99:bi);
+            });
+          } else {
+            members.sort((a,b)=>(a.asg?.role||'').localeCompare(b.asg?.role||''));
+          }
+          const mA=members[0], mB=members[1];
+          const partyLabel=m=>m?`<div style="font-size:13px"><strong>${m.stu?.name||'?'}</strong></div><div style="font-size:11px;color:#9ca3af">${m.asg?.role||''}</div>`:'<div style="font-size:12px;color:#c0392b">missing</div>';
+
+          // Outcome badge
+          const memOC=released.filter(a=>a.group_number===row.gn).map(a=>({sub:subs.find(s=>s.student_id===a.student_id),asg:a}));
+          const oc=getGroupOutcome(memOC,activeSim);
+          const outcomeBadge=oc.outcome==='deal'?'<span class="badge badge-green">✓ Deal</span>':
+            oc.outcome==='nodeal'?'<span class="badge badge-red">✗ Impasse</span>':
+            oc.outcome==='review'?'<span class="badge badge-yellow">⚠ Review</span>':
+            '<span class="badge badge-gray">Pending</span>';
+
+          // Status: both parties' status combined
+          const statusForMember=m=>{
+            if(!m||!m.sub) return '<span style="font-size:11px;color:#c0392b">—</span>';
+            const fd=m.sub.form_data||{};
+            return fd._disputed?'<span class="badge badge-red" style="font-size:10px;padding:2px 6px">⚠ Disp</span>'
+              :fd._confirmed?'<span class="badge badge-green" style="font-size:10px;padding:2px 6px">✓ Ver</span>'
+              :'<span class="badge badge-gray" style="font-size:10px;padding:2px 6px">Sub</span>';
+          };
+
+          // For each field, render two side-by-side cells
+          const fieldCells=[...publicFields,...privateFields].map(f=>{
+            const renderCell=(m)=>{
+              if(!m||!m.sub) return `<td style="text-align:center;color:#c0392b;font-size:11px">—</td>`;
+              const v=m.sub.form_data?.[f.id]??'—';
+              const style=f.private?'color:#9ca3af;font-size:12px;':'';
+              const isRadioYN=f.type==='radio'&&(f.options||[]).includes('Yes');
+              if(isRadioYN){
+                const cls=v==='Yes'?'badge-green':v==='No'?'badge-red':'badge-gray';
+                return `<td style="text-align:center"><span class="badge ${cls}" style="font-size:11px">${v}</span></td>`;
+              }
+              if(f.type==='textarea'){return `<td style="white-space:pre-wrap;word-break:break-word;max-width:200px;font-size:12px;color:#555;${style}">${String(v).substring(0,80)}${String(v).length>80?'…':''}</td>`;}
+              if(String(v).length>20){return `<td title="${v}" style="cursor:help;font-size:12px;${style}">${String(v).substring(0,20)}…</td>`;}
+              return `<td style="font-size:13px;${style}">${v}</td>`;
+            };
+            return renderCell(mA)+renderCell(mB);
           }).join('');
-          return`<tr class="clickable" onclick="openDetail(${ri},'${row.id}')"><td style="font-weight:700;color:#bf5700;white-space:nowrap">Grp ${groupNum}</td><td><strong>${st?.name||'Unknown'}</strong></td>${cells}<td>${_grpOutcomeBadge}</td><td>${status}</td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSubmission('${row.id}')">Edit</button></td></tr>`;
+
+          const firstSubId=mA?.sub?.id||mB?.sub?.id||'';
+          return `<tr class="clickable" onclick="openDetail(${ri},'${firstSubId}')">
+            <td style="font-weight:700;color:#bf5700;white-space:nowrap">Grp ${row.gn}</td>
+            <td style="font-size:12px">${partyLabel(mA)}<div style="height:4px"></div>${partyLabel(mB)}</td>
+            ${fieldCells}
+            <td>${outcomeBadge}</td>
+            <td style="white-space:nowrap">${statusForMember(mA)} ${statusForMember(mB)}</td>
+          </tr>`;
         }).join('')}</tbody>
       </table></div>`;
     el.appendChild(tcard);
-    // Store subs for detail panel
     window._currentSubs = subs.slice().reverse();
   }
 
@@ -2339,68 +2428,104 @@ function buildCharts(sim,subs,container){
     buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim);
   });
 
-  // Radio pies (skip role field f2 and deal field)
+  // Radio pies (skip role field f2, deal field, and who-made-first-offer if paired with numeric first-offer field)
   const dealFldId=fields.find(f=>f.type==='radio'&&(f.options||[]).includes('Yes')&&(f.options||[]).includes('No'))?.id||'f4';
-  fields.filter(f=>f.type==='radio'&&f.id!=='f2'&&f.id!==dealFldId).slice(0,4).forEach(field=>{
+  const firstOfferAmountFld=fields.find(f=>f.type==='number'&&/first.*offer/i.test(f.label||'')&&!/who/i.test(f.label||''));
+  const whoOpenedFld=fields.find(f=>f.type==='radio'&&/(who|made).*first.*offer|first.*offer.*(who|made)/i.test(f.label||''));
+  const skipIds=new Set([dealFldId,'f2','f3']);
+  if(firstOfferAmountFld&&whoOpenedFld) skipIds.add(whoOpenedFld.id);
+  fields.filter(f=>f.type==='radio'&&!skipIds.has(f.id)).slice(0,4).forEach(field=>{
     const vals=subs.map(s=>s.form_data?.[field.id]).filter(Boolean);
     if(vals.length) buildPie(container,field.id+'-'+Date.now(),(field.label||''),vals,COLORS);
   });
 }
 
-// Group-aware horizontal bar chart for numeric fields
-// Shows one bar per group, split into deal groups and no-deal/review groups
+// Group-aware grouped bar chart for numeric fields
+// Shows TWO bars per pair (Buyer + Seller side by side), sorted deals first
 function buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim){
-  // Build one data point per group
-  const groupPoints=[];
-  Object.entries(groupMap).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
-    const submitted=members.filter(m=>m.sub);
-    if(!submitted.length) return;
-    const vals=submitted.map(m=>parseFloat(m.sub.form_data?.[field.id])).filter(v=>!isNaN(v)&&v>0);
-    if(!vals.length) return;
-    const outcome=groupOutcomeMap[parseInt(gn)]||'pending';
-    const mismatch=vals.length>1&&new Set(vals).size>1;
-    const displayVal=mismatch?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):vals[0];
-    groupPoints.push({gn:parseInt(gn),val:displayVal,outcome,mismatch,rawVals:vals});
+  // Determine the two roles in this sim
+  const allRoles=[];
+  Object.values(groupMap).forEach(members=>members.forEach(m=>{const r=m.asg?.role;if(r&&!allRoles.includes(r))allRoles.push(r);}));
+  const roleA=allRoles[0]||'Party A';
+  const roleB=allRoles[1]||'Party B';
+
+  // Build pair-based dataset
+  const pairs=[];
+  Object.entries(groupMap).forEach(([gn,members])=>{
+    const valFor=(role)=>{
+      const m=members.find(x=>x.asg?.role===role&&x.sub);
+      const v=parseFloat(m?.sub?.form_data?.[field.id]);
+      return isNaN(v)?null:v;
+    };
+    const a=valFor(roleA), b=valFor(roleB);
+    if(a==null && b==null) return;
+    pairs.push({gn:parseInt(gn),a,b,outcome:groupOutcomeMap[parseInt(gn)]||'pending'});
   });
-  if(!groupPoints.length) return;
+  if(!pairs.length) return;
 
-  const dealPoints=groupPoints.filter(g=>g.outcome==='deal');
-  const otherPoints=groupPoints.filter(g=>g.outcome!=='deal');
-  const allVals=groupPoints.map(g=>g.val);
-  const mn=Math.min(...allVals),mx=Math.max(...allVals);
-  const padding=(mx-mn)*0.15||mn*0.1||100;
-  const xMin=Math.max(0,mn-padding), xMax=mx+padding;
+  // Sort deals first
+  const orderRank={deal:0,review:1,nodeal:2,pending:3};
+  pairs.sort((x,y)=>(orderRank[x.outcome]??9)-(orderRank[y.outcome]??9)||x.gn-y.gn);
 
-  // Create one chart card showing all groups
+  // Detect first-offer for opened-by highlight
+  const isFirstOffer=/first.*offer/i.test(field.label||'')&&!/who/i.test(field.label||'');
+  let whoOpenedByGroup={};
+  if(isFirstOffer){
+    const whoField=(sim.fields||[]).find(f=>f.type==='radio'&&/(who|made).*first.*offer|first.*offer.*(who|made)/i.test(f.label||''));
+    if(whoField){
+      pairs.forEach(p=>{
+        const members=groupMap[p.gn]||[];
+        const answers=members.map(m=>m.sub?.form_data?.[whoField.id]).filter(Boolean);
+        const detected=answers.map(ans=>{
+          const lower=(ans||'').toLowerCase();
+          if(lower.includes('both')||lower.includes('simult')) return 'both';
+          return allRoles.find(r=>r&&lower.includes(r.toLowerCase()))||null;
+        }).filter(Boolean);
+        if(detected.length) whoOpenedByGroup[p.gn]=detected[0];
+      });
+    }
+  }
+
+  const colorA='#1e3a6e';
+  const colorB='#bf5700';
+  const colorA_dim='rgba(30,58,110,.42)';
+  const colorB_dim='rgba(191,87,0,.42)';
+
+  const labels=pairs.map(p=>'Grp '+p.gn);
+  const bgA=pairs.map(p=>p.outcome==='deal'?colorA:p.outcome==='nodeal'?colorA_dim:'rgba(30,58,110,.7)');
+  const bgB=pairs.map(p=>p.outcome==='deal'?colorB:p.outcome==='nodeal'?colorB_dim:'rgba(191,87,0,.7)');
+  const borderA=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleA)?'#fbbf24':'transparent');
+  const borderB=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleB)?'#fbbf24':'transparent');
+  const borderWidthA=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleA)?2.5:0);
+  const borderWidthB=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleB)?2.5:0);
+
   const chartId='grpbar-'+field.id+'-'+Date.now();
   const card=document.createElement('div');
   card.className='chart-card';
-  const chartHeight=Math.max(120,groupPoints.length*44+60);
+  const chartHeight=Math.max(180,pairs.length*48+60);
   card.innerHTML=`
-    <div class="chart-title" style="margin-bottom:4px">${field.label}</div>
-    <div style="display:flex;gap:12px;font-size:10px;color:#9ca3af;margin-bottom:10px;flex-wrap:wrap">
-      <span><span style="display:inline-block;width:10px;height:10px;background:#5ee0a8;border-radius:2px;margin-right:4px"></span>Deal</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#fbbf24;border-radius:2px;margin-right:4px"></span>Needs review (avg)</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#ff8a80;border-radius:2px;margin-right:4px"></span>No deal</span>
+    <div class="chart-title" style="margin-bottom:6px">${field.label}</div>
+    <div style="display:flex;gap:14px;font-size:11px;color:#6b7280;margin-bottom:12px;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:10px;height:10px;background:${colorA};border-radius:2px;margin-right:4px;vertical-align:-1px"></span>${roleA}</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:${colorB};border-radius:2px;margin-right:4px;vertical-align:-1px"></span>${roleB}</span>
+      <span style="color:#9ca3af"><span style="display:inline-block;width:10px;height:10px;background:${colorA_dim};border-radius:2px;margin-right:4px;vertical-align:-1px"></span>Impasse (dim)</span>
+      ${isFirstOffer?`<span><span style="display:inline-block;width:10px;height:10px;border:2px solid #fbbf24;background:transparent;border-radius:2px;margin-right:4px;vertical-align:-1px"></span>Opened first</span>`:''}
+      <span style="color:#9ca3af;margin-left:auto">Sorted: deals first → impasses</span>
     </div>
-    <div style="height:${chartHeight}px"><canvas id="${chartId}"></canvas></div>
-    <div style="font-size:10px;color:#9ca3af;text-align:right;margin-top:4px">← ${field.label}</div>`;
+    <div style="height:${chartHeight}px"><canvas id="${chartId}"></canvas></div>`;
   container.appendChild(card);
 
   setTimeout(()=>{
     const ctx=document.getElementById(chartId);
-    if(!ctx)return;
-    const colorMap={deal:'#5ee0a8',nodeal:'#ff8a80',review:'#fbbf24',pending:'#8fa3c0'};
+    if(!ctx) return;
     activeCharts[chartId]=new Chart(ctx,{
       type:'bar',
       data:{
-        labels:groupPoints.map(g=>'Group '+g.gn+(g.mismatch?' ⚠':'')+(g.outcome==='deal'?' ✓':'')+(g.outcome==='nodeal'?' ✗':'')+(g.outcome==='review'?' ?':'')),
-        datasets:[{
-          data:groupPoints.map(g=>g.val),
-          backgroundColor:groupPoints.map(g=>colorMap[g.outcome]||'#8fa3c0'),
-          borderRadius:5,
-          borderSkipped:false
-        }]
+        labels,
+        datasets:[
+          {label:roleA,data:pairs.map(p=>p.a),backgroundColor:bgA,borderColor:borderA,borderWidth:borderWidthA,borderRadius:4,borderSkipped:false},
+          {label:roleB,data:pairs.map(p=>p.b),backgroundColor:bgB,borderColor:borderB,borderWidth:borderWidthB,borderRadius:4,borderSkipped:false}
+        ]
       },
       options:{
         indexAxis:'y',
@@ -2408,22 +2533,24 @@ function buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim){
         plugins:{
           legend:{display:false},
           tooltip:{callbacks:{
-            label:ctx=>{
-              const g=groupPoints[ctx.dataIndex];
-              if(g.mismatch) return g.rawVals.map((v,i)=>'Party '+(i+1)+': '+v.toLocaleString()).join(' | ')+' (avg shown)';
-              return ctx.parsed.x.toLocaleString();
+            afterLabel:ctx=>{
+              const p=pairs[ctx.dataIndex];
+              const lines=[];
+              if(p.outcome==='deal') lines.push('✓ Deal reached');
+              else if(p.outcome==='nodeal') lines.push('✗ Impasse');
+              else if(p.outcome==='review') lines.push('⚠ Values don\'t match');
+              if(isFirstOffer&&whoOpenedByGroup[p.gn]) lines.push('Opened first: '+whoOpenedByGroup[p.gn]);
+              return lines.join(' · ');
             }
           }}
         },
         scales:{
           x:{
-            min:xMin,max:xMax,
             title:{display:true,text:field.label,color:'#6b7280',font:{size:11}},
             ticks:{color:'#9ca3af',callback:v=>v.toLocaleString()},
             grid:{color:'#f3f4f6'}
           },
           y:{
-            title:{display:true,text:'Group',color:'#6b7280',font:{size:11}},
             ticks:{color:'#374151',font:{size:12,weight:'600'}},
             grid:{display:false}
           }
@@ -2526,18 +2653,19 @@ function pmBuildItems(){
     items.push({type:'chart',chartType:'strumr',id:'chart-strumr',label:'Stands scatter',totalField,bandField,subs,groups,released});
   }
 
-  // Numeric fields
+  // Numeric fields — pass groups so chart can render pair-based
   fieldsToShow.filter(f=>f.type==='number').forEach(f=>{
-    const vals=subs.map(s=>{
-      const asg=released.find(a=>a.student_id===s.student_id);
-      const v=parseFloat(s.form_data?.[f.id]);
-      return isNaN(v)?null:{v,role:asg?.role||'',name:allStudents.find(x=>x.id===s.student_id)?.name||'?',subId:s.id};
-    }).filter(Boolean);
-    if(vals.length) items.push({type:'chart',chartType:'number',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,vals,subs,released,private:f.private});
+    items.push({type:'chart',chartType:'number',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,subs,groups,released,private:f.private});
   });
 
-  // Radio fields (skip deal field)
-  fieldsToShow.filter(f=>f.type==='radio'&&f.id!==dealField?.id).forEach(f=>{
+  // Identify "who made the first offer" radio — it will be merged into the first-offer chart
+  const firstOfferAmountField=fieldsToShow.find(f=>f.type==='number'&&/first.*offer/i.test(f.label||'')&&!/who/i.test(f.label||''));
+  const whoOpenedField=fieldsToShow.find(f=>f.type==='radio'&&/(who|made).*first.*offer|first.*offer.*(who|made)/i.test(f.label||''));
+  const skipRadioIds=new Set();
+  if(firstOfferAmountField&&whoOpenedField) skipRadioIds.add(whoOpenedField.id);
+
+  // Radio fields (skip deal field + any radio already merged into a combined chart)
+  fieldsToShow.filter(f=>f.type==='radio'&&f.id!==dealField?.id&&!skipRadioIds.has(f.id)).forEach(f=>{
     const vals=subs.map(s=>s.form_data?.[f.id]).filter(Boolean);
     if(vals.length) items.push({type:'chart',chartType:'radio',id:'chart-'+f.id,label:f.label+(f.private?' 🔒':''),field:f,vals,subs,released,private:f.private});
   });
@@ -3111,67 +3239,177 @@ function pmRenderStrumrChart(c,item,palette,typeOverride){
   c.appendChild(caption);
 }
 
-// ── Number chart ──────────────────────────────────────────────────────────────
+// ── Number chart — PAIR-BASED, grouped by negotiation pair ───────────────────
+// Shows two bars per group (one per role), sorted: deals first, then impasses.
+// Detects if this is an "opening offers" field and pairs it with the "who opened" radio.
 function pmRenderNumberChart(c,item,palette,typeOverride){
-  const {vals,field}=item;
-  const avg=Math.round(vals.reduce((a,b)=>a+b.v,0)/vals.length);
-  const roles=[...new Set(vals.map(v=>v.role))];
-  const colorMap={};roles.forEach((r,i)=>colorMap[r]=palette[i%palette.length]);
+  const {field,subs,groups,released}=item;
+
+  // Build pair-based dataset using the groups map
+  // groups: {gn: [{stu,asg,sub}, ...]}
+  // Determine the two role labels in this sim
+  const allRoles=[];
+  Object.values(groups).forEach(members=>members.forEach(m=>{const r=m.asg?.role;if(r&&!allRoles.includes(r))allRoles.push(r);}));
+  const roleA=allRoles[0]||'Party A';
+  const roleB=allRoles[1]||'Party B';
+
+  // Determine which role values map where, and gather outcome per group
+  const pairs=[];
+  Object.entries(groups).sort(([a],[b])=>parseInt(a)-parseInt(b)).forEach(([gn,members])=>{
+    const oc=getGroupOutcome(members.map(m=>({sub:m.sub,asg:m.asg})),activeSim).outcome;
+    const valFor=(role)=>{
+      const m=members.find(x=>x.asg?.role===role&&x.sub);
+      const v=parseFloat(m?.sub?.form_data?.[field.id]);
+      return isNaN(v)?null:v;
+    };
+    const a=valFor(roleA), b=valFor(roleB);
+    if(a==null && b==null) return;
+    pairs.push({gn:parseInt(gn),a,b,outcome:oc});
+  });
+
+  if(!pairs.length){
+    c.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.5);padding:40px">No data submitted yet for this field.</div>';
+    return;
+  }
+
+  // Sort: deals first (by gn), then review, then nodeal, then pending
+  const orderRank={deal:0,review:1,nodeal:2,pending:3};
+  pairs.sort((x,y)=>(orderRank[x.outcome]??9)-(orderRank[y.outcome]??9)||x.gn-y.gn);
+
+  // Detect "first offer amount" — pair with "who made the first offer" radio if present
+  const isFirstOffer=/first.*offer/i.test(field.label||'')&&!/who/i.test(field.label||'');
+  let whoOpenedByGroup={}; // gn -> role that made first offer
+  if(isFirstOffer){
+    const allFields=activeSim.fields||[];
+    const whoField=allFields.find(f=>f.type==='radio'&&/(who|made).*first.*offer|first.*offer.*(who|made)/i.test(f.label||''));
+    if(whoField){
+      // For each pair, determine the answer (prefer agreement; otherwise show what was submitted)
+      pairs.forEach(p=>{
+        const members=groups[p.gn]||[];
+        const answers=members.map(m=>m.sub?.form_data?.[whoField.id]).filter(Boolean);
+        if(!answers.length) return;
+        // The radio likely has options like "Buyer did", "Seller did", "We both did simultaneously"
+        // Match against the two roles
+        const findRole=(ans)=>{
+          if(!ans) return null;
+          const lower=ans.toLowerCase();
+          if(lower.includes('both')||lower.includes('simult')) return 'both';
+          if(allRoles.some(r=>r&&lower.includes(r.toLowerCase()))){
+            return allRoles.find(r=>lower.includes(r.toLowerCase()));
+          }
+          return null;
+        };
+        const detected=answers.map(findRole).filter(Boolean);
+        if(detected.length){
+          // Use most common, or first
+          whoOpenedByGroup[p.gn]=detected[0];
+        }
+      });
+    }
+  }
+
+  // Build datasets — TWO bars per pair (roleA + roleB)
+  const labels=pairs.map(p=>`Grp ${p.gn}`);
+  const dataA=pairs.map(p=>p.a);
+  const dataB=pairs.map(p=>p.b);
+
+  // Outcome-tinted backgrounds for each pair
+  // Color philosophy: navy for role A, burnt orange for role B. Deals fully saturated, others muted.
+  const colorA='#1e3a6e';   // navy
+  const colorB='#bf5700';   // burnt orange
+  const colorA_dim='rgba(30,58,110,.45)';
+  const colorB_dim='rgba(191,87,0,.45)';
+  const colorReview_A='rgba(30,58,110,.7)';
+  const colorReview_B='rgba(191,87,0,.7)';
+
+  // Per-bar colors based on outcome
+  const bgA=pairs.map(p=>p.outcome==='deal'?colorA:p.outcome==='nodeal'?colorA_dim:colorReview_A);
+  const bgB=pairs.map(p=>p.outcome==='deal'?colorB:p.outcome==='nodeal'?colorB_dim:colorReview_B);
+
+  // Highlight the bar that opened (gold ring) if isFirstOffer
+  const borderA=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleA)?'#fbbf24':'transparent');
+  const borderB=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleB)?'#fbbf24':'transparent');
+  const borderWidthA=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleA)?3:0);
+  const borderWidthB=pairs.map(p=>(isFirstOffer&&whoOpenedByGroup[p.gn]===roleB)?3:0);
+
+  // Class averages — only from deals
+  const dealPairs=pairs.filter(p=>p.outcome==='deal');
+  const dealValsA=dealPairs.map(p=>p.a).filter(v=>v!=null);
+  const dealValsB=dealPairs.map(p=>p.b).filter(v=>v!=null);
+  const avgA=dealValsA.length?Math.round(dealValsA.reduce((s,v)=>s+v,0)/dealValsA.length):null;
+  const avgB=dealValsB.length?Math.round(dealValsB.reduce((s,v)=>s+v,0)/dealValsB.length):null;
 
   if(typeOverride==='table'){
-    const sorted=[...vals].sort((a,b)=>b.v-a.v);
     c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:rgba(255,255,255,.06)">
-        ${['Student','Role',field.label].map(h=>`<th style="padding:12px 16px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">${h}</th>`).join('')}
+        ${['Group','Outcome',roleA,roleB,...(isFirstOffer?['Opened by']:[])].map(h=>`<th style="padding:12px 16px;text-align:left;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(255,255,255,.06)">${h}</th>`).join('')}
       </tr></thead>
-      <tbody>${sorted.map((v,i)=>`<tr>
-        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:#fff;font-weight:600">${v.name}</td>
-        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.45);font-size:12px">${v.role}</td>
-        <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05)">
-          <span class="pm-editable" data-key="chart_${v.subId}_${field.id}" onclick="pmStartEdit(this,'chart_${v.subId}_${field.id}')"
-            style="font-size:20px;font-weight:700;color:${colorMap[v.role]||palette[0]};cursor:pointer;font-family:'Space Grotesk',sans-serif"
-            title="Click to edit">${parseFloat(pmEditValues['chart_'+v.subId+'_'+field.id]||v.v).toLocaleString()}</span>
-        </td>
-      </tr>`).join('')}</tbody>
-    </table></div>
-    <div style="margin-top:20px;text-align:center;font-size:14px;color:rgba(255,255,255,.4)">
-      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif"> ${avg.toLocaleString()}</span>
-    </div>`;
+      <tbody>${pairs.map(p=>{
+        const ocLbl=p.outcome==='deal'?'<span style="color:#5ee0a8">✓ Deal</span>':p.outcome==='nodeal'?'<span style="color:#ff8a80">✗ Impasse</span>':p.outcome==='review'?'<span style="color:#fbbf24">⚠ Review</span>':'<span style="color:#8fa3c0">Pending</span>';
+        return`<tr><td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:#fff;font-weight:600">Group ${p.gn}</td>
+          <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);font-weight:600">${ocLbl}</td>
+          <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:${colorA==='#1e3a6e'?'#7eb8ff':colorA};font-weight:700;font-family:'Space Grotesk',sans-serif">${p.a!=null?p.a.toLocaleString():'—'}</td>
+          <td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:#ff9559;font-weight:700;font-family:'Space Grotesk',sans-serif">${p.b!=null?p.b.toLocaleString():'—'}</td>
+          ${isFirstOffer?`<td style="padding:12px 16px;border:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.7)">${whoOpenedByGroup[p.gn]||'—'}</td>`:''}
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
     return;
   }
 
-  if(typeOverride==='donut'){
-    const mn=Math.min(...vals.map(v=>v.v)),mx=Math.max(...vals.map(v=>v.v));
-    const bk=Math.min(5,vals.length),bs=(mx-mn)/bk||1;
-    const counts={};
-    vals.forEach(v=>{const b=Math.min(Math.floor((v.v-mn)/bs),bk-1);const lbl=Math.round(mn+b*bs).toLocaleString()+'–'+Math.round(mn+(b+1)*bs).toLocaleString();counts[lbl]=(counts[lbl]||0)+1;});
-    c.innerHTML='<canvas id="pm-canvas" style="max-width:420px;max-height:320px;margin:0 auto;display:block"></canvas>';
-    setTimeout(()=>{
-      const ctx=document.getElementById('pm-canvas');
-      if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(counts),datasets:[{data:Object.values(counts),backgroundColor:palette.slice(0,Object.keys(counts).length),borderWidth:0}]},options:{plugins:{legend:{labels:{color:'rgba(255,255,255,.7)',font:{size:14,family:'Space Grotesk'}}}},cutout:'55%'}});
-    },50);
-    return;
-  }
-
-  // Default: bar by name, colored by role
-  c.innerHTML=`<div style="max-width:700px;margin:0 auto">
-    <canvas id="pm-canvas" style="max-height:340px"></canvas>
-    <div style="text-align:center;margin-top:16px;font-size:14px;color:rgba(255,255,255,.4)">
-      Class average: <span style="color:${palette[0]};font-weight:700;font-size:22px;font-family:'Space Grotesk',sans-serif"> ${avg.toLocaleString()}</span>
+  // Default: grouped bar chart
+  c.innerHTML=`<div style="max-width:900px;margin:0 auto">
+    <canvas id="pm-canvas" style="max-height:380px"></canvas>
+    <div style="display:flex;gap:24px;justify-content:center;margin-top:18px;flex-wrap:wrap;font-family:'Space Grotesk',sans-serif">
+      <span style="font-size:12px;color:rgba(255,255,255,.55)"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colorA};margin-right:6px;vertical-align:-2px"></span>${roleA}${avgA!=null?` <span style="color:rgba(255,255,255,.35);margin-left:4px">avg ${avgA.toLocaleString()}</span>`:''}</span>
+      <span style="font-size:12px;color:rgba(255,255,255,.55)"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colorB};margin-right:6px;vertical-align:-2px"></span>${roleB}${avgB!=null?` <span style="color:rgba(255,255,255,.35);margin-left:4px">avg ${avgB.toLocaleString()}</span>`:''}</span>
+      ${isFirstOffer?`<span style="font-size:12px;color:rgba(255,255,255,.55)"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;border:2px solid #fbbf24;background:transparent;margin-right:6px;vertical-align:-2px"></span>Opened first</span>`:''}
+      <span style="font-size:12px;color:rgba(255,255,255,.4)"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colorA_dim};margin-right:6px;vertical-align:-2px"></span>Impasse (dimmed)</span>
     </div>
-    ${roles.length>1?`<div style="display:flex;gap:16px;justify-content:center;margin-top:10px">
-      ${roles.map(r=>`<span style="font-size:12px;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorMap[r]};margin-right:5px"></span>${r}</span>`).join('')}
-    </div>`:''}
   </div>`;
   setTimeout(()=>{
     const ctx=document.getElementById('pm-canvas');
-    if(ctx)pmActiveCharts['main']=new Chart(ctx,{type:'bar',data:{
-      labels:vals.map(v=>v.name.split(' ')[0]),
-      datasets:[{data:vals.map(v=>parseFloat(pmEditValues['chart_'+v.subId+'_'+field.id]||v.v)),backgroundColor:vals.map(v=>colorMap[v.role]||palette[0]),borderRadius:8,borderSkipped:false}]
-    },options:{responsive:true,plugins:{legend:{display:false}},scales:{
-      x:{ticks:{color:'rgba(255,255,255,.6)',font:{size:13,family:'Space Grotesk'}}},
-      y:{ticks:{color:'rgba(255,255,255,.35)'},grid:{color:'rgba(255,255,255,.05)'}}
-    }}});
+    if(!ctx) return;
+    pmActiveCharts['main']=new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {label:roleA,data:dataA,backgroundColor:bgA,borderColor:borderA,borderWidth:borderWidthA,borderRadius:6,borderSkipped:false},
+          {label:roleB,data:dataB,backgroundColor:bgB,borderColor:borderB,borderWidth:borderWidthB,borderRadius:6,borderSkipped:false}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            callbacks:{
+              afterLabel:(ctx)=>{
+                const p=pairs[ctx.dataIndex];
+                const lines=[];
+                if(p.outcome==='deal') lines.push('✓ Deal reached');
+                else if(p.outcome==='nodeal') lines.push('✗ Impasse');
+                else if(p.outcome==='review') lines.push('⚠ Submitted values don\'t match');
+                if(isFirstOffer&&whoOpenedByGroup[p.gn]) lines.push('Opened first: '+whoOpenedByGroup[p.gn]);
+                return lines.join(' · ');
+              }
+            }
+          }
+        },
+        scales:{
+          x:{
+            ticks:{color:'rgba(255,255,255,.6)',font:{size:12,family:'Space Grotesk'}},
+            grid:{display:false}
+          },
+          y:{
+            beginAtZero:true,
+            ticks:{color:'rgba(255,255,255,.35)',callback:v=>v.toLocaleString()},
+            grid:{color:'rgba(255,255,255,.05)'}
+          }
+        }
+      }
+    });
   },50);
 }
 
