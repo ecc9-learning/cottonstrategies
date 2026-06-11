@@ -965,9 +965,23 @@
 
     <!-- SECTION 2: Allocation schedule -->
     <div class="icard">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div class="isec-label" style="margin-bottom:0;">Allocation schedule</div>
         <span id="total-badge" style="font-size:12px;color:var(--muted);"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;white-space:nowrap;">Allocation period</div>
+        <select id="alloc-month" class="iselect" style="flex:1;">
+          <option value="0">January</option><option value="1">February</option>
+          <option value="2">March</option><option value="3">April</option>
+          <option value="4">May</option><option value="5">June</option>
+          <option value="6">July</option><option value="7">August</option>
+          <option value="8">September</option><option value="9">October</option>
+          <option value="10">November</option><option value="11">December</option>
+        </select>
+        <select id="alloc-year" class="iselect" style="width:86px;">
+          <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+        </select>
       </div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Add categories and matters. Each matter has a name, percentage, and description of services performed. Must total 100%.</p>
       <div id="allocations-editor"></div>
@@ -1020,7 +1034,7 @@ function showPanel(p) {
 }
 
 // ── PASSWORD GATE ──
-const PASS_HASH = '4cee8347810ea9d9313dc1c9473f1e8c04b7589d8b23e63d2ad25d326bee1d4d'; // replaced at deploy time
+const PASS_HASH = '4cee8347810ea9d9313dc1c9473f1e8c04b7589d8b23e63d2ad25d326bee1d4d';
 let authed = false;
 
 async function hashPass(str) {
@@ -1057,6 +1071,12 @@ function initEditor() {
   const prevYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
   document.getElementById('period-month').value = prevMonth;
   document.getElementById('period-year').value  = prevYear;
+
+  // Allocation period = one month behind invoice period
+  const allocMonth = prevMonth === 0 ? 11 : prevMonth - 1;
+  const allocYear  = prevMonth === 0 ? prevYear - 1 : prevYear;
+  document.getElementById('alloc-month').value = allocMonth;
+  document.getElementById('alloc-year').value  = allocYear;
 
   const invDate = new Date(prevYear, prevMonth + 1, 1);
   const dueDate = new Date(prevYear, prevMonth + 2, 1);
@@ -1250,7 +1270,9 @@ async function buildPDF() {
   y -= 16;
   p2.drawText('Total',{x:60,y,font:bold,size:10,color:black});
   p2.drawText('100%',{x:W-75,y,font:bold,size:10,color:orange});
-  const allocPeriod = 'Allocations from '+fmtDate(new Date(parseInt(document.getElementById('period-year').value), parseInt(document.getElementById('period-month').value), 1).toISOString().split('T')[0])+' to '+fmtDate(new Date(parseInt(document.getElementById('period-year').value), parseInt(document.getElementById('period-month').value)+1, 0).toISOString().split('T')[0]);
+  const allocM = parseInt(document.getElementById('alloc-month').value);
+  const allocY = parseInt(document.getElementById('alloc-year').value);
+  const allocPeriod = 'Allocations from ' + fmtDate(new Date(allocY, allocM, 1).toISOString().split('T')[0]) + ' to ' + fmtDate(new Date(allocY, allocM + 1, 0).toISOString().split('T')[0]);
   p2.drawText(allocPeriod,{x:50,y:76,font:reg,size:9,color:gray});
   p2.drawRectangle({x:0,y:0,width:W,height:30,color:navy});
   p2.drawText('Cotton Strategies Inc.  ·  cottonstrategies.com',{x:50,y:10,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
