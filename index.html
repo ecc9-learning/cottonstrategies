@@ -995,25 +995,20 @@
       </div>
     </div>
 
-    <!-- SECTION 3: Email -->
+    <!-- SECTION 3: Generate -->
     <div class="icard">
-      <div class="isec-label">Send</div>
-      <div style="margin-bottom:12px;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Recipients</div>
+      <div class="isec-label">Recipients</div>
+      <div>
         <span class="email-chip">Owen Ng &lt;ong@breakwallcap.com&gt;</span>
         <span class="email-chip">Leong Cheng &lt;lcheng@petrafundsgroup.com&gt;</span>
         <span class="email-chip">Breakwall-mgtco &lt;Breakwall-mgtco@petrafundsgroup.com&gt;</span>
       </div>
-      <div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Email note (optional)</div>
-        <textarea class="inote" id="email-note" placeholder="Please find attached the Cotton Strategies invoice and allocation schedule for the period."></textarea>
-      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;">Generate the PDF below, then email it manually from your Breakwall account.</p>
     </div>
 
     <div id="send-status" class="istatus"></div>
     <div class="ibtn-row">
-      <button class="ibtn-primary" id="btn-send" onclick="generateAndSend()">Generate PDF &amp; send invoice</button>
-      <button class="ibtn-outline" onclick="generatePDFOnly()">Download PDF only</button>
+      <button class="ibtn-primary" id="btn-send" onclick="generateAndSend()">Generate &amp; download PDF</button>
     </div>
 
   </div><!-- /private-workspace -->
@@ -1180,10 +1175,11 @@ function updateTotal() {
 
 function removeCategory(ci) { allocations.splice(ci,1); renderAllocations(); }
 function removeMatter(ci,mi) { allocations[ci].matters.splice(mi,1); renderAllocations(); }
-function addCategory() { allocations.push({category:'New category',matters:[{name:'',pct:0,desc:''}]}); renderAllocations(); }
+function addCategory() { allocations.push({category:'New category',matters:[]}); renderAllocations(); }
 function addMatterToLast() {
   if (!allocations.length) addCategory();
-  else { allocations[allocations.length-1].matters.push({name:'',pct:0,desc:''}); renderAllocations(); }
+  allocations[allocations.length-1].matters.push({name:'',pct:0,desc:''});
+  renderAllocations();
 }
 
 async function buildPDF() {
@@ -1287,7 +1283,9 @@ function getFilename() {
   return 'Invoice_'+f.number+'_'+MONTHS[m]+'_'+y+'_CottonStrategies.pdf';
 }
 
-async function generatePDFOnly() {
+async function generateAndSend() {
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
   showIStatus('send-status', '<span class="ispinner"></span>Generating PDF…', 'loading');
   try {
     const pdfBytes = await buildPDF();
@@ -1295,53 +1293,9 @@ async function generatePDFOnly() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=getFilename(); a.click();
     hideIStatus('send-status');
+    btn.innerHTML = '✓ Downloaded';
   } catch(e) {
     showIStatus('send-status', 'PDF generation failed: ' + e.message, 'error');
-  }
-}
-
-async function generateAndSend() {
-  const btn = document.getElementById('btn-send');
-  btn.disabled = true;
-  const f = getInvoiceFields();
-  const note = document.getElementById('email-note').value || 'Please find attached the Cotton Strategies invoice and allocation schedule for ' + f.period + '.';
-
-  showIStatus('send-status', '<span class="ispinner"></span>Generating PDF…', 'loading');
-  let pdfBytes;
-  try {
-    pdfBytes = await buildPDF();
-  } catch(e) {
-    showIStatus('send-status', 'PDF generation failed: ' + e.message, 'error');
-    btn.disabled = false; return;
-  }
-
-  const filename = getFilename();
-  const subject = 'Cotton Strategies Invoice #'+f.number+' — '+f.period+' | Due '+fmtDate(f.dueDate);
-  const allocText = allocations.map(c => c.category+':\n'+c.matters.map(m=>'  • '+m.name+' ('+m.pct+'%)'+(m.desc?': '+m.desc:'')).join('\n')).join('\n\n');
-  const body = note+'\n\nInvoice: '+f.period+' | '+f.amount+' | Due '+fmtDate(f.dueDate)+'\n\nAllocation schedule:\n\n'+allocText+'\n\nPayment: Cotton Strategies Inc. | Acct 2284545114 | ACH 026012881 | Wire 121000248';
-
-  showIStatus('send-status', '<span class="ispinner"></span>PDF generated. Sending via Outlook…', 'loading');
-  try {
-    const res = await fetch('/api/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system: 'You are a billing assistant. Use Microsoft 365 to send the described email from ecotton@breakwallcap.com. Confirm when sent.',
-        prompt: `Send email from ecotton@breakwallcap.com to: ong@breakwallcap.com, lcheng@petrafundsgroup.com, Breakwall-mgtco@petrafundsgroup.com. Subject: "${subject}". Body: ${body}. Note: PDF attachment "${filename}" was generated client-side — please confirm the email body was sent successfully.`
-      })
-    });
-    if (!res.ok) throw new Error('API error ' + res.status);
-    showIStatus('send-status', 'Invoice #'+f.number+' sent to Owen, Leong, and Breakwall-mgtco for '+f.period+'. PDF downloaded below.', 'success');
-    btn.innerHTML = '✓ Sent';
-    // Also download the PDF locally as a record
-    const blob = new Blob([pdfBytes],{type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
-  } catch(err) {
-    showIStatus('send-status', 'Send failed: '+err.message+'. Downloading PDF locally instead.', 'error');
-    const blob = new Blob([pdfBytes],{type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
     btn.disabled = false;
   }
 }
