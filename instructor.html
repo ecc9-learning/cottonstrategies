@@ -2234,14 +2234,16 @@ function renderResults(){
       groupRows[gn].members.push({sub,asg,stu});
     });
 
-    // Compute outcome + sort: deals first, no-deals next, review/pending last
+    // Compute outcome + sort: alphabetical by group name (Grp 1, Grp 2, ...) — natural numeric sort
     const rows=Object.values(groupRows).map(g=>{
       const memForOutcome=released.filter(a=>a.group_number===g.gn).map(a=>({sub:subs.find(s=>s.student_id===a.student_id),asg:a}));
       const oc=getGroupOutcome(memForOutcome,activeSim);
       return {...g, outcome:oc.outcome};
     }).sort((a,b)=>{
-      const order={deal:0,review:1,nodeal:2,pending:3};
-      return (order[a.outcome]??9)-(order[b.outcome]??9) || a.gn-b.gn;
+      // Natural sort: Grp 1, Grp 2, Grp 10 (not Grp 1, Grp 10, Grp 2)
+      const an=parseInt(a.gn), bn=parseInt(b.gn);
+      if(!isNaN(an)&&!isNaN(bn)) return an-bn;
+      return String(a.gn).localeCompare(String(b.gn),undefined,{numeric:true});
     });
 
     const tcard=document.createElement('div'); tcard.className='card'; tcard.style.padding='0';
@@ -2259,7 +2261,7 @@ function renderResults(){
     }).join('');
 
     tcard.innerHTML=`<div style="padding:1rem 1.25rem;font-size:13px;font-weight:600;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between">
-        <span>All groups (${rows.length}) <span style="font-size:11px;color:#9ca3af;font-weight:400">— click a row for full detail · sorted deals → impasses</span></span>
+        <span>All groups (${rows.length}) <span style="font-size:11px;color:#9ca3af;font-weight:400">— click a row for full detail · sorted alphabetically</span></span>
         ${privateFields.length?`<span style="font-size:11px;color:#9ca3af">🔒 ${privateFields.length} private field${privateFields.length>1?'s':''} visible to instructor only</span>`:''}
       </div>
       <div style="overflow-x:auto"><table>
@@ -2304,22 +2306,45 @@ function renderResults(){
               :'<span class="badge badge-gray" style="font-size:10px;padding:2px 6px">Sub</span>';
           };
 
-          // For each field, render two side-by-side cells
+          // For each field, render either a single colspan=2 cell (when values match) or two separate cells (when they differ)
           const fieldCells=[...publicFields,...privateFields].map(f=>{
-            const renderCell=(m)=>{
-              if(!m||!m.sub) return `<td style="text-align:center;color:#c0392b;font-size:11px">—</td>`;
-              const v=m.sub.form_data?.[f.id]??'—';
-              const style=f.private?'color:#9ca3af;font-size:12px;':'';
-              const isRadioYN=f.type==='radio'&&(f.options||[]).includes('Yes');
+            const getVal=(m)=>{
+              if(!m||!m.sub) return null;
+              const v=m.sub.form_data?.[f.id];
+              return (v===undefined||v===null||v==='')?null:v;
+            };
+            const vA=getVal(mA), vB=getVal(mB);
+            const style=f.private?'color:#9ca3af;font-size:12px;':'';
+            const isRadioYN=f.type==='radio'&&(f.options||[]).includes('Yes');
+
+            const formatCell=(v,colspan)=>{
+              if(v===null) return `<td ${colspan?'colspan="2" ':''}style="text-align:center;color:#c0392b;font-size:11px">—</td>`;
               if(isRadioYN){
                 const cls=v==='Yes'?'badge-green':v==='No'?'badge-red':'badge-gray';
-                return `<td style="text-align:center"><span class="badge ${cls}" style="font-size:11px">${v}</span></td>`;
+                return `<td ${colspan?'colspan="2" ':''}style="text-align:center"><span class="badge ${cls}" style="font-size:11px">${v}</span></td>`;
               }
-              if(f.type==='textarea'){return `<td style="white-space:pre-wrap;word-break:break-word;max-width:200px;font-size:12px;color:#555;${style}">${String(v).substring(0,80)}${String(v).length>80?'…':''}</td>`;}
-              if(String(v).length>20){return `<td title="${v}" style="cursor:help;font-size:12px;${style}">${String(v).substring(0,20)}…</td>`;}
-              return `<td style="font-size:13px;${style}">${v}</td>`;
+              if(f.type==='textarea'){
+                return `<td ${colspan?'colspan="2" ':''}style="white-space:pre-wrap;word-break:break-word;max-width:300px;font-size:12px;color:#555;${style}">${String(v).substring(0,120)}${String(v).length>120?'…':''}</td>`;
+              }
+              if(String(v).length>20){
+                return `<td ${colspan?'colspan="2" ':''}title="${String(v).replace(/"/g,'&quot;')}" style="cursor:help;font-size:12px;${style}">${String(v).substring(0,20)}…</td>`;
+              }
+              return `<td ${colspan?'colspan="2" ':''}style="font-size:13px;text-align:${colspan?'center':'left'};${style}">${v}</td>`;
             };
-            return renderCell(mA)+renderCell(mB);
+
+            // Collapse logic: if both values exist and match (normalized as strings), collapse to one cell
+            const normA=vA==null?null:String(vA).trim();
+            const normB=vB==null?null:String(vB).trim();
+            if(normA!==null && normB!==null && normA===normB){
+              return formatCell(vA, true);
+            }
+            // If only one exists, show it spanning both columns (cleaner than one cell + one dash)
+            if(normA!==null && normB===null) return formatCell(vA, true);
+            if(normA===null && normB!==null) return formatCell(vB, true);
+            // Both null → single dash spanning both
+            if(normA===null && normB===null) return `<td colspan="2" style="text-align:center;color:#c0392b;font-size:11px">—</td>`;
+            // Values differ → two cells
+            return formatCell(vA,false)+formatCell(vB,false);
           }).join('');
 
           const firstSubId=mA?.sub?.id||mB?.sub?.id||'';
@@ -2463,9 +2488,12 @@ function buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim){
   });
   if(!pairs.length) return;
 
-  // Sort deals first
-  const orderRank={deal:0,review:1,nodeal:2,pending:3};
-  pairs.sort((x,y)=>(orderRank[x.outcome]??9)-(orderRank[y.outcome]??9)||x.gn-y.gn);
+  // Sort: alphabetical/natural by group number
+  pairs.sort((x,y)=>{
+    const xn=parseInt(x.gn), yn=parseInt(y.gn);
+    if(!isNaN(xn)&&!isNaN(yn)) return xn-yn;
+    return String(x.gn).localeCompare(String(y.gn),undefined,{numeric:true});
+  });
 
   // Detect first-offer for opened-by highlight
   const isFirstOffer=/first.*offer/i.test(field.label||'')&&!/who/i.test(field.label||'');
@@ -2510,7 +2538,7 @@ function buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim){
       <span><span style="display:inline-block;width:10px;height:10px;background:${colorB};border-radius:2px;margin-right:4px;vertical-align:-1px"></span>${roleB}</span>
       <span style="color:#9ca3af"><span style="display:inline-block;width:10px;height:10px;background:${colorA_dim};border-radius:2px;margin-right:4px;vertical-align:-1px"></span>Impasse (dim)</span>
       ${isFirstOffer?`<span><span style="display:inline-block;width:10px;height:10px;border:2px solid #fbbf24;background:transparent;border-radius:2px;margin-right:4px;vertical-align:-1px"></span>Opened first</span>`:''}
-      <span style="color:#9ca3af;margin-left:auto">Sorted: deals first → impasses</span>
+      <span style="color:#9ca3af;margin-left:auto">Sorted alphabetically</span>
     </div>
     <div style="height:${chartHeight}px"><canvas id="${chartId}"></canvas></div>`;
   container.appendChild(card);
@@ -3272,9 +3300,12 @@ function pmRenderNumberChart(c,item,palette,typeOverride){
     return;
   }
 
-  // Sort: deals first (by gn), then review, then nodeal, then pending
-  const orderRank={deal:0,review:1,nodeal:2,pending:3};
-  pairs.sort((x,y)=>(orderRank[x.outcome]??9)-(orderRank[y.outcome]??9)||x.gn-y.gn);
+  // Sort: alphabetical/natural by group number (Grp 1, Grp 2, Grp 10)
+  pairs.sort((x,y)=>{
+    const xn=parseInt(x.gn), yn=parseInt(y.gn);
+    if(!isNaN(xn)&&!isNaN(yn)) return xn-yn;
+    return String(x.gn).localeCompare(String(y.gn),undefined,{numeric:true});
+  });
 
   // Detect "first offer amount" — pair with "who made the first offer" radio if present
   const isFirstOffer=/first.*offer/i.test(field.label||'')&&!/who/i.test(field.label||'');
