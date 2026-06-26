@@ -412,6 +412,10 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
   background:var(--surface);transition:background .1s;
 }
 .q-row:hover{background:#f7f9ff}
+.q-drag-handle{cursor:grab;color:#9ca3af;font-size:16px;user-select:none;flex-shrink:0;padding:2px 0;line-height:1;margin-top:2px}
+.q-drag-handle:hover{color:var(--text-3)}
+.q-row.q-dragging{opacity:.4}
+.q-row.q-drag-over{border-top:2px solid var(--navy-3)}
 .q-body{flex:1}
 .q-label{font-size:13px;font-weight:600;margin-bottom:2px;color:var(--text)}
 .q-meta{font-size:11px;color:var(--text-4)}
@@ -1941,14 +1945,58 @@ function manageSim(id){
 }
 
 function renderQEditor(sim){
-  return (sim.fields||[]).map((f,i)=>`
-    <div class="q-row" id="qr-${sim.id}-${f.id}">
+  const html=(sim.fields||[]).map((f,i)=>`
+    <div class="q-row" id="qr-${sim.id}-${f.id}" data-fid="${f.id}">
+      <div class="q-drag-handle" title="Drag to reorder">⠿</div>
       <div class="q-body"><div class="q-label">${f.label||''} ${f.private?'<span style="font-size:10px;color:#9ca3af;font-weight:500">🔒 private</span>':''}</div><div class="q-meta">${f.type||''}${f.options?' · '+f.options.join(', '):''}${f.required?' · required':' · optional'}</div></div>
       <div class="q-actions">
         <button class="icon-btn" onclick="editQ('${sim.id}','${f.id}')" title="Edit">✏️</button>
         <button class="icon-btn" onclick="deleteQ('${sim.id}','${f.id}')" style="color:#dc2626" title="Delete">🗑</button>
       </div>
     </div>`).join('');
+  setTimeout(()=>initQDrag(sim.id),30);
+  return html;
+}
+
+function initQDrag(sid){
+  const container=document.getElementById('q-list');
+  if(!container)return;
+  const rows=Array.from(container.querySelectorAll('.q-row[data-fid]'));
+  let dragSrc=null;
+  rows.forEach(row=>{
+    const handle=row.querySelector('.q-drag-handle');
+    if(!handle)return;
+    handle.addEventListener('mousedown',()=>{row.draggable=true;});
+    row.addEventListener('dragstart',e=>{
+      dragSrc=row;
+      e.dataTransfer.effectAllowed='move';
+      row.classList.add('q-dragging');
+    });
+    row.addEventListener('dragend',()=>{
+      row.classList.remove('q-dragging');
+      row.draggable=false;
+      container.querySelectorAll('.q-row').forEach(r=>r.classList.remove('q-drag-over'));
+    });
+    row.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(row!==dragSrc) row.classList.add('q-drag-over');
+    });
+    row.addEventListener('dragleave',()=>row.classList.remove('q-drag-over'));
+    row.addEventListener('drop',e=>{
+      e.preventDefault();
+      container.querySelectorAll('.q-row').forEach(r=>r.classList.remove('q-drag-over'));
+      if(!dragSrc||dragSrc===row)return;
+      const sim=allSims.find(s=>s.id===sid); if(!sim||!sim.fields)return;
+      const srcFid=dragSrc.dataset.fid;
+      const tgtFid=row.dataset.fid;
+      const srcIdx=sim.fields.findIndex(f=>f.id===srcFid);
+      const tgtIdx=sim.fields.findIndex(f=>f.id===tgtFid);
+      if(srcIdx<0||tgtIdx<0)return;
+      const [moved]=sim.fields.splice(srcIdx,1);
+      sim.fields.splice(tgtIdx,0,moved);
+      document.getElementById('q-list').innerHTML=renderQEditor(sim);
+    });
+  });
 }
 
 function editQ(sid,fid){
@@ -3808,56 +3856,12 @@ function renderReflQList(){
   if(!container)return;
   const qs=window._rnReflQs||[];
   container.innerHTML=qs.map((q,i)=>`
-    <div data-rqi="${i}" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;cursor:default">
-      <div class="refl-drag-handle" title="Drag to reorder" style="cursor:grab;color:#9ca3af;font-size:17px;padding:4px 2px;user-select:none;flex-shrink:0;margin-top:6px;line-height:1">⠿</div>
+    <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
       <textarea data-qi="${i}" style="flex:1;padding:8px 10px;border:1.5px solid #ece8e1;border-radius:8px;font-size:13px;min-height:52px;resize:vertical;font-family:inherit"
         oninput="window._rnReflQs[${i}]=this.value">${q}</textarea>
       <button onclick="removeReflQ(${i})" style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#dc2626;padding:6px 10px;font-size:13px;cursor:pointer;flex-shrink:0;margin-top:2px">✕</button>
     </div>`).join('') +
     `<button onclick="addReflQ()" style="font-size:12px;color:#bf5700;background:none;border:1px dashed #f0d9c0;border-radius:6px;padding:6px 14px;cursor:pointer;width:100%;margin-top:2px">+ Add reflection question</button>`;
-  // Wire up drag-to-reorder after DOM settles
-  setTimeout(()=>initReflDrag(),0);
-}
-
-function initReflDrag(){
-  const container=document.getElementById('rn-refl-list');
-  if(!container)return;
-  const rows=Array.from(container.querySelectorAll('[data-rqi]'));
-  let dragSrc=null;
-  rows.forEach(row=>{
-    const handle=row.querySelector('.refl-drag-handle');
-    if(!handle)return;
-    handle.addEventListener('mousedown',()=>{ row.draggable=true; });
-    row.addEventListener('dragstart',e=>{
-      dragSrc=row;
-      e.dataTransfer.effectAllowed='move';
-      row.style.opacity='0.4';
-    });
-    row.addEventListener('dragend',()=>{
-      row.style.opacity='';
-      row.draggable=false;
-      container.querySelectorAll('[data-rqi]').forEach(r=>r.style.borderTop='');
-    });
-    row.addEventListener('dragover',e=>{
-      e.preventDefault();
-      if(row!==dragSrc) row.style.borderTop='2px solid var(--navy-3)';
-    });
-    row.addEventListener('dragleave',()=>{ row.style.borderTop=''; });
-    row.addEventListener('drop',e=>{
-      e.preventDefault();
-      row.style.borderTop='';
-      if(!dragSrc||dragSrc===row)return;
-      // Sync textarea values back to array before reordering
-      container.querySelectorAll('textarea[data-qi]').forEach(ta=>{
-        window._rnReflQs[parseInt(ta.dataset.qi)]=ta.value;
-      });
-      const srcIdx=parseInt(dragSrc.dataset.rqi);
-      const tgtIdx=parseInt(row.dataset.rqi);
-      const moved=window._rnReflQs.splice(srcIdx,1)[0];
-      window._rnReflQs.splice(tgtIdx,0,moved);
-      renderReflQList();
-    });
-  });
 }
 
 function addReflQ(){
