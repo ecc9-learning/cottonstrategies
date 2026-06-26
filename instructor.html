@@ -1881,8 +1881,8 @@ function renderSimulations(){
         ${!s.is_active?`<button class="btn btn-primary btn-sm" onclick="setActiveSim('${s.id}')">Set active</button>`:`<button class="btn btn-danger btn-sm" onclick="deactivateSim('${s.id}')">Deactivate</button>`}
         <button class="btn btn-outline btn-sm" onclick="manageSim('${s.id}')">Manage</button>
         <button class="btn btn-ghost btn-sm" onclick="renameSim('${s.id}')" title="Edit name, description & reflection questions">✎ Edit</button>
-        <button class="btn btn-ghost btn-sm" onclick="downloadInstructorNotes('${s.id}','${s.name}')" title="Download instructor notes PDF">📄 Notes</button>
-        <button class="btn btn-ghost btn-sm" onclick="showRoleBriefs('${s.id}','${s.name}')" title="Download role briefs">📋 Briefs</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadInstructorNotes('${s.id}','${s.name}')" title="Download instructor notes PDF">📄 Investor Notes</button>
+        <button class="btn btn-ghost btn-sm" onclick="showRoleBriefs('${s.id}','${s.name}')" title="Download role briefs">📋 Role Briefs</button>
       </div>`;
     // Drag events
     div.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',s.id);div.classList.add('dragging');});

@@ -656,11 +656,14 @@ function render(assignments,submissions,reflections,pSubs,pAsgs){
           </div>
         </div>`;
 
-        // FIX-S1: Reflection card — identified by class "reflection-card" so doReflect()
-        // can swap it in-place without re-rendering the whole page
-        const hasRefl=reflections.find(r=>r.simulation_id===activeSim.id);
-        if(!hasRefl) html+=renderReflectionForm();
-        else html+=`<div class="card"><div class="card-body"><div class="banner banner-green" style="margin-bottom:0">✓ Reflection submitted</div></div></div>`;
+        // Show reflection only once the negotiation is fully resolved:
+        // confirmed, disputed, or both submitted with no pending review left
+        const fullyResolved=confirmed||disputed||(!pendingReview.length&&(pSubs||[]).length>0);
+        if(fullyResolved){
+          const hasRefl=reflections.find(r=>r.simulation_id===activeSim.id);
+          if(!hasRefl) html+=renderReflectionForm();
+          else html+=`<div class="card"><div class="card-body"><div class="banner banner-green" style="margin-bottom:0">✓ Reflection submitted</div></div></div>`;
+        }
 
       } else if(!submission&&(pSubs||[]).length>0&&!editMode){
         // ── PARTNER SUBMITTED FIRST — show proposed agreement ──
@@ -1251,14 +1254,17 @@ async function doDispute(){
 // ── REFLECTION ────────────────────────────────────────────────────────────────
 function renderReflectionForm(){
   if(!activeSim)return'';
+  // Separate public reflection questions from private (e.g. aspiration/reservation price)
+  const allFields=activeSim.fields||[];
+  const privateFields=allFields.filter(f=>f.private&&!f.id.startsWith('_'));
   let reflQs=[];
   const rawQ=activeSim.reflection_question||'';
   try{const p=JSON.parse(rawQ);if(Array.isArray(p))reflQs=p.filter(Boolean);}catch(e){}
   if(!reflQs.length&&rawQ)reflQs=[rawQ];
-  if(!reflQs.length)reflQs=['What was your biggest takeaway from this simulation?'];
+  if(!reflQs.length&&!privateFields.length)reflQs=['What was your biggest takeaway from this simulation?'];
   return`<div class="reflection-card">
     <div class="reflection-title">💭 Reflection</div>
-    <div class="reflection-sub">Take 2 minutes to reflect. Your responses are private.</div>
+    <div class="reflection-sub">Take 2 minutes to reflect. Your responses are private and will not be shared with your partner.</div>
     <div class="field">
       <label class="field-label">What was your most important mistake?</label>
       <textarea id="ref-mistake" placeholder="Be honest — this is for your learning." style="min-height:70px"></textarea>
@@ -1270,6 +1276,23 @@ function renderReflectionForm(){
     ${reflQs.map((q,i)=>`<div class="field"><label class="field-label">${q}</label>
       <textarea id="ref-custom-${i}" placeholder="Your response…" style="min-height:70px"></textarea>
     </div>`).join('')}
+    ${privateFields.length?`<div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-4);margin-bottom:12px">🔒 Private — not visible to your partner or in class view</div>
+      ${privateFields.map(f=>{
+        if(f.type==='radio'&&f.options?.length){
+          return`<div class="field"><label class="field-label">${f.label||f.id}</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              ${f.options.map(o=>`<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="ref-priv-${f.id}" value="${o}"> ${o}</label>`).join('')}
+            </div></div>`;
+        }
+        if(f.type==='number'){
+          return`<div class="field"><label class="field-label">${f.label||f.id}</label>
+            <input type="number" id="ref-priv-${f.id}" placeholder="Enter number" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px"></div>`;
+        }
+        return`<div class="field"><label class="field-label">${f.label||f.id}</label>
+          <textarea id="ref-priv-${f.id}" placeholder="Your response…" style="min-height:52px"></textarea></div>`;
+      }).join('')}
+    </div>`:''}
     <button class="submit-btn" onclick="doReflect()">Submit reflection</button>
   </div>`;
 }
@@ -1287,15 +1310,26 @@ async function doReflect(){
     customAnswers.push(document.getElementById('ref-custom-'+qi).value||'');
     qi++;
   }
+  // Collect private field answers
+  const privateFields=(activeSim.fields||[]).filter(f=>f.private&&!f.id.startsWith('_'));
+  const privateAnswers={};
+  privateFields.forEach(f=>{
+    if(f.type==='radio'){
+      const checked=document.querySelector(`input[name="ref-priv-${f.id}"]:checked`);
+      privateAnswers[f.id]=checked?checked.value:'';
+    } else {
+      privateAnswers[f.id]=document.getElementById('ref-priv-'+f.id)?.value||'';
+    }
+  });
   const btn=document.querySelector('.reflection-card .submit-btn');
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
   const r=await sb('reflections',{method:'POST',body:JSON.stringify({
     student_id:student.id,simulation_id:activeSim.id,
-    mistake,do_differently:different,custom_response:customAnswers.join(' ||| ')
+    mistake,do_differently:different,
+    custom_response:customAnswers.join(' ||| '),
+    private_data:Object.keys(privateAnswers).length?JSON.stringify(privateAnswers):null
   }),prefer:'return=minimal'});
   if(r.ok){
-    // Swap only the reflection card — do NOT call load() which re-renders
-    // the whole page and would wipe any notes or other in-progress text.
     const reflCard=document.querySelector('.reflection-card');
     if(reflCard){
       const wrapper=document.createElement('div');
