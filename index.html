@@ -1168,7 +1168,7 @@ async function parseAllocationsWithAI() {
   btn.disabled = true;
   showIStatus('parse-status', '<span class="ispinner"></span>Parsing with AI…', 'loading');
 
-  const prompt = `You convert a legal consultant's plain-language narrative of monthly work into a structured JSON allocation schedule.
+  const prompt = `You reformat a legal consultant's narrative of monthly work into structured JSON. The narrative text is already final and correct — your job is ONLY to restructure it, never to rewrite, summarize, shorten, or paraphrase any of it.
 
 Return ONLY valid JSON — no markdown code fences, no preamble, no explanation, no trailing commentary. The JSON must be an array of category objects in exactly this shape:
 
@@ -1176,16 +1176,18 @@ Return ONLY valid JSON — no markdown code fences, no preamble, no explanation,
   {
     "category": "Category Name",
     "matters": [
-      { "name": "Matter name", "pct": 18, "desc": "Short description of services performed, suitable for appearing on a client invoice." }
+      { "name": "Matter name", "pct": 18, "desc": "Full description text, preserved exactly as written." }
     ]
   }
 ]
 
-Rules:
-- "pct" is a whole number 0-100. Use the percentage stated in the narrative for each matter. If a matter has no stated percentage, set "pct" to 0.
-- Group matters into categories the way the narrative groups them (e.g. by fund vehicle, by deal, by management company/GP-level work). If no clear grouping is present, use a single category called "General Matters".
-- Keep "desc" concise (under 150 characters), written in plain professional language suitable for a client-facing invoice line.
-- Do not invent matters, percentages, or details not present or clearly implied in the narrative.
+Critical rules:
+- PRESERVE WORDING EXACTLY. Copy category names, matter names, and descriptions verbatim from the narrative — same words, same level of detail, same phrasing. Do not shorten, compress, generalize, or rewrite anything. There is no length limit on "desc".
+- If a matter has multiple bullet points or clauses describing the work, keep ALL of them in "desc", joined with "\\n• " (each on its own line, prefixed with a bullet). Do not drop any bullet or collapse them into a shorter summary.
+- "name" must be the exact matter/fund/deal name as it appears in the narrative — never substitute a client name, entity name, or anything else from elsewhere in the text.
+- "pct" is a whole number 0-100, taken directly from the percentage stated for that matter in the narrative. If no percentage is stated for a matter, set "pct" to 0.
+- Group matters into categories exactly the way the narrative already groups them (the narrative's own section headers/groupings ARE the categories — reuse them verbatim). Only use "General Matters" as a fallback if the narrative truly has no grouping at all.
+- Do not invent, add, omit, or infer any matter, category, percentage, or detail that is not explicitly present in the narrative.
 - Output nothing but the JSON array — your entire response must be parseable by JSON.parse().
 
 Narrative:
@@ -1341,30 +1343,69 @@ async function buildPDF() {
   p1.drawText('Cotton Strategies Inc.  ·  cottonstrategies.com',{x:50,y:10,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
 
   // PAGE 2 — Allocation Schedule
-  const p2 = doc.addPage([W,H]);
-  p2.drawRectangle({x:0,y:H-80,width:W,height:80,color:navy});
-  p2.drawText('COTTON STRATEGIES INC.',{x:50,y:H-36,font:bold,size:15,color:white});
-  p2.drawText('ALLOCATION SCHEDULE',{x:50,y:H-56,font:reg,size:10,color:rgb(0.7,0.75,0.85)});
-  p2.drawText('Invoice #'+f.number+'  ·  '+f.period,{x:50,y:H-70,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
+  function wrapText(text, font, size, maxWidth) {
+    const paragraphs = String(text||'').split('\n');
+    const lines = [];
+    paragraphs.forEach(para => {
+      const words = para.split(' ');
+      let line = '';
+      words.forEach(word => {
+        const test = line ? line + ' ' + word : word;
+        if (line && font.widthOfTextAtSize(test, size) > maxWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      });
+      lines.push(line);
+    });
+    return lines;
+  }
+
+  let p2 = doc.addPage([W,H]);
+  let allocPageNum = 1;
+  function drawAllocHeader() {
+    p2.drawRectangle({x:0,y:H-80,width:W,height:80,color:navy});
+    p2.drawText('COTTON STRATEGIES INC.',{x:50,y:H-36,font:bold,size:15,color:white});
+    p2.drawText('ALLOCATION SCHEDULE'+(allocPageNum>1?' (cont.)':''),{x:50,y:H-56,font:reg,size:10,color:rgb(0.7,0.75,0.85)});
+    p2.drawText('Invoice #'+f.number+'  ·  '+f.period,{x:50,y:H-70,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
+    p2.drawRectangle({x:0,y:0,width:W,height:30,color:navy});
+    p2.drawText('Cotton Strategies Inc.  ·  cottonstrategies.com',{x:50,y:10,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
+  }
+  drawAllocHeader();
   let y = H-106;
+  const BOTTOM_MARGIN = 60;
+
+  function newAllocPage() {
+    p2 = doc.addPage([W,H]);
+    allocPageNum++;
+    drawAllocHeader();
+    y = H-106;
+  }
+
   allocations.forEach(cat => {
+    if (y - 20 < BOTTOM_MARGIN) newAllocPage();
     p2.drawRectangle({x:50,y:y-16,width:W-100,height:20,color:navy});
     p2.drawText(cat.category.toUpperCase(),{x:60,y:y-10,font:bold,size:8,color:white});
     p2.drawText('Allocation',{x:W-105,y:y-10,font:bold,size:8,color:white});
     y -= 20;
     cat.matters.forEach((m,mi) => {
-      const rowH = m.desc ? 30 : 18;
+      const descLines = m.desc ? wrapText(m.desc, reg, 8, W-120) : [];
+      const rowH = 22 + (descLines.length ? descLines.length*10.5 + 4 : -4);
+      if (y - rowH < BOTTOM_MARGIN) newAllocPage();
       if(mi%2===0) p2.drawRectangle({x:50,y:y-rowH,width:W-100,height:rowH,color:rgb(0.97,0.97,0.97)});
       p2.drawText(m.name,{x:60,y:y-11,font:bold,size:10,color:black});
       p2.drawText((m.pct||0)+'%',{x:W-75,y:y-11,font:bold,size:10,color:black});
-      if (m.desc) {
-        const d = m.desc.length > 78 ? m.desc.substring(0,75)+'...' : m.desc;
-        p2.drawText(d,{x:60,y:y-22,font:reg,size:8,color:rgb(0.42,0.42,0.42)});
-      }
+      descLines.forEach((d,di) => {
+        p2.drawText(d,{x:60,y:y-22-(di*10.5),font:reg,size:8,color:rgb(0.42,0.42,0.42)});
+      });
       y -= rowH;
     });
     y -= 8;
   });
+
+  if (y - 16 < BOTTOM_MARGIN) newAllocPage();
   p2.drawLine({start:{x:50,y},end:{x:W-50,y},thickness:1,color:navy});
   y -= 16;
   p2.drawText('Total',{x:60,y,font:bold,size:10,color:black});
@@ -1373,8 +1414,7 @@ async function buildPDF() {
   const allocY = parseInt(document.getElementById('alloc-year').value);
   const allocPeriod = 'Allocations from ' + fmtDate(new Date(allocY, allocM, 1).toISOString().split('T')[0]) + ' to ' + fmtDate(new Date(allocY, allocM + 1, 0).toISOString().split('T')[0]);
   p2.drawText(allocPeriod,{x:50,y:76,font:reg,size:9,color:gray});
-  p2.drawRectangle({x:0,y:0,width:W,height:30,color:navy});
-  p2.drawText('Cotton Strategies Inc.  ·  cottonstrategies.com',{x:50,y:10,font:reg,size:9,color:rgb(0.55,0.6,0.7)});
+
 
   return await doc.save();
 }
