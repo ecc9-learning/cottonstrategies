@@ -987,6 +987,16 @@
         </select>
       </div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Add categories and matters. Each matter has a name, percentage, and description of services performed. Must total 100%.</p>
+
+      <div style="border:0.5px solid var(--rule);border-radius:6px;padding:12px 14px;margin-bottom:18px;background:var(--bg);">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;">Paste a narrative (AI-assisted)</div>
+        <textarea id="alloc-narrative" placeholder="Paste a plain-language summary of this month's work — e.g. &quot;18% Breakwall Harbor Fund, rebalancing and true-up mechanics; 45% Management Company, governance and financing matters…&quot; — and AI will convert it into the categories and matters below." style="width:100%;font-size:13px;font-family:'DM Sans',sans-serif;border:1px solid var(--rule);border-radius:4px;padding:8px 10px;background:var(--surface);color:var(--text);resize:vertical;min-height:70px;line-height:1.5;"></textarea>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button class="ibtn-outline ibtn-small" id="btn-parse-ai" onclick="parseAllocationsWithAI()">Parse with AI</button>
+          <span id="parse-status" class="istatus" style="margin:0;"></span>
+        </div>
+      </div>
+
       <div id="allocations-editor"></div>
       <div class="itotal-bar">
         <span style="font-size:13px;color:var(--muted);">Total</span>
@@ -1128,6 +1138,84 @@ function showIStatus(id, msg, type) {
   el.innerHTML = msg;
 }
 function hideIStatus(id) { document.getElementById(id).style.display = 'none'; }
+
+// Call our own Cloudflare Function — key never touches the browser
+async function callAI(prompt) {
+  const resp = await fetch('/ai', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ prompt })
+  });
+  const data = await resp.json();
+  if (data?.text) return data.text;
+  throw new Error(data?.error || 'AI function returned no text');
+}
+
+async function parseAllocationsWithAI() {
+  const textEl = document.getElementById('alloc-narrative');
+  const text = textEl.value.trim();
+  if (!text) {
+    showIStatus('parse-status', 'Paste a narrative first.', 'error');
+    return;
+  }
+
+  const hasExisting = allocations.some(c => c.matters && c.matters.length);
+  if (hasExisting && !confirm('This will replace your current allocation schedule with the parsed result. Continue?')) {
+    return;
+  }
+
+  const btn = document.getElementById('btn-parse-ai');
+  btn.disabled = true;
+  showIStatus('parse-status', '<span class="ispinner"></span>Parsing with AI…', 'loading');
+
+  const prompt = `You convert a legal consultant's plain-language narrative of monthly work into a structured JSON allocation schedule.
+
+Return ONLY valid JSON — no markdown code fences, no preamble, no explanation, no trailing commentary. The JSON must be an array of category objects in exactly this shape:
+
+[
+  {
+    "category": "Category Name",
+    "matters": [
+      { "name": "Matter name", "pct": 18, "desc": "Short description of services performed, suitable for appearing on a client invoice." }
+    ]
+  }
+]
+
+Rules:
+- "pct" is a whole number 0-100. Use the percentage stated in the narrative for each matter. If a matter has no stated percentage, set "pct" to 0.
+- Group matters into categories the way the narrative groups them (e.g. by fund vehicle, by deal, by management company/GP-level work). If no clear grouping is present, use a single category called "General Matters".
+- Keep "desc" concise (under 150 characters), written in plain professional language suitable for a client-facing invoice line.
+- Do not invent matters, percentages, or details not present or clearly implied in the narrative.
+- Output nothing but the JSON array — your entire response must be parseable by JSON.parse().
+
+Narrative:
+"""${text}"""`;
+
+  try {
+    const raw = await callAI(prompt);
+    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) throw new Error('Response was not a list of categories');
+
+    allocations = parsed.map(cat => ({
+      category: cat.category || 'Uncategorized',
+      matters: (cat.matters || []).map(m => ({
+        name: m.name || '',
+        pct: parseInt(m.pct) || 0,
+        desc: m.desc || ''
+      }))
+    }));
+
+    renderAllocations();
+    saveAllocations();
+    showIStatus('parse-status', '✓ Parsed — review percentages and descriptions below', 'success');
+    textEl.value = '';
+  } catch (e) {
+    showIStatus('parse-status', 'Parsing failed: ' + e.message + ' — you can still fill in fields manually below.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 function getDefaultAllocations() {
   return [
