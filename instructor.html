@@ -667,6 +667,46 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
   .status-pills{display:none}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── MICRO-INTERACTIONS ── */
+
+/* 2. Row hover — soft navy tint on all table rows */
+.table-wrap td{transition:background .15s}
+.table-wrap tbody tr:hover td{background:rgba(30,58,110,.028)}
+/* preserve clickable row hover (already defined above, ensure specificity) */
+tr.clickable:hover td{background:#f7f9ff!important;cursor:pointer}
+
+/* 3. Row flash — new-data highlight fades out */
+@keyframes rowFlash{0%,12%{background:#dbeafe}100%{background:transparent}}
+.row-flash td{animation:rowFlash 1.6s ease-out forwards!important}
+
+/* 5 (alt). Group card entrance — stagger set by JS via --i */
+@keyframes groupEnter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.group-card-animated{
+  opacity:0;
+  animation:groupEnter .22s ease both;
+  animation-delay:calc(var(--gi,0)*.04s);
+}
+
+/* 6. Toast */
+#toast-container{
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  display:flex;flex-direction:column-reverse;gap:8px;
+  pointer-events:none;
+}
+.toast{
+  padding:11px 18px;border-radius:8px;
+  font-size:12.5px;font-weight:500;
+  background:var(--navy);color:#fff;
+  font-family:'DM Sans',sans-serif;
+  box-shadow:0 4px 20px rgba(15,30,60,.25);
+  transform:translateY(10px);opacity:0;
+  transition:transform .25s cubic-bezier(.2,.8,.3,1),opacity .22s ease;
+  pointer-events:none;max-width:300px;line-height:1.45;
+}
+.toast.toast-show{transform:translateY(0);opacity:1}
+.toast.toast-success{border-left:3px solid var(--green)}
+.toast.toast-error{border-left:3px solid var(--red)}
 </style>
 </head>
 <body>
@@ -1328,11 +1368,14 @@ function updateStatusBar() {
     }
   }
 
-  document.getElementById('sb-registered').textContent = allStudents.length;
+  const sbReg=document.getElementById('sb-registered');
+  const sbAsgn=document.getElementById('sb-assigned');
+  const sbSub=document.getElementById('sb-submitted');
   const assigned = activeSim?allAssignments.filter(a=>a.simulation_id===activeSim.id&&a.released).length:0;
-  document.getElementById('sb-assigned').textContent = assigned;
   const submitted = activeSim?allSubmissions.filter(s=>s.simulation_id===activeSim.id).length:0;
-  document.getElementById('sb-submitted').textContent = submitted;
+  animateStatEl(sbReg,allStudents.length);
+  animateStatEl(sbAsgn,assigned);
+  animateStatEl(sbSub,submitted);
 }
 
 // ── SIDEBAR SIM LIST ─────────────────────────────────────────────────────────
@@ -1639,6 +1682,8 @@ function renderRoster() {
     {v:reflTotal,l:'Total reflections'},
   ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
 
+  countUpStatCards();
+
   const tbody=document.getElementById('roster-body');
   if(!allStudents.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:#9ca3af">No students registered yet.</td></tr>';return;}
 
@@ -1767,8 +1812,8 @@ function renderAssignments() {
       </div>`;
     }
     html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem">`;
-    Object.entries(groups).forEach(([gn,members])=>{
-      html+=`<div class="group-card"><div class="group-header"><span class="group-num">Group ${gn}</span></div>`;
+    Object.entries(groups).forEach(([gn,members],gi)=>{
+      html+=`<div class="group-card group-card-animated" style="--gi:${gi}"><div class="group-header"><span class="group-num">Group ${gn}</span></div>`;
       members.forEach(m=>{
         const roles=(activeSim.roles||[]);
         html+=`<div class="group-member"><span class="member-name">${m.name}</span>
@@ -1928,6 +1973,7 @@ async function releasePairings(){
     pendingPairings=[];
     await loadAll();
     showSection('assignments');
+    showToast('Assignments released');
   }catch(e){alert('Error: '+e.message);btn.disabled=false;}
 }
 
@@ -2233,7 +2279,7 @@ async function saveSimChanges(simId){
   const fieldsToSave = typeof sim.fields === 'string' ? sim.fields : JSON.stringify(sim.fields);
   const roleDocsToSave = typeof roleDocs === 'string' ? roleDocs : JSON.stringify(roleDocs);
   const res=await dbPatch('simulations?id=eq.'+simId,{fields:fieldsToSave,announcement:ann,role_docs:roleDocsToSave});
-  if(res.ok){closeModal();await loadAll();}
+  if(res.ok){closeModal();await loadAll();showToast('Simulation saved');}
   else{alert('Could not save changes. Status: '+res.status);}
 }
 
@@ -2317,7 +2363,7 @@ async function submitManualEntry(simId){
   } else {
     res=await api('submissions',{method:'POST',body:JSON.stringify({student_id:studentId,simulation_id:simId,form_data:formData,submitted_at:now,updated_at:now}),prefer:'return=minimal'});
   }
-  if(res.ok){closeModal();await loadAll();showSection('results');alert('Results saved.');}
+  if(res.ok){closeModal();await loadAll();showSection('results');showToast('Results saved');}
   else{alert('Could not save results. Status: '+res.status);}
 }
 
@@ -2352,6 +2398,7 @@ function renderResults(){
     {v:reviewCount>0?reviewCount:disputed,l:reviewCount>0?'Needs review':'Disputed'},
   ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
   el.innerHTML=`<div class="stats-row">${statsHtml}</div>`;
+  countUpStatCards();
 
   // Form status bar
   const formBar=document.createElement('div');
@@ -2560,7 +2607,7 @@ function renderResults(){
           }).join('');
 
           const firstSubId=mA?.sub?.id||mB?.sub?.id||'';
-          return `<tr class="clickable" onclick="openDetail(${ri},'${firstSubId}')">
+          return `<tr class="clickable" data-sub-id="${firstSubId}" onclick="openDetail(${ri},'${firstSubId}')">
             <td style="font-weight:700;color:#bf5700;white-space:nowrap">Grp ${row.gn}</td>
             <td style="font-size:12px">${partyLabel(mA)}<div style="height:4px"></div>${partyLabel(mB)}</td>
             ${fieldCells}
@@ -2571,6 +2618,8 @@ function renderResults(){
       </table></div>`;
     el.appendChild(tcard);
     window._currentSubs = subs.slice().reverse();
+    flashNewRows();
+    window._prevSubIds = new Set(subs.map(s=>s.id));
   }
 
   // Not submitted
@@ -2770,6 +2819,7 @@ function buildGroupBarChart(container,field,subs,groupMap,groupOutcomeMap,sim){
       options:{
         indexAxis:'y',
         responsive:true,maintainAspectRatio:false,
+        animation:{duration:700,easing:'easeOutQuart'},
         plugins:{
           legend:{display:false},
           tooltip:{callbacks:{
@@ -2809,7 +2859,7 @@ function buildPie(container,id,title,values,colors){
   card.innerHTML=`<div class="chart-title">${title}</div><div class="chart-wrap"><canvas id="${id}"></canvas></div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${legend}</div>`;
   container.appendChild(card);
   setTimeout(()=>{const ctx=document.getElementById(id);if(!ctx)return;
-    activeCharts[id]=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors.slice(0,labels.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+    activeCharts[id]=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors.slice(0,labels.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:700,easing:'easeOutQuart'},plugins:{legend:{display:false}}}});
   },50);
 }
 
@@ -2830,7 +2880,7 @@ function buildHist(container,id,title,vals,color){
   card.innerHTML=`<div class="chart-title">${title}</div><div class="chart-wrap"><canvas id="${id}"></canvas></div>`;
   container.appendChild(card);
   setTimeout(()=>{const ctx=document.getElementById(id);if(!ctx)return;
-    activeCharts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:bins,backgroundColor:color+'99',borderColor:color,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false,maxRotation:30,font:{size:10}}},y:{ticks:{stepSize:1}}}}});
+    activeCharts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:bins,backgroundColor:color+'99',borderColor:color,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:700,easing:'easeOutQuart'},plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false,maxRotation:30,font:{size:10}}},y:{ticks:{stepSize:1}}}}});
   },50);
 }
 
@@ -3773,7 +3823,7 @@ async function saveSettings(){
   const size=parseInt(document.getElementById('set-size').value)||20;
   const code=(document.getElementById('set-code')?.value||'').trim().toUpperCase()||'NEGLAW26';
   const res=await dbPatch('instructors?id=eq.'+instructor.id,{cohort_name:cohort,class_size:size,access_code:code});
-  if(res.ok){instructor.cohort_name=cohort;instructor.class_size=size;instructor.access_code=code;alert('Settings saved.');}
+  if(res.ok){instructor.cohort_name=cohort;instructor.class_size=size;instructor.access_code=code;showToast('Settings saved');}
   else{alert('Could not save. Status: '+res.status);}
 }
 
@@ -3788,7 +3838,7 @@ async function changePassword(){
   if(curHash!==instructor.password_hash&&cur!=='NegClass2025!'){alert('Current password is incorrect.');return;}
   const newHash=await hashPw(nw);
   const res=await dbPatch('instructors?id=eq.'+instructor.id,{password_hash:newHash});
-  if(res.ok){instructor.password_hash=newHash;['cur-pw','new-pw','new-pw2'].forEach(id=>document.getElementById(id).value='');alert('Password changed.');}
+  if(res.ok){instructor.password_hash=newHash;['cur-pw','new-pw','new-pw2'].forEach(id=>document.getElementById(id).value='');showToast('Password changed');}
   else{alert('Could not change password.');}
 }
 
@@ -4033,7 +4083,7 @@ async function submitEditStudent(sid){
     updates.pin_hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
   const r=await dbPatch('students?id=eq.'+sid,updates);
-  if(r.ok){closeModal();await loadAll();showSection('roster');}
+  if(r.ok){closeModal();await loadAll();showSection('roster');showToast('Student updated');}
   else{alert('Could not save. Status: '+r.status);}
 }
 
@@ -4086,7 +4136,7 @@ async function submitEditSubmission(subId,simId){
     }
   });
   const r=await dbPatch('submissions?id=eq.'+subId,{form_data:fd,updated_at:new Date().toISOString()});
-  if(r.ok){closeModal();await loadAll();showSection('results');}
+  if(r.ok){closeModal();await loadAll();showSection('results');showToast('Results updated');}
   else{alert('Could not save. Status: '+r.status);}
 }
 
@@ -5132,6 +5182,77 @@ if(sess){
     if(r.ok&&r.data.length){instructor=r.data[0];launchApp();}
   });
 }
+
+// ── MICRO-INTERACTION HELPERS ─────────────────────────────────────────────────
+
+window._prevSubIds = new Set();
+
+function countUpStatCards(){
+  document.querySelectorAll('.stat-val').forEach(el=>{
+    const raw=el.textContent.trim();
+    if(raw==='—'||raw==='')return;
+    const fracMatch=raw.match(/^(\d+)\/(\d+)$/);
+    if(fracMatch){animateCount(el,parseInt(fracMatch[1]),parseInt(fracMatch[2]),'/');return;}
+    const pctMatch=raw.match(/^(\d+)%$/);
+    if(pctMatch){animateCount(el,parseInt(pctMatch[1]),null,'%');return;}
+    const numMatch=raw.match(/^(\d+)$/);
+    if(numMatch)animateCount(el,parseInt(numMatch[1]),null,'');
+  });
+}
+
+function animateCount(el,target,divisor,suffix){
+  const start=performance.now(),dur=900;
+  function step(now){
+    const t=Math.min((now-start)/dur,1);
+    const ease=1-Math.pow(1-t,3);
+    const val=Math.round(ease*target);
+    el.textContent=divisor!=null?(val+'/'+divisor):(val+suffix);
+    if(t<1)requestAnimationFrame(step);
+    else el.textContent=divisor!=null?(target+'/'+divisor):(target+suffix);
+  }
+  requestAnimationFrame(step);
+}
+
+function animateStatEl(el,target){
+  if(!el)return;
+  const raw=String(target);
+  const pctMatch=raw.match(/^(\d+)%$/);
+  const fracMatch=raw.match(/^(\d+)\/(\d+)$/);
+  const numMatch=raw.match(/^\d+$/);
+  if(pctMatch)animateCount(el,parseInt(pctMatch[1]),null,'%');
+  else if(fracMatch)animateCount(el,parseInt(fracMatch[1]),parseInt(fracMatch[2]),'/');
+  else if(numMatch)animateCount(el,parseInt(raw),null,'');
+  else el.textContent=target;
+}
+
+function flashNewRows(){
+  if(!window._prevSubIds||!window._prevSubIds.size)return;
+  const newIds=(allSubmissions||[]).map(s=>s.id).filter(id=>!window._prevSubIds.has(id));
+  if(!newIds.length)return;
+  newIds.forEach(id=>{
+    const row=document.querySelector('tr[data-sub-id="'+id+'"]');
+    if(!row)return;
+    row.classList.remove('row-flash');
+    void row.offsetWidth;
+    row.classList.add('row-flash');
+    row.addEventListener('animationend',()=>row.classList.remove('row-flash'),{once:true});
+  });
+}
+
+function showToast(msg,type='success'){
+  const container=document.getElementById('toast-container');
+  if(!container)return;
+  const toast=document.createElement('div');
+  toast.className='toast toast-'+type;
+  toast.textContent=msg;
+  container.appendChild(toast);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>toast.classList.add('toast-show')));
+  setTimeout(()=>{
+    toast.classList.remove('toast-show');
+    toast.addEventListener('transitionend',()=>toast.remove(),{once:true});
+  },2500);
+}
 </script>
+<div id="toast-container"></div>
 </body>
 </html>
