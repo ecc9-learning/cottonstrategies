@@ -821,6 +821,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
         <div class="section-title">
           Student roster
           <div class="btn-row">
+            <button class="btn btn-sm" id="bulk-delete-btn" style="display:none;background:#dc2626;color:#fff;border:none" onclick="deleteSelectedStudents()">Delete selected</button>
             <button class="btn btn-outline btn-sm" onclick="showAddStudent()">+ Add student</button>
           </div>
         </div>
@@ -828,7 +829,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
         <div class="card" style="padding:0">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Name</th><th>Email</th><th>This week's role</th><th>Submitted</th><th>Semester activity</th><th></th></tr></thead>
+              <thead><tr><th style="width:36px;padding-left:14px"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Email</th><th>This week's role</th><th>Submitted</th><th>Semester activity</th><th></th></tr></thead>
               <tbody id="roster-body"></tbody>
             </table>
           </div>
@@ -1639,7 +1640,7 @@ function renderRoster() {
   ].map(s=>`<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
 
   const tbody=document.getElementById('roster-body');
-  if(!allStudents.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:2rem;color:#9ca3af">No students registered yet.</td></tr>';return;}
+  if(!allStudents.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:#9ca3af">No students registered yet.</td></tr>';return;}
 
   tbody.innerHTML=allStudents.map(s=>{
     const asgn=activeSim?allAssignments.find(a=>a.student_id===s.id&&a.simulation_id===activeSim.id):null;
@@ -1647,6 +1648,7 @@ function renderRoster() {
     const reflCount=allReflections.filter(r=>r.student_id===s.id).length;
     const simCount=allSubmissions.filter(x=>x.student_id===s.id).length;
     return`<tr>
+      <td style="padding-left:14px"><input type="checkbox" class="student-cb" value="${s.id}" onchange="updateBulkDeleteBtn()"></td>
       <td>
         <button class="btn btn-ghost" style="padding:0;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer;color:#111" onclick="openStudentProfile('${s.id}')">${s.name}</button>
       </td>
@@ -3863,6 +3865,51 @@ async function cleanupOrphanedData(){
 }
 
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.student-cb').forEach(cb => cb.checked = checked);
+  updateBulkDeleteBtn();
+}
+
+function updateBulkDeleteBtn() {
+  const checked = document.querySelectorAll('.student-cb:checked');
+  const all = document.querySelectorAll('.student-cb');
+  const btn = document.getElementById('bulk-delete-btn');
+  const selectAll = document.getElementById('select-all-cb');
+  if (!btn) return;
+  if (checked.length > 0) {
+    btn.textContent = `Delete selected (${checked.length})`;
+    btn.style.display = '';
+  } else {
+    btn.style.display = 'none';
+  }
+  if (selectAll) selectAll.checked = all.length > 0 && checked.length === all.length;
+}
+
+async function deleteSelectedStudents() {
+  const checked = [...document.querySelectorAll('.student-cb:checked')];
+  if (!checked.length) return;
+  const ids = checked.map(cb => cb.value);
+  const names = ids.map(id => allStudents.find(s => s.id === id)?.name || id).join('\n');
+  if (!confirm(`Permanently delete ${ids.length} student${ids.length > 1 ? 's' : ''}?\n\n${names}\n\nThis removes their accounts and all associated data. This cannot be undone.`)) return;
+  const btn = document.getElementById('bulk-delete-btn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  const idList = ids.map(id => '"' + id + '"').join(',');
+  try {
+    await api('reflections?student_id=in.(' + idList + ')', {method:'DELETE', prefer:'return=minimal'});
+    await api('self_assessments?student_id=in.(' + idList + ')', {method:'DELETE', prefer:'return=minimal'});
+    await api('notes?student_id=in.(' + idList + ')', {method:'DELETE', prefer:'return=minimal'});
+    await api('submissions?student_id=in.(' + idList + ')', {method:'DELETE', prefer:'return=minimal'});
+    await api('assignments?student_id=in.(' + idList + ')', {method:'DELETE', prefer:'return=minimal'});
+    await api('students?id=in.(' + idList + ')', {method:'DELETE', prefer:'return=minimal'});
+    await loadAll();
+    showSection('roster');
+  } catch(e) {
+    alert('Deletion failed. Some data may have been partially removed. Please reload and check the roster.');
+    btn.disabled = false;
+    updateBulkDeleteBtn();
+  }
+}
+
 async function archiveStudent(id,name){
   if(!confirm('Archive '+name+'?'))return;
   await dbPatch('students?id=eq.'+id,{is_archived:true});
