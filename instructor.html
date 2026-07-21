@@ -1105,24 +1105,13 @@ async function doLogin() {
 
   try {
     const res = await dbGet('instructors?select=*');
-    let inst = null;
+    if (!res.ok || !res.data.length) { showLoginErr('Account not found.'); btn.disabled=false; btn.textContent='Log in'; return; }
 
-    if (!res.ok || !res.data.length) {
-      // First time — create account
-      const hash = await hashPw('NegClass2025!');
-      const cr = await dbPost('instructors', {email: email||'instructor@cottonstrategies.com', password_hash:hash, cohort_name:'Negotiation Class', class_size:20});
-      if (cr.ok) {
-        inst = Array.isArray(cr.data)?cr.data[0]:cr.data;
-        if (pw==='NegClass2025!') { instructor=inst; setISession(); await launchApp(); return; }
-      }
-    } else {
-      inst = res.data.find(i=>i.email===email) || res.data[0];
-    }
-
+    const inst = res.data.find(i=>i.email===email) || res.data[0];
     if (!inst) { showLoginErr('Account not found.'); btn.disabled=false; btn.textContent='Log in'; return; }
 
     const hash = await hashPw(pw);
-    if (hash!==inst.password_hash && pw!=='NegClass2025!') {
+    if (hash !== inst.password_hash) {
       showLoginErr('Incorrect password.'); btn.disabled=false; btn.textContent='Log in'; return;
     }
 
