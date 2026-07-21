@@ -678,11 +678,40 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
       <div style="font-size:22px;font-weight:800;color:#111;letter-spacing:-.5px">Cotton Strategies</div>
       <div style="font-size:13px;color:#9ca3af;margin-top:4px">Instructor Dashboard</div>
     </div>
-    <div id="login-alert" class="alert alert-error" style="display:none"></div>
-    <div class="field"><label>Email</label><input type="email" id="i-email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <div class="field"><label>Password</label><input type="password" id="i-pw" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <button class="btn btn-primary btn-lg" style="width:100%" onclick="doLogin()" id="login-btn">Log in</button>
-    
+    <!-- LOGIN PANE -->
+    <div id="login-pane">
+      <div id="login-alert" class="alert alert-error" style="display:none"></div>
+      <div class="field"><label>Email</label><input type="email" id="i-email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="field"><label>Password</label><input type="password" id="i-pw" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary btn-lg" style="width:100%" onclick="doLogin()" id="login-btn">Log in</button>
+      <div style="text-align:center;margin-top:14px">
+        <span style="font-size:13px;color:#9ca3af;cursor:pointer;text-decoration:underline" onclick="showForgotPane()">Forgot password?</span>
+      </div>
+    </div>
+
+    <!-- FORGOT PASSWORD PANE -->
+    <div id="forgot-pane" style="display:none">
+      <!-- Step 1: enter email -->
+      <div id="forgot-step1">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;line-height:1.5">Enter your email address and we'll send you a one-time code to reset your password.</p>
+        <div class="field"><label>Email</label><input type="email" id="f-email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')sendResetCode()"></div>
+        <button class="btn btn-primary btn-lg" style="width:100%" onclick="sendResetCode()" id="send-code-btn">Send code</button>
+        <div id="forgot-msg1" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px"></div>
+        <div style="text-align:center;margin-top:14px">
+          <span style="font-size:13px;color:#9ca3af;cursor:pointer;text-decoration:underline" onclick="showLoginPane()">← Back to login</span>
+        </div>
+      </div>
+      <!-- Step 2: enter code + new password -->
+      <div id="forgot-step2" style="display:none">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;line-height:1.5">Check your email for a 6-digit code and enter it below along with your new password.</p>
+        <div class="field"><label>6-digit code</label><input type="text" id="f-code" placeholder="123456" maxlength="6" inputmode="numeric" style="letter-spacing:.25em;font-size:18px;text-align:center" onkeydown="if(event.key==='Enter')verifyAndReset()"></div>
+        <div class="field"><label>New password</label><input type="password" id="f-pw1" placeholder="At least 8 characters" onkeydown="if(event.key==='Enter')verifyAndReset()"></div>
+        <div class="field"><label>Confirm password</label><input type="password" id="f-pw2" placeholder="Repeat password" onkeydown="if(event.key==='Enter')verifyAndReset()"></div>
+        <button class="btn btn-primary btn-lg" style="width:100%" onclick="verifyAndReset()" id="verify-btn">Set new password</button>
+        <div id="forgot-msg2" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1106,6 +1135,130 @@ async function doLogin() {
 
 function showLoginErr(msg) {
   const a=document.getElementById('login-alert'); a.textContent=msg; a.style.display='block';
+}
+
+// ── FORGOT PASSWORD ────────────────────────────────────────────────────────────
+const RESET_ALLOWED_EMAILS = [
+  'eliot.cotton@gmail.com',
+  'eliot.cotton@law.utexas.edu',
+  'ecotton@riverstonellc.com',
+  'ecc62@eid.utexas.edu'
+];
+
+let _resetEmail = '';
+
+function showForgotPane() {
+  document.getElementById('login-pane').style.display = 'none';
+  document.getElementById('forgot-pane').style.display = 'block';
+  document.getElementById('forgot-step1').style.display = 'block';
+  document.getElementById('forgot-step2').style.display = 'none';
+  document.getElementById('f-email').value = '';
+  document.getElementById('forgot-msg1').style.display = 'none';
+  setTimeout(()=>document.getElementById('f-email').focus(), 50);
+}
+
+function showLoginPane() {
+  document.getElementById('forgot-pane').style.display = 'none';
+  document.getElementById('login-pane').style.display = 'block';
+  document.getElementById('login-alert').style.display = 'none';
+}
+
+async function sendResetCode() {
+  const email = document.getElementById('f-email').value.trim().toLowerCase();
+  const btn = document.getElementById('send-code-btn');
+  const msg = document.getElementById('forgot-msg1');
+
+  msg.style.display = 'none';
+
+  if (!RESET_ALLOWED_EMAILS.includes(email)) {
+    msg.textContent = 'That email address is not authorised for password reset.';
+    msg.style.background = '#fdf0ef'; msg.style.color = '#c0392b'; msg.style.border = '1px solid #f5b8b3';
+    msg.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await fetch(SUPA_URL + '/auth/v1/otp', {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, create_user: true })
+    });
+    if (!r.ok) throw new Error('send failed');
+    _resetEmail = email;
+    document.getElementById('forgot-step1').style.display = 'none';
+    document.getElementById('forgot-step2').style.display = 'block';
+    document.getElementById('f-code').value = '';
+    document.getElementById('f-pw1').value = '';
+    document.getElementById('f-pw2').value = '';
+    setTimeout(()=>document.getElementById('f-code').focus(), 50);
+  } catch(e) {
+    msg.textContent = 'Could not send code. Please try again.';
+    msg.style.background = '#fdf0ef'; msg.style.color = '#c0392b'; msg.style.border = '1px solid #f5b8b3';
+    msg.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Send code';
+  }
+}
+
+async function verifyAndReset() {
+  const code = document.getElementById('f-code').value.trim();
+  const pw1 = document.getElementById('f-pw1').value;
+  const pw2 = document.getElementById('f-pw2').value;
+  const btn = document.getElementById('verify-btn');
+  const msg = document.getElementById('forgot-msg2');
+
+  msg.style.display = 'none';
+
+  if (!code || !pw1 || !pw2) {
+    msg.textContent = 'Please fill in all fields.';
+    msg.style.background = '#fdf0ef'; msg.style.color = '#c0392b'; msg.style.border = '1px solid #f5b8b3';
+    msg.style.display = 'block'; return;
+  }
+  if (pw1 !== pw2) {
+    msg.textContent = 'Passwords do not match.';
+    msg.style.background = '#fdf0ef'; msg.style.color = '#c0392b'; msg.style.border = '1px solid #f5b8b3';
+    msg.style.display = 'block'; return;
+  }
+  if (pw1.length < 8) {
+    msg.textContent = 'Password must be at least 8 characters.';
+    msg.style.background = '#fdf0ef'; msg.style.color = '#c0392b'; msg.style.border = '1px solid #f5b8b3';
+    msg.style.display = 'block'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Verifying…';
+  try {
+    const vr = await fetch(SUPA_URL + '/auth/v1/verify', {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'email', email: _resetEmail, token: code })
+    });
+    if (!vr.ok) {
+      msg.textContent = 'Incorrect or expired code. Please try again.';
+      msg.style.background = '#fdf0ef'; msg.style.color = '#c0392b'; msg.style.border = '1px solid #f5b8b3';
+      msg.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Set new password'; return;
+    }
+    // Code verified — update password hash in instructors table
+    const hash = await hashPw(pw1);
+    const res = await dbGet('instructors?select=id');
+    if (!res.ok || !res.data.length) throw new Error('no instructor record');
+    const id = res.data[0].id;
+    const upd = await fetch(SUPA_URL + '/rest/v1/instructors?id=eq.' + id, {
+      method: 'PATCH',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ password_hash: hash })
+    });
+    if (!upd.ok) throw new Error('patch failed');
+    msg.textContent = '✓ Password updated. Redirecting to login…';
+    msg.style.background = '#e6f7ef'; msg.style.color = '#0d7c4b'; msg.style.border = '1px solid #a3d9be';
+    msg.style.display = 'block';
+    setTimeout(()=>{ showLoginPane(); }, 2000);
+  } catch(e) {
+    msg.textContent = 'Something went wrong. Please try again.';
+    msg.style.background = '#fdf0ef'; msg.style.color = '#c0392b'; msg.style.border = '1px solid #f5b8b3';
+    msg.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Set new password';
+  }
 }
 
 async function launchApp() {
