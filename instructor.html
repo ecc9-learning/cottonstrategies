@@ -821,7 +821,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.6}
         <div class="section-title">
           Student roster
           <div class="btn-row">
-            <button class="btn btn-sm" id="bulk-delete-btn" style="display:none;background:#dc2626;color:#fff;border:none" onclick="deleteSelectedStudents()">Delete selected</button>
+            <button class="btn btn-sm" id="bulk-archive-btn" style="display:none;background:#6b7280;color:#fff;border:none" onclick="archiveSelectedStudents()">Archive selected</button>
             <button class="btn btn-outline btn-sm" onclick="showAddStudent()">+ Add student</button>
           </div>
         </div>
@@ -1648,7 +1648,7 @@ function renderRoster() {
     const reflCount=allReflections.filter(r=>r.student_id===s.id).length;
     const simCount=allSubmissions.filter(x=>x.student_id===s.id).length;
     return`<tr>
-      <td style="padding-left:14px"><input type="checkbox" class="student-cb" value="${s.id}" onchange="updateBulkDeleteBtn()"></td>
+      <td style="padding-left:14px"><input type="checkbox" class="student-cb" value="${s.id}" onchange="updateBulkArchiveBtn()"></td>
       <td>
         <button class="btn btn-ghost" style="padding:0;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer;color:#111" onclick="openStudentProfile('${s.id}')">${s.name}</button>
       </td>
@@ -1703,20 +1703,28 @@ function renderRoster() {
   if(allArchivedStudents.length){
     const archDiv=document.createElement('div');
     archDiv.style.cssText='margin-top:1.5rem';
-    let archHtml=`<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:.75rem;display:flex;align-items:center;gap:10px">
+    let archHtml=`<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:.75rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       Archived students
       <span style="font-size:11px;font-weight:400;color:#9ca3af">${allArchivedStudents.length} student${allArchivedStudents.length>1?'s':''}</span>
+      <button id="bulk-delete-archived-btn" class="btn btn-sm" style="display:none;background:#dc2626;color:#fff;border:none;margin-left:auto" onclick="deleteSelectedArchived()">Delete selected</button>
     </div>
-    <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fff">`;
+    <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fff">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+        <input type="checkbox" id="select-all-archived-cb" onchange="toggleSelectAllArchived(this.checked)" title="Select all">
+        <span style="font-size:11px;color:#9ca3af">Select all</span>
+      </div>`;
     allArchivedStudents.forEach((s,i)=>{
-      archHtml+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;${i<allArchivedStudents.length-1?'border-bottom:1px solid #f3f4f6':''}">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:#374151">${s.name}</div>
-          <div style="font-size:12px;color:#9ca3af">${s.email} · Archived ${fmtDate(s.created_at)}</div>
+      archHtml+=`<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 14px;${i<allArchivedStudents.length-1?'border-bottom:1px solid #f3f4f6':''}">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          <input type="checkbox" class="archived-cb" value="${s.id}" onchange="updateBulkDeleteArchivedBtn()">
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:600;color:#374151">${s.name}</div>
+            <div style="font-size:12px;color:#9ca3af">${s.email}</div>
+          </div>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-shrink:0">
           <button class="btn btn-ghost btn-sm" onclick="restoreStudent('${s.id}','${s.name}')">Restore</button>
-          <button class="btn btn-ghost btn-sm" style="color:#dc2626" onclick="deleteStudent('${s.id}','${s.name}')">Delete all data</button>
+          <button class="btn btn-ghost btn-sm" style="color:#dc2626" onclick="deleteStudent('${s.id}','${s.name}')">Delete</button>
         </div>
       </div>`;
     });
@@ -3867,14 +3875,54 @@ async function cleanupOrphanedData(){
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
 function toggleSelectAll(checked) {
   document.querySelectorAll('.student-cb').forEach(cb => cb.checked = checked);
-  updateBulkDeleteBtn();
+  updateBulkArchiveBtn();
 }
 
-function updateBulkDeleteBtn() {
+function updateBulkArchiveBtn() {
   const checked = document.querySelectorAll('.student-cb:checked');
   const all = document.querySelectorAll('.student-cb');
-  const btn = document.getElementById('bulk-delete-btn');
+  const btn = document.getElementById('bulk-archive-btn');
   const selectAll = document.getElementById('select-all-cb');
+  if (!btn) return;
+  if (checked.length > 0) {
+    btn.textContent = `Archive selected (${checked.length})`;
+    btn.style.display = '';
+  } else {
+    btn.style.display = 'none';
+  }
+  if (selectAll) selectAll.checked = all.length > 0 && checked.length === all.length;
+}
+
+async function archiveSelectedStudents() {
+  const checked = [...document.querySelectorAll('.student-cb:checked')];
+  if (!checked.length) return;
+  const ids = checked.map(cb => cb.value);
+  const names = ids.map(id => allStudents.find(s => s.id === id)?.name || id).join('\n');
+  if (!confirm(`Archive ${ids.length} student${ids.length > 1 ? 's' : ''}?\n\n${names}`)) return;
+  const btn = document.getElementById('bulk-archive-btn');
+  btn.disabled = true; btn.textContent = 'Archiving…';
+  const idList = ids.map(id => '"' + id + '"').join(',');
+  try {
+    await api('students?id=in.(' + idList + ')', {method:'PATCH', body:JSON.stringify({is_archived:true}), prefer:'return=minimal'});
+    await loadAll();
+    showSection('roster');
+  } catch(e) {
+    alert('Archive failed. Please reload and try again.');
+    btn.disabled = false;
+    updateBulkArchiveBtn();
+  }
+}
+
+function toggleSelectAllArchived(checked) {
+  document.querySelectorAll('.archived-cb').forEach(cb => cb.checked = checked);
+  updateBulkDeleteArchivedBtn();
+}
+
+function updateBulkDeleteArchivedBtn() {
+  const checked = document.querySelectorAll('.archived-cb:checked');
+  const all = document.querySelectorAll('.archived-cb');
+  const btn = document.getElementById('bulk-delete-archived-btn');
+  const selectAll = document.getElementById('select-all-archived-cb');
   if (!btn) return;
   if (checked.length > 0) {
     btn.textContent = `Delete selected (${checked.length})`;
@@ -3885,13 +3933,13 @@ function updateBulkDeleteBtn() {
   if (selectAll) selectAll.checked = all.length > 0 && checked.length === all.length;
 }
 
-async function deleteSelectedStudents() {
-  const checked = [...document.querySelectorAll('.student-cb:checked')];
+async function deleteSelectedArchived() {
+  const checked = [...document.querySelectorAll('.archived-cb:checked')];
   if (!checked.length) return;
   const ids = checked.map(cb => cb.value);
-  const names = ids.map(id => allStudents.find(s => s.id === id)?.name || id).join('\n');
+  const names = ids.map(id => allArchivedStudents.find(s => s.id === id)?.name || id).join('\n');
   if (!confirm(`Permanently delete ${ids.length} student${ids.length > 1 ? 's' : ''}?\n\n${names}\n\nThis removes their accounts and all associated data. This cannot be undone.`)) return;
-  const btn = document.getElementById('bulk-delete-btn');
+  const btn = document.getElementById('bulk-delete-archived-btn');
   btn.disabled = true; btn.textContent = 'Deleting…';
   const idList = ids.map(id => '"' + id + '"').join(',');
   try {
@@ -3904,9 +3952,9 @@ async function deleteSelectedStudents() {
     await loadAll();
     showSection('roster');
   } catch(e) {
-    alert('Deletion failed. Some data may have been partially removed. Please reload and check the roster.');
+    alert('Deletion failed. Some data may have been partially removed. Please reload and check.');
     btn.disabled = false;
-    updateBulkDeleteBtn();
+    updateBulkDeleteArchivedBtn();
   }
 }
 
